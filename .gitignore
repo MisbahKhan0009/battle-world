@@ -1,0 +1,6 @@
+node_modules
+dist
+public/flags
+*.local
+.DS_Store
+coverage
