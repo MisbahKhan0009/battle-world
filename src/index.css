@@ -1,0 +1,177 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: #0b0d12;
+  --color-surface: #12151c;
+  --color-surface-2: #1a1e27;
+  --color-surface-3: #232835;
+  --color-line: rgb(255 255 255 / 0.08);
+  --color-line-strong: rgb(255 255 255 / 0.14);
+  --color-text: #f2f4f8;
+  --color-muted: #8a93a6;
+  --color-accent: #c6ff3d;
+  --color-accent-ink: #11160a;
+  --color-danger: #ff4d5e;
+  --color-hp-high: #4ade80;
+  --color-hp-mid: #fbbf24;
+  --color-hp-low: #ff4d5e;
+
+  --font-display: 'Bebas Neue', 'Arial Narrow', Impact, sans-serif;
+  --font-sans: 'Geist Variable', Geist, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --radius-panel: 14px;
+  --ease-spring: cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'ss01';
+  }
+  /* Film grain over the whole UI. */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  input[type='number']::-webkit-inner-spin-button {
+    opacity: 0.4;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: 0.01em;
+    font-weight: 400;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.14) transparent;
+  }
+  .panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-panel);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  }
+  .glass {
+    background: rgb(18 21 28 / 0.72);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border: 1px solid var(--color-line-strong);
+  }
+  .checker {
+    background-color: #1a1e27;
+    background-image:
+      linear-gradient(45deg, #232835 25%, transparent 25%),
+      linear-gradient(-45deg, #232835 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #232835 75%),
+      linear-gradient(-45deg, transparent 75%, #232835 75%);
+    background-size: 16px 16px;
+    background-position:
+      0 0,
+      0 8px,
+      8px -8px,
+      -8px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.97);
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Timeline scrubber */
+.timeline {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 24px;
+  background: transparent;
+}
+.timeline::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 99px;
+  background: linear-gradient(to right, var(--color-text) var(--p), var(--color-surface-3) var(--p));
+}
+.timeline::-moz-range-track {
+  height: 4px;
+  border-radius: 99px;
+  background: linear-gradient(to right, var(--color-text) var(--p), var(--color-surface-3) var(--p));
+}
+.timeline::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 99px;
+  background: var(--color-text);
+  box-shadow: 0 0 0 4px rgb(255 255 255 / 0.12);
+}
+.timeline::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 99px;
+  background: var(--color-text);
+}
+.timeline:focus-visible {
+  outline: none;
+}
+.timeline:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgb(198 255 61 / 0.5);
+}

@@ -47,15 +47,18 @@ describe('rng', () => {
 });
 
 describe('determinism', () => {
-  test.each([2, 16, 64])('same seed and roster give identical events, track and winner (%i fighters)', (n) => {
-    const cfg = config(n);
-    const a = simulate(cfg, { record: true });
-    const b = simulate(structuredClone(cfg), { record: true });
-    expect(a.winnerIndex).toBe(b.winnerIndex);
-    expect(a.winnerT).toBe(b.winnerT);
-    expect(JSON.stringify(a.events)).toBe(JSON.stringify(b.events));
-    expect(a.track!.data).toEqual(b.track!.data);
-  });
+  test.each([2, 16, 64])(
+    'same seed and roster give identical events, track and winner (%i fighters)',
+    (n) => {
+      const cfg = config(n);
+      const a = simulate(cfg, { record: true });
+      const b = simulate(structuredClone(cfg), { record: true });
+      expect(a.winnerIndex).toBe(b.winnerIndex);
+      expect(a.winnerT).toBe(b.winnerT);
+      expect(JSON.stringify(a.events)).toBe(JSON.stringify(b.events));
+      expect(a.track!.data).toEqual(b.track!.data);
+    },
+  );
 
   test('different seeds give different battles', () => {
     const a = simulate(config(16, { seed: 1 }));
@@ -81,8 +84,14 @@ describe('physics', () => {
   test('a head-on collision conserves momentum and loses ~5% of relative speed', () => {
     const cfg = config(2, { shrink: { enabled: false, startSec: 0, rate: 0 } });
     const sim = new Simulation(cfg);
-    sim.x[0] = -100; sim.y[0] = 0; sim.vx[0] = 300; sim.vy[0] = 0;
-    sim.x[1] = 100; sim.y[1] = 0; sim.vx[1] = -300; sim.vy[1] = 0;
+    sim.x[0] = -100;
+    sim.y[0] = 0;
+    sim.vx[0] = 300;
+    sim.vy[0] = 0;
+    sim.x[1] = 100;
+    sim.y[1] = 0;
+    sim.vx[1] = -300;
+    sim.vy[1] = 0;
     // Disable speed regulation influence by inspecting the collision step directly.
     const m0 = 1 / sim.invMass[0];
     const m1 = 1 / sim.invMass[1];
@@ -125,7 +134,9 @@ describe('physics', () => {
         expect(elims.length).toBe(n - 1);
         expect(r.events.filter((e) => e.type === 'winner').length).toBe(1);
         expect(r.winnerT).toBeLessThan(900);
-        expect(r.events.filter((e) => e.type === 'final2').length).toBe(n > 2 ? (r.final2T === null ? 0 : 1) : 0);
+        expect(r.events.filter((e) => e.type === 'final2').length).toBe(
+          n > 2 ? (r.final2T === null ? 0 : 1) : 0,
+        );
       }
     }
   });

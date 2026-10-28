@@ -73,7 +73,8 @@ export function tune(input: TuneInput): TuneResult {
     runs++;
     const err = result.winnerT - winTarget;
     if (!best || Math.abs(err) < Math.abs(best.err)) best = { cfg, result, err };
-    if (Math.abs(best.err) <= TOLERANCE && (runs >= 2 || Math.abs(Math.log(result.meanDirector)) < 0.4)) break;
+    if (Math.abs(best.err) <= TOLERANCE && (runs >= 2 || Math.abs(Math.log(result.meanDirector)) < 0.4))
+      break;
     k *= Math.min(3, Math.max(0.33, result.meanDirector));
     directorT = Math.max(winTarget * 0.6, Math.min(winTarget * 1.3, directorT - err * 0.8));
   }

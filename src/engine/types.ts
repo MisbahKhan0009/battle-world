@@ -57,7 +57,17 @@ export type Preset = {
 };
 
 export type SimEvent =
-  | { t: number; type: 'hit'; a: string; b: string; dmgA: number; dmgB: number; impact: number; x: number; y: number }
+  | {
+      t: number;
+      type: 'hit';
+      a: string;
+      b: string;
+      dmgA: number;
+      dmgB: number;
+      impact: number;
+      x: number;
+      y: number;
+    }
   | { t: number; type: 'eliminate'; id: string; by?: string; x: number; y: number }
   | { t: number; type: 'final2' }
   | { t: number; type: 'winner'; id: string };

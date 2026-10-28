@@ -2,3 +2,4 @@ dist
 public/flags
 src/data/countries.json
 package-lock.json
+*.md

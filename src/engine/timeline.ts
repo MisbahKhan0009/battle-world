@@ -67,7 +67,10 @@ export class Timeline {
     if (this.final2T === null || u <= this.final2T) t = u;
     else {
       const w = u - this.final2T;
-      t = w <= SLOWMO_SEC ? this.final2T + slowAdvance(w) : this.final2T + slowAdvance(SLOWMO_SEC) + (w - SLOWMO_SEC);
+      t =
+        w <= SLOWMO_SEC
+          ? this.final2T + slowAdvance(w)
+          : this.final2T + slowAdvance(SLOWMO_SEC) + (w - SLOWMO_SEC);
     }
     return Math.min(t, this.endT);
   }
@@ -89,7 +92,9 @@ export class Timeline {
     const u = v - this.intro;
     if (this.final2T === null || u <= this.final2T) return u;
     const w = u - this.final2T;
-    return w <= SLOWMO_SEC ? this.final2T + slowAdvance(w) : this.final2T + slowAdvance(SLOWMO_SEC) + (w - SLOWMO_SEC);
+    return w <= SLOWMO_SEC
+      ? this.final2T + slowAdvance(w)
+      : this.final2T + slowAdvance(SLOWMO_SEC) + (w - SLOWMO_SEC);
   }
 
   /** Playback speed factor (1 = normal) at video time v; used for audio and UI. */
@@ -112,5 +117,10 @@ export class Timeline {
 
 /** Video overhead around the battle itself (used by duration tuning). */
 export function videoOverhead(opts: { intro: boolean; outro: boolean }, hasFinal2: boolean): number {
-  return (opts.intro ? INTRO_SEC : 0) + (hasFinal2 ? SLOWMO_EXTRA : 0) + WINNER_HOLD_SEC + (opts.outro ? OUTRO_SEC : 0);
+  return (
+    (opts.intro ? INTRO_SEC : 0) +
+    (hasFinal2 ? SLOWMO_EXTRA : 0) +
+    WINNER_HOLD_SEC +
+    (opts.outro ? OUTRO_SEC : 0)
+  );
 }

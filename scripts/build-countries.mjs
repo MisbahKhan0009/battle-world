@@ -6,7 +6,14 @@ const require = createRequire(import.meta.url);
 const all = require('world-countries');
 
 const EXTRA = new Set(['PS', 'XK', 'TW', 'VA', 'EH']);
-const REGION = { Asia: 'Asia', Europe: 'Europe', Africa: 'Africa', Americas: 'Americas', Oceania: 'Oceania', Antarctic: 'Oceania' };
+const REGION = {
+  Asia: 'Asia',
+  Europe: 'Europe',
+  Africa: 'Africa',
+  Americas: 'Americas',
+  Oceania: 'Oceania',
+  Antarctic: 'Oceania',
+};
 
 const rows = all
   .filter((c) => c.independent || c.unMember || EXTRA.has(c.cca2))

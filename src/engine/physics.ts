@@ -27,7 +27,13 @@ export type WallContact = { depth: number; nx: number; ny: number };
  * Returns null when the disc is fully inside. Uses only + - * / sqrt so results are
  * bit-identical across JS engines.
  */
-export function wallContact(shape: ArenaShape, h: number, x: number, y: number, r: number): WallContact | null {
+export function wallContact(
+  shape: ArenaShape,
+  h: number,
+  x: number,
+  y: number,
+  r: number,
+): WallContact | null {
   if (shape === 'circle') {
     const limit = h - r;
     const d2 = x * x + y * y;

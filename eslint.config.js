@@ -17,6 +17,7 @@ export default tseslint.config(
   },
   {
     files: ['src/engine/**/*.ts', 'src/render/effects.ts'],
+    ignores: ['**/*.test.ts'],
     rules: {
       'no-restricted-properties': [
         'error',

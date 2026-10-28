@@ -9,7 +9,7 @@ export const TRACK_HZ = 60;
 const STEPS_PER_SAMPLE = 120 / TRACK_HZ;
 
 /** Fraction of the arena area covered by discs at spawn. */
-const FILL = 0.2;
+const FILL = 0.16;
 const MAX_R = ARENA_R * 0.17;
 /** Cruise speed in world units per second at speed multiplier 1. */
 export const BASE_SPEED = 310;
@@ -18,8 +18,10 @@ const RESTITUTION = 0.95;
 const SPEED_TAU = 0.6;
 const MIN_SPEED_FRAC = 0.6;
 const PAIR_COOLDOWN = 0.15;
-/** Closing speeds below this do not count as hits (resting contact). */
-const MIN_IMPACT = 25;
+/** After taking damage a fighter is briefly invulnerable, so crowds produce fewer, clearer hits. */
+const INVULN = 0.5;
+/** Closing speeds below this do not count as hits (resting contact and grazes). */
+const MIN_IMPACT = 90;
 const REF_IMPACT = 320;
 /** Densest the shrinking arena may pack alive discs (area fraction). */
 const MAX_PACKING = 0.42;
@@ -31,7 +33,8 @@ const STEER_RATE = 2.5;
 const WALL_JITTER = 0.08;
 /** Extra damage multiplier per second past the target (director only). */
 const OVERTIME_SURGE = 0.6;
-const PLAN_EXP = 1.2;
+const PLAN_EXP = 1.4;
+const HEADCOUNT_WEIGHT = 0.5;
 const DIRECTOR_GAIN = 2.5;
 const DIRECTOR_MIN = 0.15;
 const DIRECTOR_MAX = 12;
@@ -85,6 +88,7 @@ export class Simulation {
 
   private readonly cfg: SimConfig;
   private readonly lastHit: Float64Array;
+  private readonly lastDamaged: Float64Array;
   private readonly grid: SpatialGrid;
   private wallV = 0;
   private director = 1;
@@ -112,8 +116,12 @@ export class Simulation {
     this.elimT = new Float64Array(n).fill(Infinity);
     this.kills = new Uint16Array(n);
     this.lastHit = new Float64Array(n * n).fill(-Infinity);
+    this.lastDamaged = new Float64Array(n).fill(-Infinity);
     this.aliveCount = n;
-    this.hpPool0 = Math.max(1, this.hp.reduce((a, b) => a + b, 0) - this.hp.reduce((a, b) => Math.max(a, b), 0));
+    this.hpPool0 = Math.max(
+      1,
+      this.hp.reduce((a, b) => a + b, 0) - this.hp.reduce((a, b) => Math.max(a, b), 0),
+    );
 
     let maxR = 1;
     for (let i = 0; i < n; i++) maxR = Math.max(maxR, this.r[i]);
@@ -203,7 +211,11 @@ export class Simulation {
       if (this.hp[i] > max) max = this.hp[i];
     }
     const pool = (sum - max) / this.hpPool0;
-    let target = Math.exp((DIRECTOR_GAIN * (pool - planned)) / (planned + 0.08));
+    // Blend HP with head count so eliminations spread across the battle instead of bunching
+    // up at the end (evenly matched rosters otherwise all run low on HP at the same time).
+    const heads = this.n > 1 ? (this.aliveCount - 1) / (this.n - 1) : 0;
+    const remaining = (1 - HEADCOUNT_WEIGHT) * pool + HEADCOUNT_WEIGHT * heads;
+    let target = Math.exp((DIRECTOR_GAIN * (remaining - planned)) / (planned + 0.08));
     if (tau > 1) target *= 1 + OVERTIME_SURGE * (this.t - T);
     target = target < DIRECTOR_MIN ? DIRECTOR_MIN : target > DIRECTOR_MAX ? DIRECTOR_MAX : target;
     this.director += (target - this.director) * (DT / DIRECTOR_TAU);
@@ -379,8 +391,13 @@ export class Simulation {
     const cfg = this.cfg;
     const factor = cfg.damageModel === 'fixed' ? 1 : clamp(impact / REF_IMPACT, 0.3, 2);
     const base = cfg.baseDamage * factor * this.ramp(this.t);
-    const dmgI = base * this.attack[j];
-    const dmgJ = base * this.attack[i];
+    const canI = this.t - this.lastDamaged[i] >= INVULN;
+    const canJ = this.t - this.lastDamaged[j] >= INVULN;
+    if (!canI && !canJ) return;
+    const dmgI = canI ? base * this.attack[j] : 0;
+    const dmgJ = canJ ? base * this.attack[i] : 0;
+    if (canI) this.lastDamaged[i] = this.t;
+    if (canJ) this.lastDamaged[j] = this.t;
     this.hp[i] -= dmgI;
     this.hp[j] -= dmgJ;
     this.dirSum += this.director;
@@ -417,7 +434,14 @@ export class Simulation {
     this.elimT[i] = this.t;
     this.kills[by]++;
     this.aliveCount--;
-    this.events.push({ t: this.t, type: 'eliminate', id: this.ids[i], by: this.ids[by], x: round1(this.x[i]), y: round1(this.y[i]) });
+    this.events.push({
+      t: this.t,
+      type: 'eliminate',
+      id: this.ids[i],
+      by: this.ids[by],
+      x: round1(this.x[i]),
+      y: round1(this.y[i]),
+    });
     if (this.aliveCount === 2 && this.final2T === null) {
       this.final2T = this.t;
       this.events.push({ t: this.t, type: 'final2' });
