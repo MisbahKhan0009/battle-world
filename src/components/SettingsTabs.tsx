@@ -10,7 +10,7 @@ function Section({ title, children, note }: { title: string; children: React.Rea
   return (
     <section className="space-y-3">
       <div>
-        <h3 className="text-[13px] font-medium">{title}</h3>
+        <h2 className="text-[13px] font-medium">{title}</h2>
         {note && <p className="mt-0.5 text-xs text-muted">{note}</p>}
       </div>
       {children}

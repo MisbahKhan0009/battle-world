@@ -74,7 +74,7 @@ export function Preview() {
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-rows-[1fr_auto] lg:grid-cols-[1fr_300px] lg:grid-rows-1">
+      <main className="grid min-h-0 flex-1 grid-rows-[1fr_auto] lg:grid-cols-[1fr_300px] lg:grid-rows-1">
         <section aria-label="Battle" className="flex min-h-0 flex-col p-3 sm:p-5">
           <BattlePlayer
             scene={scene}
@@ -153,7 +153,7 @@ export function Preview() {
             </p>
           </div>
         </aside>
-      </div>
+      </main>
     </div>
   );
 }

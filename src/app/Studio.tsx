@@ -89,7 +89,7 @@ export function Studio() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col-reverse lg:flex-row">
+      <main className="flex min-h-0 flex-1 flex-col-reverse lg:flex-row">
         <Tabs.Root
           value={tab}
           onValueChange={setTab}
@@ -129,7 +129,7 @@ export function Studio() {
 
         <section
           aria-label="Live preview"
-          className="flex h-[52dvh] shrink-0 flex-col p-3 sm:p-5 lg:h-auto lg:min-h-0 lg:flex-1"
+          className="flex h-[44dvh] shrink-0 flex-col p-3 sm:p-5 lg:h-auto lg:min-h-0 lg:flex-1"
         >
           <BattlePlayer
             scene={canRun ? scene : null}
@@ -139,7 +139,7 @@ export function Studio() {
             className="min-h-0 flex-1"
           />
         </section>
-      </div>
+      </main>
 
       <footer className="flex shrink-0 flex-wrap items-center gap-3 border-t border-line bg-surface/80 px-3 py-3 sm:px-5">
         <BattleStatus className="mr-auto min-w-0" />

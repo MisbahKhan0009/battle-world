@@ -68,10 +68,8 @@ export function CountryPalette() {
                 {fighters.length}/{MAX_FIGHTERS}
               </span>
             </div>
+            {countries.length === 0 && <p className="p-4 text-sm text-muted">Loading countries…</p>}
             <Command.List className="max-h-[min(60dvh,440px)] overflow-y-auto p-2 scrollbar-thin">
-              <Command.Loading>
-                {countries.length === 0 ? <p className="p-4 text-sm text-muted">Loading countries…</p> : null}
-              </Command.Loading>
               <Command.Empty className="p-6 text-center text-sm text-muted">
                 No country matches "{query}".
               </Command.Empty>

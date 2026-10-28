@@ -124,7 +124,7 @@ export function RosterTab() {
     <div className="space-y-6">
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-[13px] font-medium">Fighters</h3>
+          <h2 className="text-[13px] font-medium">Fighters</h2>
           <div className="flex items-center gap-1 rounded-xl bg-bg/60 p-1 ring-1 ring-line">
             <Button
               size="icon-sm"

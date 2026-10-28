@@ -81,7 +81,7 @@ export function PresetsDialog() {
       </form>
 
       <div className="mt-6 flex items-center justify-between">
-        <h3 className="text-[13px] font-medium text-muted">Saved ({presets.length})</h3>
+        <h2 className="text-[13px] font-medium text-muted">Saved ({presets.length})</h2>
         <Button size="sm" variant="ghost" onClick={() => fileRef.current?.click()}>
           <FileUp size={14} /> Import .json
         </Button>

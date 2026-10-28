@@ -752,7 +752,8 @@ export class BattleRenderer {
     const gy = arena.cy - (rows * cell) / 2 + arena.size * 0.08;
     const fightP = (v - (end - 0.75)) / 0.25;
     for (let i = 0; i < n; i++) {
-      const appear = 0.1 + (0.95 * i) / Math.max(1, n);
+      // The first flags are already in place on frame 0, which doubles as the video thumbnail.
+      const appear = -0.25 + (0.95 * i) / Math.max(1, n);
       const s = easeBack((v - appear) / 0.25) * (fightP > 0 ? 1 - 0.2 * easeOut(fightP) : 1);
       if (s <= 0) continue;
       const cx = gx + (i % cols) * cell + cell / 2;
@@ -768,7 +769,7 @@ export class BattleRenderer {
     ctx.lineJoin = 'round';
     const noun = fighters.every((f) => f.isCountry) ? 'COUNTRIES' : 'FIGHTERS';
     const headline = `${n} ${noun} ENTER`;
-    const hp = easeOut(v / 0.35);
+    const hp = 1;
     ctx.globalAlpha = fade * hp;
     this.fitFont(ctx, headline, FONT_DISPLAY, '400', Math.min(W, H) * 0.11, W - 120);
     this.outlinedText(ctx, headline, W / 2, gy - Math.min(W, H) * 0.09 - (1 - hp) * 30, th.text, 10);
