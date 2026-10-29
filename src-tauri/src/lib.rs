@@ -130,6 +130,7 @@ pub fn run() {
             oauth::oauth_connect,
             oauth::oauth_disconnect,
             youtube::youtube_upload,
+            youtube::youtube_set_thumbnail,
             tray::tray_update,
             autostart_get,
             autostart_set,

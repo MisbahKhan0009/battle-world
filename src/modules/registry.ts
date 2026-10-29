@@ -1,7 +1,8 @@
 import type { RenderResult } from '../autopilot/engine';
-import type { ContentFormat } from '../autopilot/types';
+import type { ContentFormat, ContentRecord } from '../autopilot/types';
 
-export type RenderJob = { format: ContentFormat; seed: number };
+/** What to render. `recent` is the channel's content history (oldest first) to avoid repeats. */
+export type RenderJob = { format: ContentFormat; seed: number; recent?: ContentRecord[] };
 
 export type ContentModule = {
   id: string;

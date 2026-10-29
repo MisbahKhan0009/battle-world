@@ -45,10 +45,10 @@ function backend(): Backend {
       state = s;
       await desktop.writeState(JSON.stringify(s));
     },
-    async render(slot, onProgress, signal) {
+    async render(slot, onProgress, signal, recent) {
       const mod = moduleById(slot.moduleId);
       if (!mod?.render) throw new Error(`Module "${slot.moduleId}" cannot render yet.`);
-      return mod.render({ format: slot.format, seed: slot.seed }, onProgress, signal);
+      return mod.render({ format: slot.format, seed: slot.seed, recent }, onProgress, signal);
     },
     saveFile: (dir, name, bytes) => desktop.saveVideo(dir, name, bytes),
     deleteFile: (path) => desktop.deleteFile(path),
@@ -69,6 +69,14 @@ function backend(): Backend {
         unlisten();
       }
     },
+    setThumbnail: (channelId, videoId, path) =>
+      desktop.setThumbnail({
+        channelId,
+        clientId: state?.google.clientId ?? '',
+        clientSecret: state?.google.clientSecret ?? '',
+        videoId,
+        path,
+      }),
   };
 }
 

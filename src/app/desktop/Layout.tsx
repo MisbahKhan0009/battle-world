@@ -1,4 +1,4 @@
-import { Bot, Cog, LayoutGrid, MonitorDown, Youtube } from 'lucide-react';
+import { Bot, CalendarDays, Cog, LayoutGrid, MonitorDown, Youtube } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { isDesktop } from '../../desktop/bridge';
 import { statusText, useAutopilot } from '../../desktop/runtime';
@@ -10,6 +10,7 @@ export const REPO_URL = 'https://github.com/MisbahKhan0009/battle-world';
 
 const NAV: { route: Route; label: string; icon: typeof Bot }[] = [
   { route: 'autopilot', label: 'Autopilot', icon: Bot },
+  { route: 'calendar', label: 'Calendar', icon: CalendarDays },
   { route: 'modules', label: 'Modules', icon: LayoutGrid },
   { route: 'channels', label: 'Channels', icon: Youtube },
   { route: 'settings', label: 'Settings', icon: Cog },

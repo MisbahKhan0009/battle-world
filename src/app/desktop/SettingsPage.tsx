@@ -1,8 +1,10 @@
-import { Eye, EyeOff, FolderOpen } from 'lucide-react';
+import { Eye, EyeOff, FileJson, FolderOpen } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '../../components/ui/Button';
 import { Field, Slider, Toggle, inputClass } from '../../components/ui/controls';
 import { desktop, isDesktop } from '../../desktop/bridge';
+import { pickClientSecretFile } from '../../desktop/clientSecret';
 import { useAutopilot } from '../../desktop/runtime';
 import { navigate } from '../router';
 import { Card, DesktopLayout, DesktopOnly } from './Layout';
@@ -51,6 +53,24 @@ export function SettingsPage() {
           note="Flag Clash talks to YouTube with your own free Google Cloud project, so quota and access stay yours."
         >
           <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                onClick={async () => {
+                  try {
+                    const keys = await pickClientSecretFile();
+                    if (!keys) return;
+                    setGoogle(keys);
+                    await ap.update({ google: keys });
+                    toast.success('Keys loaded from the file');
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : String(err));
+                  }
+                }}
+              >
+                <FileJson size={15} /> Load from client_secret JSON
+              </Button>
+              <span className="text-xs text-muted">The file Google offers as Download JSON.</span>
+            </div>
             <Field label="Client ID" htmlFor="client-id">
               <input
                 id="client-id"

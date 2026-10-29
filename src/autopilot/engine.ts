@@ -6,16 +6,29 @@
  * All side effects go through a Backend, so the logic is testable without Tauri.
  */
 import { dayKey, planDay, type PlannedSlot } from './planner';
-import type { AutopilotState, ContentFormat, Slot, VideoMeta } from './types';
+import type { AutopilotState, ContentFormat, ContentRecord, Slot, VideoMeta } from './types';
 
-export type RenderResult = { bytes: Uint8Array; ext: string; meta: VideoMeta };
+export type RenderResult = {
+  bytes: Uint8Array;
+  ext: string;
+  meta: VideoMeta;
+  /** Spoiler-free cover (JPEG) to upload as the YouTube thumbnail. */
+  thumbnail?: Uint8Array;
+  /** What the post contains, so later posts can avoid repeating it. */
+  content?: Omit<ContentRecord, 'slotId' | 'at' | 'format' | 'moduleId'>;
+};
 
 export type Backend = {
   now(): number;
   load(): Promise<AutopilotState>;
   save(state: AutopilotState): Promise<void>;
-  /** Renders a post for a module. Progress is 0..1. */
-  render(slot: Slot, onProgress: (p: number) => void, signal: AbortSignal): Promise<RenderResult>;
+  /** Renders a post for a module. Progress is 0..1. `recent` is the content history, oldest first. */
+  render(
+    slot: Slot,
+    onProgress: (p: number) => void,
+    signal: AbortSignal,
+    recent: ContentRecord[],
+  ): Promise<RenderResult>;
   saveFile(dir: string, name: string, bytes: Uint8Array): Promise<string>;
   deleteFile(path: string): Promise<void>;
   upload(
@@ -30,17 +43,26 @@ export type Backend = {
     },
     onProgress: (p: number) => void,
   ): Promise<{ videoId: string }>;
+  /** Sets a custom thumbnail on an uploaded video. */
+  setThumbnail?(channelId: string, videoId: string, path: string): Promise<void>;
 };
 
 export type Activity = { slotId: string; stage: 'rendering' | 'uploading'; progress: number } | null;
 
 /** Render this long before the slot so the post is ready on time. */
 export const RENDER_LEAD_MS = 30 * 60_000;
+/**
+ * When YouTube publishes the post at its time, render and upload well ahead, so a slot at a time
+ * the computer is usually off (for example evening in the audience's time zone) still goes out.
+ */
+export const SCHEDULED_RENDER_LEAD_MS = 3 * 3_600_000;
 /** Slots missed by more than this (app was off) are skipped. */
 export const MISSED_GRACE_MS = 2 * 3_600_000;
 const RETRY_DELAYS_MIN = [5, 20, 60];
 const MAX_ATTEMPTS = RETRY_DELAYS_MIN.length + 1;
-const HISTORY_DAYS = 30;
+const HISTORY_DAYS = 45;
+const CONTENT_LOG_MAX = 500;
+const SLOT_LOG_MAX = 30;
 /** YouTube needs publishAt comfortably in the future. */
 const MIN_SCHEDULE_AHEAD_MS = 15 * 60_000;
 
@@ -54,6 +76,10 @@ function startOfDay(ms: number): Date {
 function nextMidnight(ms: number): number {
   const d = startOfDay(ms);
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 7).getTime();
+}
+
+function note(s: Slot, t: number, text: string, error = false): void {
+  s.log = [...(s.log ?? []), { t, text, ...(error ? { error } : {}) }].slice(-SLOT_LOG_MAX);
 }
 
 export function isQuotaError(message: string): boolean {
@@ -162,7 +188,12 @@ export class Autopilot {
         const existing = new Set(st.slots.map((s) => s.id));
         for (const p of plan) {
           if (existing.has(p.id)) continue;
-          st.slots.push({ ...p, status: 'planned', attempts: 0 });
+          st.slots.push({
+            ...p,
+            status: 'planned',
+            attempts: 0,
+            log: [{ t: now, text: 'Added to the schedule' }],
+          });
         }
         done.add(key);
         changed = true;
@@ -187,6 +218,7 @@ export class Autopilot {
       status: 'planned',
       attempts: 0,
       manual: true,
+      log: [{ t: now, text: 'Queued with Post now' }],
     });
     this.state.slots.sort((a, b) => a.at - b.at);
     await this.persist();
@@ -198,6 +230,7 @@ export class Autopilot {
     if (!s || DONE.includes(s.status) || s.status === 'rendering' || s.status === 'uploading') return;
     s.status = 'skipped';
     s.error = 'Skipped by you';
+    note(s, this.backend.now(), 'Skipped by you');
     await this.persist();
   }
 
@@ -220,6 +253,7 @@ export class Autopilot {
       if (s.status === 'planned' && !s.manual && s.at < now - MISSED_GRACE_MS) {
         s.status = 'skipped';
         s.error = 'Missed while the app was not running';
+        note(s, now, s.error, true);
         changed = true;
       }
     }
@@ -232,9 +266,12 @@ export class Autopilot {
 
     // Delete rendered files past the retention period.
     for (const s of st.slots) {
-      if (s.status === 'posted' && s.filePath && (s.postedAt ?? 0) < now - st.keepDays * 86_400_000) {
-        await this.backend.deleteFile(s.filePath).catch(() => undefined);
-        s.filePath = undefined;
+      if (
+        s.status === 'posted' &&
+        (s.filePath || s.thumbPath) &&
+        (s.postedAt ?? 0) < now - st.keepDays * 86_400_000
+      ) {
+        await this.removeFiles(s);
         changed = true;
       }
     }
@@ -272,13 +309,25 @@ export class Autopilot {
       if (!this.channelUsable(s)) return false;
       if (!st.running && !s.manual) return false;
       if (s.nextAttemptAt && s.nextAttemptAt > now) return false;
-      if (s.status === 'planned') return s.manual || s.at - RENDER_LEAD_MS <= now;
+      if (s.status === 'planned') return s.manual || s.at - this.renderLead() <= now;
       if (s.status === 'rendered') return s.manual || this.canUploadNow(s, now);
       return false;
     });
     // Uploads first (they are time-critical), then renders, earliest slot first.
     candidates.sort((a, b) => (a.status === b.status ? a.at - b.at : a.status === 'rendered' ? -1 : 1));
     return candidates[0] ?? null;
+  }
+
+  private renderLead(): number {
+    const { post } = this.state!;
+    return post.privacy === 'public' && post.publishViaYouTube ? SCHEDULED_RENDER_LEAD_MS : RENDER_LEAD_MS;
+  }
+
+  private async removeFiles(s: Slot): Promise<void> {
+    for (const path of [s.filePath, s.thumbPath])
+      if (path) await this.backend.deleteFile(path).catch(() => undefined);
+    s.filePath = undefined;
+    s.thumbPath = undefined;
   }
 
   private canUploadNow(s: Slot, now: number): boolean {
@@ -294,11 +343,17 @@ export class Autopilot {
     if (isQuotaError(message)) {
       // Out of quota: try again after the daily reset without burning an attempt.
       s.nextAttemptAt = nextMidnight(now);
+      note(s, now, 'YouTube daily upload limit reached; will retry after midnight', true);
       return;
     }
     s.attempts += 1;
-    if (s.attempts >= MAX_ATTEMPTS) s.status = 'failed';
-    else s.nextAttemptAt = now + RETRY_DELAYS_MIN[s.attempts - 1] * 60_000;
+    if (s.attempts >= MAX_ATTEMPTS) {
+      s.status = 'failed';
+      note(s, now, `Failed: ${message}`, true);
+    } else {
+      s.nextAttemptAt = now + RETRY_DELAYS_MIN[s.attempts - 1] * 60_000;
+      note(s, now, `Error: ${message}. Retrying in ${RETRY_DELAYS_MIN[s.attempts - 1]} min`, true);
+    }
   }
 
   private async renderSlot(s: Slot): Promise<void> {
@@ -307,8 +362,10 @@ export class Autopilot {
     s.error = undefined;
     this.abort = new AbortController();
     this.activity = { slotId: s.id, stage: 'rendering', progress: 0 };
+    note(s, this.backend.now(), 'Rendering started');
     await this.persist();
     try {
+      const recent = st.contentLog.filter((r) => r.slotId !== s.id);
       const out = await this.backend.render(
         s,
         (p) => {
@@ -316,17 +373,34 @@ export class Autopilot {
           this.emit();
         },
         this.abort.signal,
+        recent,
       );
-      const name = `${new Date(s.at).toISOString().slice(0, 16).replace(/[:T]/g, '-')}_${s.format}_${s.seed}.${out.ext}`;
-      s.filePath = await this.backend.saveFile(st.outputDir, name, out.bytes);
+      const base = `${new Date(s.at).toISOString().slice(0, 16).replace(/[:T]/g, '-')}_${s.format}_${s.seed}`;
+      s.filePath = await this.backend.saveFile(st.outputDir, `${base}.${out.ext}`, out.bytes);
+      s.thumbPath = out.thumbnail
+        ? await this.backend.saveFile(st.outputDir, `${base}.jpg`, out.thumbnail)
+        : undefined;
       s.meta = out.meta;
       s.title = out.meta.title;
       s.status = 'rendered';
       s.nextAttemptAt = undefined;
+      if (out.content) {
+        const record: ContentRecord = {
+          ...out.content,
+          slotId: s.id,
+          at: s.at,
+          format: s.format,
+          moduleId: s.moduleId,
+        };
+        st.contentLog = [...recent, record].slice(-CONTENT_LOG_MAX);
+      }
+      note(s, this.backend.now(), `Rendered: ${out.meta.title}`);
     } catch (err) {
       s.status = 'planned';
-      if ((err as Error)?.name === 'AbortError') s.error = 'Cancelled';
-      else this.fail(s, err instanceof Error ? err.message : String(err));
+      if ((err as Error)?.name === 'AbortError') {
+        s.error = 'Cancelled';
+        note(s, this.backend.now(), 'Rendering cancelled');
+      } else this.fail(s, err instanceof Error ? err.message : String(err));
     }
     await this.persist();
   }
@@ -336,12 +410,13 @@ export class Autopilot {
     const now = this.backend.now();
     s.status = 'uploading';
     this.activity = { slotId: s.id, stage: 'uploading', progress: 0 };
-    await this.persist();
     const scheduleAhead =
       st.post.privacy === 'public' &&
       st.post.publishViaYouTube &&
       s.at - now > MIN_SCHEDULE_AHEAD_MS &&
       !s.manual;
+    note(s, now, 'Uploading to YouTube');
+    await this.persist();
     try {
       const res = await this.backend.upload(
         s.channelId,
@@ -363,10 +438,25 @@ export class Autopilot {
       s.postedAt = this.backend.now();
       s.error = undefined;
       s.nextAttemptAt = undefined;
-      if (st.keepDays <= 0 && s.filePath) {
-        await this.backend.deleteFile(s.filePath).catch(() => undefined);
-        s.filePath = undefined;
+      note(
+        s,
+        s.postedAt,
+        scheduleAhead
+          ? `Uploaded; YouTube publishes it at ${new Date(s.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`
+          : `Published (${st.post.privacy})`,
+      );
+      if (s.thumbPath && this.backend.setThumbnail) {
+        try {
+          await this.backend.setThumbnail(s.channelId, res.videoId, s.thumbPath);
+          s.thumbError = undefined;
+          note(s, this.backend.now(), 'Custom thumbnail set');
+        } catch (err) {
+          // The video is up; a refused thumbnail (e.g. unverified channel, or a Short) is not a failure.
+          s.thumbError = err instanceof Error ? err.message : String(err);
+          note(s, this.backend.now(), `Thumbnail not set: ${s.thumbError}`, true);
+        }
       }
+      if (st.keepDays <= 0) await this.removeFiles(s);
     } catch (err) {
       s.status = 'rendered';
       this.fail(s, err instanceof Error ? err.message : String(err));

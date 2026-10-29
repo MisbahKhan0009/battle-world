@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import countries from '../../data/countries.json';
+import type { ContentRecord } from '../../autopilot/types';
 import type { Country } from '../../data/countries';
-import { planFlagBattle } from './content';
+import { contentRecord, freshenOutcome, planFlagBattle } from './content';
 
 const all = countries as Country[];
 
@@ -37,5 +38,53 @@ describe('flag battle autopilot content', () => {
     expect(new Set(plans.map((p) => p.meta.title.replace(/\d+/g, ''))).size).toBeGreaterThan(5);
     expect(new Set(plans.map((p) => p.rules.mode)).size).toBe(2);
     expect(new Set(plans.map((p) => p.group)).size).toBeGreaterThan(3);
+  });
+});
+
+describe('freshness across posts', () => {
+  test('flag counts, lineups and title templates avoid recent repeats', () => {
+    const recent: ContentRecord[] = [];
+    for (let i = 0; i < 40; i++) {
+      const plan = planFlagBattle({ format: 'short', seed: 5000 + i }, all, recent);
+      const last = recent.slice(-10);
+      expect(last.map((r) => r.count)).not.toContain(plan.fighters.length);
+      const iso = new Set(plan.fighters.map((f) => f.iso2!));
+      for (const r of last) {
+        const inter = r.roster.filter((x) => iso.has(x)).length;
+        expect(inter / (iso.size + r.roster.length - inter)).toBeLessThan(0.75);
+      }
+      recent.push({
+        ...contentRecord(plan, {}),
+        slotId: `s${i}`,
+        at: i,
+        format: 'short',
+        moduleId: 'flag-battle',
+      });
+    }
+  });
+
+  test('the winner is relabelled to a country that has not won yet', () => {
+    const recent: ContentRecord[] = [];
+    const winners: string[] = [];
+    for (let i = 0; i < 60; i++) {
+      const plan = planFlagBattle({ format: 'short', seed: 9000 + i }, all, recent);
+      const n = plan.fighters.length;
+      // Fake simulation: ball 0 always wins, ball 1 is runner-up.
+      const elimT = Float64Array.from({ length: n }, (_, k) => (k === 0 ? Infinity : k === 1 ? 50 : k));
+      const ids = plan.fighters.map((f) => f.id);
+      const outcome = freshenOutcome(plan.fighters, { winnerIndex: 0, elimT }, recent, 9000 + i);
+      // Ids stay on their balls; only flags move.
+      expect(plan.fighters.map((f) => f.id)).toEqual(ids);
+      expect(outcome.winner).toBe(plan.fighters[0].iso2);
+      winners.push(outcome.winner!);
+      recent.push({
+        ...contentRecord(plan, outcome),
+        slotId: `s${i}`,
+        at: i,
+        format: 'short',
+        moduleId: 'flag-battle',
+      });
+    }
+    expect(new Set(winners).size).toBe(winners.length);
   });
 });

@@ -1,6 +1,6 @@
 export type ContentFormat = 'short' | 'video';
 
-/** How often and when the autopilot posts. All times are the computer's local time. */
+/** How often and when the autopilot posts. Window times are the computer's local time. */
 export type ScheduleSettings = {
   shortsPerDay: number;
   videosPerWeek: number;
@@ -13,6 +13,10 @@ export type ScheduleSettings = {
   varyDaily: boolean;
   /** Hard cap on uploads per channel per day (YouTube API quota). */
   dailyCap: number;
+  /** Favour the hours when the audience is most active on YouTube. */
+  peakHours: boolean;
+  /** IANA time zone of the main audience ('' = this computer's time zone). */
+  audienceTz: string;
 };
 
 export type PostSettings = {
@@ -45,6 +49,34 @@ export type Slot = {
   postedAt?: number;
   /** True for slots created with "Post now". */
   manual?: boolean;
+  /** Spoiler-free cover image uploaded as the YouTube thumbnail. */
+  thumbPath?: string;
+  /** Why YouTube refused the custom thumbnail (the video itself was posted). */
+  thumbError?: string;
+  /** What happened to this post, oldest first (shown in the post's timeline). */
+  log?: SlotEvent[];
+};
+
+export type SlotEvent = { t: number; text: string; error?: boolean };
+
+/**
+ * What a rendered post contained, kept so later posts can avoid repeats (winners, lineups,
+ * flag counts, looks). Module-specific fields are optional.
+ */
+export type ContentRecord = {
+  slotId: string;
+  at: number;
+  format: ContentFormat;
+  moduleId: string;
+  count: number;
+  /** ISO codes (or names) of every competitor. */
+  roster: string[];
+  winner?: string;
+  runnerUp?: string;
+  mode?: string;
+  group?: string;
+  theme?: string;
+  template?: string;
 };
 
 export type VideoMeta = {
@@ -81,6 +113,8 @@ export type AutopilotState = {
   closeToTray: boolean;
   /** The first-run setup wizard was completed. */
   setupDone: boolean;
+  /** Recent content, newest last, used to keep every post fresh. */
+  contentLog: ContentRecord[];
 };
 
 /**
@@ -96,6 +130,8 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   minGapMin: 75,
   varyDaily: true,
   dailyCap: 6,
+  peakHours: true,
+  audienceTz: '',
 };
 
 export const DEFAULT_POST: PostSettings = {
@@ -121,5 +157,6 @@ export function defaultState(outputDir = ''): AutopilotState {
     launchAtLogin: true,
     closeToTray: true,
     setupDone: false,
+    contentLog: [],
   };
 }

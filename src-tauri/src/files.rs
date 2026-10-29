@@ -73,7 +73,7 @@ pub async fn save_video(request: Request<'_>) -> Result<String, String> {
     Ok(path.to_string_lossy().into_owned())
 }
 
-/// Deletes a rendered video. Only video files can be removed through this command.
+/// Deletes a rendered video or its thumbnail. Only those file types can be removed this way.
 #[tauri::command]
 pub async fn delete_file(path: String) -> Result<(), String> {
     let p = PathBuf::from(&path);
@@ -82,8 +82,8 @@ pub async fn delete_file(path: String) -> Result<(), String> {
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
-    if ext != "mp4" && ext != "webm" {
-        return Err("only rendered videos can be deleted".into());
+    if !matches!(ext.as_str(), "mp4" | "webm" | "jpg") {
+        return Err("only rendered videos and thumbnails can be deleted".into());
     }
     match tokio::fs::remove_file(&p).await {
         Ok(()) => Ok(()),

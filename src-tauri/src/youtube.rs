@@ -49,24 +49,41 @@ struct Progress {
     total: u64,
 }
 
+/// OAuth client and channel a request acts for.
+struct Creds<'a> {
+    channel_id: &'a str,
+    client_id: &'a str,
+    client_secret: &'a str,
+}
+
+impl UploadRequest {
+    fn creds(&self) -> Creds<'_> {
+        Creds {
+            channel_id: &self.channel_id,
+            client_id: &self.client_id,
+            client_secret: &self.client_secret,
+        }
+    }
+}
+
 async fn access_token(
     app: &AppHandle,
     state: &AppState,
-    req: &UploadRequest,
+    creds: &Creds<'_>,
     force: bool,
 ) -> Result<String, String> {
     if !force {
-        if let Some(t) = state.tokens.get(&req.channel_id) {
+        if let Some(t) = state.tokens.get(creds.channel_id) {
             return Ok(t);
         }
     }
-    let refresh = tokens::load_refresh(app, &req.channel_id)?;
+    let refresh = tokens::load_refresh(app, creds.channel_id)?;
     let resp = state
         .http
         .post(TOKEN_URL)
         .form(&[
-            ("client_id", req.client_id.trim()),
-            ("client_secret", req.client_secret.trim()),
+            ("client_id", creds.client_id.trim()),
+            ("client_secret", creds.client_secret.trim()),
             ("refresh_token", refresh.as_str()),
             ("grant_type", "refresh_token"),
         ])
@@ -83,7 +100,7 @@ async fn access_token(
     let tok: TokenResponse = resp.json().await.map_err(|e| e.to_string())?;
     state
         .tokens
-        .put(&req.channel_id, tok.access_token.clone(), tok.expires_in);
+        .put(creds.channel_id, tok.access_token.clone(), tok.expires_in);
     Ok(tok.access_token)
 }
 
@@ -135,7 +152,7 @@ pub async fn youtube_upload(
     });
 
     // 1. Start a resumable session.
-    let mut token = access_token(&app, &state, &req, false).await?;
+    let mut token = access_token(&app, &state, &req.creds(), false).await?;
     let mut session = None;
     for attempt in 0..2 {
         let resp = state
@@ -149,7 +166,7 @@ pub async fn youtube_upload(
             .await
             .map_err(|e| e.to_string())?;
         if resp.status().as_u16() == 401 && attempt == 0 {
-            token = access_token(&app, &state, &req, true).await?;
+            token = access_token(&app, &state, &req.creds(), true).await?;
             continue;
         }
         if !resp.status().is_success() {
@@ -249,7 +266,7 @@ pub async fn youtube_upload(
                 );
             }
             401 => {
-                token = access_token(&app, &state, &req, true).await?;
+                token = access_token(&app, &state, &req.creds(), true).await?;
             }
             500 | 502 | 503 | 504 => {
                 retries += 1;
@@ -261,4 +278,62 @@ pub async fn youtube_upload(
             _ => return Err(google_error(resp).await),
         }
     }
+}
+
+const THUMBNAIL_URL: &str = "https://www.googleapis.com/upload/youtube/v3/thumbnails/set";
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThumbnailRequest {
+    channel_id: String,
+    client_id: String,
+    client_secret: String,
+    video_id: String,
+    path: String,
+}
+
+/// Sets a custom thumbnail (JPEG/PNG, max 2 MB). YouTube only allows this on channels with
+/// verified "intermediate features"; the error says so when it is missing.
+#[tauri::command]
+pub async fn youtube_set_thumbnail(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    req: ThumbnailRequest,
+) -> Result<(), String> {
+    let bytes = tokio::fs::read(&req.path)
+        .await
+        .map_err(|e| format!("Cannot open thumbnail: {e}"))?;
+    let mime = if req.path.to_ascii_lowercase().ends_with(".png") {
+        "image/png"
+    } else {
+        "image/jpeg"
+    };
+    let creds = Creds {
+        channel_id: &req.channel_id,
+        client_id: &req.client_id,
+        client_secret: &req.client_secret,
+    };
+    let mut token = access_token(&app, &state, &creds, false).await?;
+    for attempt in 0..2 {
+        let resp = state
+            .http
+            .post(THUMBNAIL_URL)
+            .query(&[("videoId", req.video_id.as_str()), ("uploadType", "media")])
+            .bearer_auth(&token)
+            .header("Content-Type", mime)
+            .body(bytes.clone())
+            .timeout(Duration::from_secs(120))
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        if resp.status().as_u16() == 401 && attempt == 0 {
+            token = access_token(&app, &state, &creds, true).await?;
+            continue;
+        }
+        if !resp.status().is_success() {
+            return Err(google_error(resp).await);
+        }
+        return Ok(());
+    }
+    Err("YouTube rejected the thumbnail".into())
 }

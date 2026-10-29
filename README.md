@@ -28,10 +28,12 @@ human-looking schedule, while it sits quietly in the system tray.
 
 | | |
 | --- | --- |
-| 🎬 **Makes the videos** | Up to 64 country flags bounce inside a circle with one rotating exit. Flags that slip out are eliminated; the last flag inside wins. Every video is unique: different countries, themes, speeds and titles. |
-| 📅 **Posts on autopilot** | Up to 5 Shorts a day plus long videos, at irregular times across the day, like a real creator. Everything is adjustable. |
+| 🎬 **Makes the videos** | Up to 64 country flags bounce inside a circle with one rotating exit. Flags that slip out are eliminated; the last flag inside wins. No two posts repeat a winner, a lineup or even a flag count. |
+| 🖼️ **Spoiler-free thumbnails** | Every post gets its own cover ("WHO ESCAPES LAST?") made from the start of the battle, so the thumbnail never gives the winner away. |
+| 📅 **Posts on autopilot** | Up to 5 Shorts a day plus long videos, timed for when your audience is most active, at different times every day. Everything is adjustable. |
+| 🗓️ **Calendar and live tracking** | A month calendar of everything posted, scheduled and planned. Click any post to watch it render, upload and go live, step by step. |
 | 🔊 **Sound that fits** | Bumps, exits, eliminations and a winner fanfare, timed to the action. No background music, so no copyright claims. |
-| 🖥️ **Runs in the background** | Lives in the system tray, starts with Windows, renders each post about 30 minutes ahead and lets YouTube publish it on the minute. |
+| 🖥️ **Runs in the background** | Lives in the system tray, starts with Windows, renders each post a few hours ahead and lets YouTube publish it on the minute. |
 | 🔒 **Your account stays yours** | Uses your own free Google Cloud project. Your sign-in is stored in Windows Credential Manager, never in plain files. |
 | 🧩 **More games coming** | Flag Battle is the first module. Marble Race, Ring Escape, Territory Wars and Growing Ball are next. |
 
@@ -84,8 +86,8 @@ You will need **a Google account that owns a YouTube channel**. No credit card i
 | 1 | **Create a project** | [New project](https://console.cloud.google.com/projectcreate) | Name it `Flag Clash` and click **Create**. Make sure it is selected in the project picker at the top. |
 | 2 | **Turn on the YouTube API** | [YouTube Data API v3](https://console.cloud.google.com/apis/library/youtube.googleapis.com) | Click **Enable**. |
 | 3 | **Set up Google sign-in** | [Google Auth Platform](https://console.cloud.google.com/auth/overview) | Click **Get started**. App name `Flag Clash`, your email as support email, Audience **External**, your email as contact, accept and **Create**. |
-| 4 | **Keep the sign-in alive** | [Audience](https://console.cloud.google.com/auth/audience) | Click **Publish app**, then **Confirm**. (Apps left in "Testing" are signed out by Google every 7 days.) |
-| 5 | **Create the app's keys** | [Clients](https://console.cloud.google.com/auth/clients) | **Create client**, Application type **Desktop app**, name `Flag Clash`, **Create**. Paste the Client ID and Client secret into Flag Clash. |
+| 4 | **Keep the sign-in alive** | [Branding](https://console.cloud.google.com/auth/branding), then [Audience](https://console.cloud.google.com/auth/audience) | On Branding, add an **Application home page** and **Privacy policy link** (two pages on a site you own, for example a free `yourname.github.io` GitHub Pages site) and add that domain under **Authorized domains**. Then on Audience click **Publish app**, **Confirm**. (Apps left in "Testing" are signed out by Google every 7 days.) |
+| 5 | **Create the app's keys** | [Clients](https://console.cloud.google.com/auth/clients) | **Create client**, Application type **Desktop app**, name `Flag Clash`, **Create**. Click **Download JSON**, then in Flag Clash click **Choose the downloaded JSON file**. (Pasting the Client ID and secret also works.) |
 | 6 | **Connect your channel** | In Flag Clash | Click **Sign in with Google**, pick your channel's account. On "Google hasn't verified this app" click **Advanced**, then **Go to Flag Clash (unsafe)**, and allow both permissions. |
 | 7 | **Pick a pace** | In Flag Clash | Maximum (default), Steady or Light, and who can see the videos. Click **Start autopilot**. |
 
@@ -122,9 +124,19 @@ You will need **a Google account that owns a YouTube channel**. No credit card i
 <img src="docs/images/autopilot.jpg" alt="The Autopilot page: next post, the upcoming schedule and schedule settings" width="100%" />
 
 - **Up next** shows the planned posts for today and tomorrow. **Skip** any you don't want.
+- **Click any post** to open its timeline: planned, rendering (with a live progress bar), uploading, scheduled on
+  YouTube (with a countdown) and live, plus every event, error and retry along the way.
 - **Post now** renders and uploads one Short or long video immediately, outside the schedule. Great for a first test.
 - **Pause autopilot** stops new posts (also available from the tray icon).
 - **Recent posts** links each upload to YouTube and shows the reason if one failed.
+
+### Calendar
+
+<img src="docs/images/calendar.jpg" alt="The calendar: a month grid of posted, scheduled and planned Shorts and videos, with the selected day's posts on the right" width="100%" />
+
+The **Calendar** shows every post by day: **live** ones in green, **scheduled** on YouTube in blue, **planned** ones
+(dashed) for the days ahead, plus anything that failed or was skipped. Shorts have a green dot, long videos a blue
+one. Click a day to list its posts, and click a post to follow it live.
 
 ### Tray and startup
 
@@ -166,25 +178,51 @@ the rules and look, preview it, and **Export** an MP4. Handy shortcuts: <kbd>Spa
 | Shorts per day | **5** | 0 to 10 |
 | Long videos per week | **4** | 0 to 14 |
 | Posting hours | **9:00 to 23:00** | any |
+| Post at peak hours | **On** | on or off |
+| Where most viewers live | **Same as this computer** | 18 regions |
 | Minimum gap between posts | **1 h 15 min** | 30 min to 4 h |
 | Organic variation | **On** | on or off |
 | Daily upload limit | **6** | 1 to 20 |
 
-- **Organic timing.** Posts are spread across your posting hours with random offsets, never on round minutes, and
-  some days post one more or one fewer. Long videos favour the evening.
+- **Peak-hour timing.** Posts follow when YouTube audiences are most active (lunch, after work, and the evening
+  peak; later and longer on weekends) in your viewers' time zone. Each post gets an equal share of the day's
+  viewers, at a random point inside it, so the times change every day and never land on round minutes. Long videos
+  go to the slot where long-form viewing peaks. Set **Where most of your viewers live** to match YouTube Studio's
+  *Audience, Top geographies*.
+- **Organic variation.** Some days post one more or one fewer.
 - **Right at the limit, not over it.** YouTube's default API quota is 10,000 units a day and each upload costs about
   1,600, so about **6 uploads a day** fit. The defaults use that fully. To post more, request a quota increase from
   Google and raise the daily limit.
-- **On time, every time.** Each post renders about 30 minutes ahead, uploads as private with a publish time, and
-  YouTube publishes it on the planned minute.
-- **Fresh every time.** Each post gets its own seed: rosters (world, regions, G20, most populous, South Asia),
-  mode, theme, exit speed and title all change. Titles never spoil the winner.
+- **On time, every time.** Each post renders up to 3 hours ahead, uploads as private with a publish time, and
+  YouTube publishes it on the planned minute, even if your PC is asleep by then.
+- **Never repeats itself.** Flag Clash remembers what it posted. A country that already won doesn't win again until
+  every other country in the lineup has had a turn, the same final two never meet twice, the number of flags
+  differs from the last 15 posts, and lineups, regions, themes, modes and title styles avoid recent ones. (Country
+  flags are physically identical, so this never bends the physics: it only decides which flag rides which ball.)
+- **Spoiler-free thumbnails.** Each post uploads its own cover made from the start of the battle with a big
+  question. Titles never name the winner either.
+
+<table>
+<tr>
+<td width="68%"><img src="docs/images/thumb-video.jpg" alt="Long video thumbnail: WHO ESCAPES LAST? 14 OCEANIA FLAGS, with the arena early in the battle" /></td>
+<td width="32%"><img src="docs/images/thumb-short.jpg" alt="Short thumbnail: LAST ONE INSIDE WINS, 19 COUNTRIES, with the arena early in the battle" /></td>
+</tr>
+<tr>
+<td align="center"><sub>Long video cover</sub></td>
+<td align="center"><sub>Short cover</sub></td>
+</tr>
+</table>
+
 - **Resilient.** Uploads resume after network drops, failed posts retry after 5, 20 and 60 minutes, quota errors
   wait for the daily reset, and posts missed while the PC was off are skipped instead of posted in a burst.
 
 > [!NOTE]
-> The PC needs to be **on and awake** during your posting hours for videos to render. Rendering a Short takes about
-> a minute on a typical laptop.
+> The PC needs to be **on and awake** a few hours before posts go out so it can render them. Rendering a Short takes
+> about a minute on a typical laptop.
+
+> [!NOTE]
+> **Community posts:** YouTube's API has no way to create Community posts (text, polls or images on the Posts tab),
+> so Flag Clash can't post them for you. Every video's description already invites comments ("Comment your country").
 
 <br />
 
@@ -217,6 +255,30 @@ account under **Test users**. Then try **Sign in with Google** again.
 The client was created with the wrong type, or the keys were pasted incorrectly. Create a new client with
 Application type **Desktop app** in [Clients](https://console.cloud.google.com/auth/clients), and paste its Client ID
 and secret in **Settings** (or setup step 5).
+</details>
+
+<details>
+<summary><b>Google won't let me publish the app: it wants a home page and privacy policy</b></summary>
+
+<br />
+
+Google asks for an **Application home page** and a **Privacy policy link** on the
+[Branding](https://console.cloud.google.com/auth/branding) page before you can publish, even for a desktop app. Use
+two pages on a site you own. The free option is GitHub Pages: create a public repository named
+`yourname.github.io` and add a short page about the app plus a privacy policy saying the app only uploads videos
+you render and keeps your sign-in on your PC. Then add `yourname.github.io` under **Authorized domains**, save,
+and click **Publish app** on the Audience page. After publishing, reconnect your channel once in **Channels**.
+</details>
+
+<details>
+<summary><b>"Custom thumbnail not set" in a post's timeline</b></summary>
+
+<br />
+
+YouTube only allows custom thumbnails on **verified** channels. Verify yours once at
+[youtube.com/verify](https://www.youtube.com/verify) (a phone number is enough); later posts get their thumbnails
+automatically. The video itself is posted either way. Note that the **Shorts feed** always plays the video itself;
+a Short's custom thumbnail shows in search, on your channel page and in subscriptions.
 </details>
 
 <details>
@@ -294,10 +356,12 @@ src-tauri/            Rust shell (Tauri 2)
   src/tray.rs         tray menu and status
   src/lib.rs          window and tray lifecycle, launch at login, single instance, 30 s heartbeat
 src/
-  autopilot/          planner.ts (organic schedule), engine.ts (render, upload, retry), types.ts
+  autopilot/          planner.ts (organic schedule), engagement.ts (audience activity curves),
+                      engine.ts (render, upload, thumbnail, retry, history), types.ts
   desktop/            bridge.ts (typed Tauri calls), runtime.ts (wires the engine to the UI)
-  modules/            module registry and the Flag Battle content generator
-  app/desktop/        Setup guide, Autopilot, Modules, Channels and Settings screens
+  modules/            module registry; Flag Battle content generator (no-repeat rules) and thumbnails
+  app/desktop/        Setup guide, Autopilot, Calendar, Modules, Channels and Settings screens;
+                      posts.tsx (the live post timeline)
   app/                Studio and Preview screens
   engine/             deterministic simulation: rng, physics, sim, timeline, tuning
   render/             the renderer shared by preview and export, effects, layout, themes

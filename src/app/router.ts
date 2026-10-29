@@ -5,12 +5,22 @@ export type Route =
   | 'studio'
   | 'preview'
   | 'autopilot'
+  | 'calendar'
   | 'modules'
   | 'channels'
   | 'settings'
   | 'setup';
 
-const ROUTES: Route[] = ['studio', 'preview', 'autopilot', 'modules', 'channels', 'settings', 'setup'];
+const ROUTES: Route[] = [
+  'studio',
+  'preview',
+  'autopilot',
+  'calendar',
+  'modules',
+  'channels',
+  'settings',
+  'setup',
+];
 
 function parse(): Route {
   const h = window.location.hash.replace(/^#\/?/, '');

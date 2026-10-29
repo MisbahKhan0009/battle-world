@@ -10,14 +10,17 @@ import { loadFlagSafe, WINNER_RASTER } from '../../lib/flags';
 import { SimClient } from '../../lib/simClient';
 import { simFighters } from '../../store/app';
 import type { RenderJob } from '../registry';
-import { planFlagBattle } from './content';
+import { buildScene } from '../../render/scene';
+import { contentRecord, freshenOutcome, planFlagBattle } from './content';
+import { renderThumbnail } from './thumbnail';
 
 export async function renderFlagBattle(
   job: RenderJob,
   onProgress: (p: number) => void,
   signal: AbortSignal,
 ): Promise<RenderResult> {
-  const plan = planFlagBattle(job, await loadCountries());
+  const recent = job.recent ?? [];
+  const plan = planFlagBattle(job, await loadCountries(), recent);
   const client = new SimClient();
   try {
     onProgress(0.01);
@@ -28,6 +31,8 @@ export async function renderFlagBattle(
       outro: plan.look.outro,
     });
     if (signal.aborted) throw new DOMException('Cancelled', 'AbortError');
+    // Put a fresh country on the winning ball (and a fresh final pairing) before drawing.
+    const outcome = freshenOutcome(plan.fighters, sim.result, recent, job.seed);
     const fighters = await loadSceneFighters(plan.fighters);
     const winner = plan.fighters[sim.result.winnerIndex];
     const winnerImage = winner ? (await loadFlagSafe(winner.imageSrc, WINNER_RASTER)).bitmap : null;
@@ -45,7 +50,14 @@ export async function renderFlagBattle(
       signal,
     });
     const bytes = new Uint8Array(await out.blob.arrayBuffer());
-    return { bytes, ext: out.ext, meta: plan.meta };
+    let thumbnail: Uint8Array | undefined;
+    try {
+      const scene = buildScene({ result: sim.result, look: plan.look, fighters });
+      thumbnail = await renderThumbnail({ scene, format: job.format, ...plan.thumb });
+    } catch (err) {
+      console.warn('thumbnail failed', err);
+    }
+    return { bytes, ext: out.ext, meta: plan.meta, thumbnail, content: contentRecord(plan, outcome) };
   } finally {
     client.dispose();
   }

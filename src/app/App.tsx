@@ -16,6 +16,7 @@ const Preview = lazy(() => import('./Preview').then((m) => ({ default: m.Preview
 const AutopilotPage = lazy(() =>
   import('./desktop/AutopilotPage').then((m) => ({ default: m.AutopilotPage })),
 );
+const CalendarPage = lazy(() => import('./desktop/CalendarPage').then((m) => ({ default: m.CalendarPage })));
 const ModulesPage = lazy(() => import('./desktop/ModulesPage').then((m) => ({ default: m.ModulesPage })));
 const ChannelsPage = lazy(() => import('./desktop/ChannelsPage').then((m) => ({ default: m.ChannelsPage })));
 const SetupWizard = lazy(() => import('./desktop/SetupWizard').then((m) => ({ default: m.SetupWizard })));
@@ -121,6 +122,7 @@ export function App() {
             {route === 'studio' && <Studio />}
             {route === 'preview' && <Preview />}
             {route === 'autopilot' && <AutopilotPage />}
+            {route === 'calendar' && <CalendarPage />}
             {route === 'modules' && <ModulesPage />}
             {route === 'channels' && <ChannelsPage />}
             {route === 'settings' && <SettingsPage />}

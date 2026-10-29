@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { Autopilot, MISSED_GRACE_MS, RENDER_LEAD_MS, type Backend } from './engine';
+import { Autopilot, MISSED_GRACE_MS, RENDER_LEAD_MS, SCHEDULED_RENDER_LEAD_MS, type Backend } from './engine';
 import { dayKey, planDay, videosOnDay } from './planner';
 import { DEFAULT_SCHEDULE, defaultState, type AutopilotState, type ScheduleSettings } from './types';
 
@@ -57,6 +57,37 @@ describe('planner', () => {
     expect(Math.max(...days)).toBe(1);
   });
 
+  test('peak hours put more posts in the evening than the morning, at varying times', () => {
+    let morning = 0;
+    let evening = 0;
+    const firstTimes = new Set<number>();
+    for (let d = 0; d < 60; d++) {
+      const plan = planDay('UCp', new Date(2026, 9, 1 + d), DEFAULT_SCHEDULE, ['flag-battle']);
+      for (const p of plan) {
+        const h = new Date(p.at).getHours();
+        if (h >= 9 && h < 12) morning++;
+        if (h >= 18 && h < 23) evening++;
+      }
+      const t = new Date(plan[0].at);
+      firstTimes.add(t.getHours() * 60 + t.getMinutes());
+    }
+    expect(evening).toBeGreaterThan(morning * 1.5);
+    expect(firstTimes.size).toBeGreaterThan(40);
+  });
+
+  test('audience time zone shifts the plan', () => {
+    const local = planDay('UCt', DAY, { ...DEFAULT_SCHEDULE, activeStartMin: 0, activeEndMin: 1439 }, [
+      'flag-battle',
+    ]);
+    const far = planDay(
+      'UCt',
+      DAY,
+      { ...DEFAULT_SCHEDULE, activeStartMin: 0, activeEndMin: 1439, audienceTz: 'Pacific/Kiritimati' },
+      ['flag-battle'],
+    );
+    expect(far.map((p) => p.at)).not.toEqual(local.map((p) => p.at));
+  });
+
   test('zero frequency plans nothing', () => {
     const s: ScheduleSettings = { ...DEFAULT_SCHEDULE, shortsPerDay: 0, videosPerWeek: 0 };
     expect(planDay('UC1', DAY, s, ['flag-battle'])).toEqual([]);
@@ -68,6 +99,7 @@ function fakeBackend(start: number) {
   let stored: AutopilotState = { ...defaultState('/out'), running: true };
   stored.channels = [{ id: 'UC1', title: 'Me', thumbnail: '', connectedAt: start, enabled: true }];
   const uploads: { publishAt?: string; privacy: string }[] = [];
+  const thumbs: string[] = [];
   const failNext: string[] = [];
   const always = { fail: '' };
   const backend: Backend = {
@@ -76,13 +108,18 @@ function fakeBackend(start: number) {
     save: async (s) => {
       stored = structuredClone(s);
     },
-    render: async () => ({
+    render: async (slot) => ({
       bytes: new Uint8Array([1, 2, 3]),
       ext: 'mp4',
       meta: { title: 'T', description: 'D', tags: [] },
+      thumbnail: new Uint8Array([9]),
+      content: { count: 10 + (slot.seed % 20), roster: ['xx'], winner: `w${slot.seed}` },
     }),
     saveFile: async (dir, name) => `${dir}/${name}`,
     deleteFile: async () => undefined,
+    setThumbnail: async (_c, videoId) => {
+      thumbs.push(videoId);
+    },
     upload: async (_c, _p, _m, opts) => {
       const f = always.fail || failNext.shift();
       if (f) throw new Error(f);
@@ -93,6 +130,7 @@ function fakeBackend(start: number) {
   return {
     backend,
     uploads,
+    thumbs,
     failNext,
     always,
     advance: (ms: number) => (now += ms),
@@ -122,6 +160,28 @@ describe('engine', () => {
     expect(s.status).toBe('posted');
     expect(env.uploads[0].privacy).toBe('private');
     expect(new Date(env.uploads[0].publishAt!).getTime()).toBe(first.at);
+    // Thumbnail set, history recorded, and the post's timeline tells the story.
+    expect(env.thumbs).toContain(s.videoId);
+    expect(ap.snapshot!.contentLog.map((r) => r.slotId)).toContain(first.id);
+    expect(s.log!.map((e) => e.text)).toEqual([
+      'Added to the schedule',
+      'Rendering started',
+      'Rendered: T',
+      'Uploading to YouTube',
+      expect.stringMatching(/^Uploaded; YouTube publishes it at/),
+      'Custom thumbnail set',
+    ]);
+  });
+
+  test('scheduled publishing renders hours ahead so the PC can be off at post time', async () => {
+    const env = fakeBackend(new Date(2026, 9, 29, 6, 0).getTime());
+    const ap = new Autopilot(env.backend, () => ['flag-battle']);
+    await ap.init();
+    await ap.tick();
+    const first = ap.snapshot!.slots[0];
+    env.advance(first.at - env.now - SCHEDULED_RENDER_LEAD_MS + 60_000);
+    await drain(ap, 3);
+    expect(ap.snapshot!.slots.find((x) => x.id === first.id)!.status).toBe('posted');
   });
 
   test('retries failed uploads with backoff, then gives up', async () => {

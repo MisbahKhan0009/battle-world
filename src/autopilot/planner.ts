@@ -1,12 +1,14 @@
 /**
  * Organic posting planner. For a channel and a calendar day it picks how many Shorts and long
  * videos to post and when, deterministically (same channel + day = same plan):
- * - times are stratified across the active window with random offsets, never on round minutes;
- * - a minimum gap separates posts; long videos favour the evening;
+ * - times are spread across the active window with random offsets, never on round minutes; with
+ *   peak hours on, they follow the audience's activity curve (more posts when more people watch);
+ * - a minimum gap separates posts; long videos go to the slots where long-form viewing peaks;
  * - long videos are spread across the week; the daily count wobbles by one when enabled;
  * - the daily upload cap always wins.
  */
 import { hash32, Rng } from '../engine/rng';
+import { audienceClock, engagement } from './engagement';
 import type { ContentFormat, ScheduleSettings, Slot } from './types';
 
 export function dayKey(d: Date): string {
@@ -98,10 +100,36 @@ export function planDay(
   const n = shorts + videos;
   if (n === 0) return [];
 
-  // Stratified random times.
-  const seg = (end - start) / n;
+  const clockAt = (m: number) =>
+    audienceClock(new Date(y, mo - 1, d, 0, Math.round(m)).getTime(), settings.audienceTz);
   const times: number[] = [];
-  for (let k = 0; k < n; k++) times.push(start + seg * (k + 0.1 + 0.8 * rng.next()));
+  if (settings.peakHours) {
+    // Stratified sampling of the audience-activity distribution over the window: each post
+    // gets an equal share of the day's viewers, at a random point inside its share.
+    const STEP = 5;
+    const grid: number[] = [];
+    const cum: number[] = [];
+    let total = 0;
+    // Cell i covers [grid[i], grid[i] + STEP); cum[i] is the weight up to its end.
+    for (let m = start; m < end; m += STEP) {
+      const c = clockAt(m + STEP / 2);
+      // The floor keeps quieter hours possible, which reads as more human.
+      total += 0.12 + engagement('short', c.weekend, c.hour) ** 1.5;
+      grid.push(m);
+      cum.push(total);
+    }
+    for (let k = 0; k < n; k++) {
+      const q = ((k + 0.1 + 0.8 * rng.next()) / n) * total;
+      let i = 0;
+      while (i < cum.length - 1 && cum[i] < q) i++;
+      const prev = i > 0 ? cum[i - 1] : 0;
+      const frac = cum[i] > prev ? (q - prev) / (cum[i] - prev) : 0;
+      times.push(Math.min(end, grid[i] + STEP * frac));
+    }
+  } else {
+    const seg = (end - start) / n;
+    for (let k = 0; k < n; k++) times.push(start + seg * (k + 0.1 + 0.8 * rng.next()));
+  }
   times.sort((a, b) => a - b);
   // Enforce the minimum gap, then pull back anything that spilled past the window.
   for (let k = 1; k < n; k++) if (times[k] - times[k - 1] < gap) times[k] = times[k - 1] + gap;
@@ -116,10 +144,15 @@ export function planDay(
     return Math.min(end, Math.max(start, m));
   });
 
-  // Long videos go to the latest slots that fall in the evening when possible.
+  // Long videos take the slots where long-form viewing peaks (or the evening without peak hours).
   const formats: ContentFormat[] = minutes.map(() => 'short');
   const order = minutes
-    .map((m, i) => ({ i, score: Math.abs(m - 19 * 60) + rng.next() * 60 }))
+    .map((m, i) => {
+      const noise = rng.next();
+      if (!settings.peakHours) return { i, score: Math.abs(m - 19 * 60) + noise * 60 };
+      const c = clockAt(m);
+      return { i, score: -engagement('video', c.weekend, c.hour) - noise * 0.15 };
+    })
     .sort((a, b) => a.score - b.score);
   for (let v = 0; v < videos; v++) formats[order[v].i] = 'video';
 

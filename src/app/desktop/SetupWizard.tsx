@@ -9,17 +9,20 @@ import {
   Check,
   Copy,
   ExternalLink,
+  FileJson,
   Loader2,
   ShieldAlert,
   Sparkles,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
+import { AUDIENCE_ZONES } from '../../autopilot/engagement';
 import type { AutopilotState, PostSettings, ScheduleSettings } from '../../autopilot/types';
 import { DEFAULT_SCHEDULE } from '../../autopilot/types';
 import { Button } from '../../components/ui/Button';
 import { inputClass } from '../../components/ui/controls';
 import { desktop, isDesktop } from '../../desktop/bridge';
+import { pickClientSecretFile } from '../../desktop/clientSecret';
 import { useAutopilot } from '../../desktop/runtime';
 import { cn } from '../../lib/utils';
 import { navigate } from '../router';
@@ -29,6 +32,7 @@ const URLS = {
   project: 'https://console.cloud.google.com/projectcreate',
   api: 'https://console.cloud.google.com/apis/library/youtube.googleapis.com',
   branding: 'https://console.cloud.google.com/auth/overview',
+  brandingPage: 'https://console.cloud.google.com/auth/branding',
   audience: 'https://console.cloud.google.com/auth/audience',
   clients: 'https://console.cloud.google.com/auth/clients',
   audit: 'https://support.google.com/youtube/contact/yt_api_form',
@@ -249,6 +253,19 @@ function KeysBody({ state, update, next }: StepCtx) {
     toast.success('Keys saved');
     next();
   };
+  const loadFile = async () => {
+    try {
+      const keys = await pickClientSecretFile();
+      if (!keys) return;
+      setId(keys.clientId);
+      setSecret(keys.clientSecret);
+      await update({ google: keys });
+      toast.success('Keys loaded from the file');
+      next();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  };
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
       <div className="space-y-5">
@@ -261,11 +278,23 @@ function KeysBody({ state, update, next }: StepCtx) {
               Set <strong>Application type</strong> to <strong>Desktop app</strong> and the name to{' '}
               <CopyValue value="Flag Clash" />. Click <strong>Create</strong>.
             </>,
-            <>Copy the Client ID and Client secret from the dialog and paste them below.</>,
+            <>
+              In the dialog that opens, click <strong>Download JSON</strong>, then choose that file below. (Or
+              copy the Client ID and Client secret and paste them.)
+            </>,
           ]}
         />
         <OpenLink url={URLS.clients}>Open Clients</OpenLink>
         <div className="space-y-4 rounded-2xl bg-surface-2/60 p-4 ring-1 ring-line">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="primary" onClick={() => void loadFile()}>
+              <FileJson size={15} /> Choose the downloaded JSON file
+            </Button>
+            <span className="text-xs text-muted">client_secret_….json, usually in Downloads</span>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-muted">
+            <span className="h-px flex-1 bg-line" /> or paste them <span className="h-px flex-1 bg-line" />
+          </div>
           <label className="block space-y-2">
             <span className="text-[13px] font-medium">Client ID</span>
             <input
@@ -299,7 +328,7 @@ function KeysBody({ state, update, next }: StepCtx) {
               </span>
             )}
           </label>
-          <Button variant="primary" onClick={save} disabled={!idOk || !secretOk}>
+          <Button variant="secondary" onClick={save} disabled={!idOk || !secretOk}>
             Save keys and continue <ArrowRight size={15} />
           </Button>
         </div>
@@ -315,6 +344,7 @@ function KeysBody({ state, update, next }: StepCtx) {
             <div className="truncate font-mono">123456789-abc123.apps.googleusercontent.com</div>
             <div className="text-[#5f6368]">Client secret</div>
             <div className="font-mono">GOCSPX-••••••••••••</div>
+            <div className="pt-1 font-medium text-[#1a73e8]">⤓ Download JSON</div>
           </div>
         </Mark>
       </Mock>
@@ -507,9 +537,26 @@ function PaceBody({ state, update }: StepCtx) {
         ))}
       </div>
       <p className="text-xs text-muted">
-        Posts go out between 9:00 and 23:00 at irregular times, at least 75 minutes apart. You can fine-tune
-        everything later on the Autopilot page.
+        Posts go out between 9:00 and 23:00 at different times every day, weighted toward the hours your
+        audience is most active, at least 75 minutes apart. You can fine-tune everything later on the
+        Autopilot page.
       </p>
+      <label className="block max-w-md space-y-2 text-[13px] font-medium">
+        <span>Where most of your viewers live</span>
+        <select
+          value={state.schedule.audienceTz}
+          onChange={(e) =>
+            void update({ schedule: { ...state.schedule, audienceTz: e.target.value } }, { replan: true })
+          }
+          className="h-10 w-full rounded-xl border border-line-strong bg-bg px-3 text-sm"
+        >
+          {AUDIENCE_ZONES.map((z) => (
+            <option key={z.tz} value={z.tz}>
+              {z.label}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <div className="space-y-3 rounded-2xl bg-surface-2/60 p-4 ring-1 ring-line">
         <div className="text-sm font-medium">Who can see the videos?</div>
@@ -653,6 +700,13 @@ const STEPS: Step[] = [
                 contact, accept the policy, and click <strong>Create</strong>.
               </>,
               <>
+                Open <strong>Branding</strong>. Fill in <strong>Application home page</strong> and{' '}
+                <strong>Privacy policy link</strong> with two pages on a site you own (a free GitHub Pages
+                site works, for example yourname.github.io), add that domain under{' '}
+                <strong>Authorized domains</strong>, and click <strong>Save</strong>. Google asks for these
+                before it lets you publish.
+              </>,
+              <>
                 Open <strong>Audience</strong> and click <strong>Publish app</strong>, then{' '}
                 <strong>Confirm</strong>. This keeps you signed in. Apps left in "Testing" are signed out by
                 Google every 7 days.
@@ -661,6 +715,9 @@ const STEPS: Step[] = [
           />
           <div className="flex flex-wrap gap-2">
             <OpenLink url={URLS.branding}>Open Google Auth Platform</OpenLink>
+            <Button variant="secondary" onClick={() => open(URLS.brandingPage)}>
+              Open Branding <ExternalLink size={14} />
+            </Button>
             <Button variant="secondary" onClick={() => open(URLS.audience)}>
               Open Audience <ExternalLink size={14} />
             </Button>
@@ -677,7 +734,7 @@ const STEPS: Step[] = [
             <span>
               Publishing status: <strong>Testing</strong>
             </span>
-            <Mark n={4} className="inline-block">
+            <Mark n={5} className="inline-block">
               <MButton label="Publish app" primary={false} />
             </Mark>
           </div>

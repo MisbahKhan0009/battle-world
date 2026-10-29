@@ -1,16 +1,10 @@
 import * as Popover from '@radix-ui/react-popover';
-import { ExternalLink, Pause, Play, Send } from 'lucide-react';
+import { CalendarDays, ExternalLink, Pause, Play, Send } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { AUDIENCE_ZONES } from '../../autopilot/engagement';
 import type { Autopilot } from '../../autopilot/engine';
-import { dayKey } from '../../autopilot/planner';
-import type {
-  AutopilotState,
-  ContentFormat,
-  PostSettings,
-  ScheduleSettings,
-  Slot,
-} from '../../autopilot/types';
+import type { AutopilotState, ContentFormat, PostSettings, ScheduleSettings } from '../../autopilot/types';
 import { Button } from '../../components/ui/Button';
 import { Segmented, Slider, Toggle } from '../../components/ui/controls';
 import { desktop, isDesktop } from '../../desktop/bridge';
@@ -19,21 +13,13 @@ import { cn } from '../../lib/utils';
 import { moduleById } from '../../modules/registry';
 import { navigate } from '../router';
 import { Card, DesktopLayout, DesktopOnly } from './Layout';
+import { FormatChip, PostDetail, STATUS_STYLE, fmtTime, statusLabel, whenLabel, youtubeUrl } from './posts';
 
-const fmtTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+/** Opens the post detail panel. */
+type OpenPost = (slotId: string) => void;
 
-function whenLabel(ms: number): string {
-  const today = dayKey(new Date());
-  const tomorrow = dayKey(new Date(Date.now() + 86_400_000));
-  const k = dayKey(new Date(ms));
-  const day =
-    k === today
-      ? 'Today'
-      : k === tomorrow
-        ? 'Tomorrow'
-        : new Date(ms).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
-  return `${day}, ${fmtTime(ms)}`;
-}
+const rowClass =
+  'flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left text-sm transition-colors hover:bg-surface-2';
 
 function minutesToTime(m: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
@@ -42,39 +28,6 @@ function minutesToTime(m: number): string {
 function timeToMinutes(v: string): number {
   const [h, m] = v.split(':').map(Number);
   return (h || 0) * 60 + (m || 0);
-}
-
-const STATUS_STYLE: Record<Slot['status'], string> = {
-  planned: 'text-muted',
-  rendering: 'text-accent',
-  rendered: 'text-text',
-  uploading: 'text-accent',
-  posted: 'text-hp-high',
-  failed: 'text-danger',
-  skipped: 'text-muted/70',
-};
-
-const STATUS_LABEL: Record<Slot['status'], string> = {
-  planned: 'Planned',
-  rendering: 'Rendering',
-  rendered: 'Ready',
-  uploading: 'Uploading',
-  posted: 'Posted',
-  failed: 'Failed',
-  skipped: 'Skipped',
-};
-
-function FormatChip({ format }: { format: ContentFormat }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex h-6 items-center rounded-md px-2 text-[11px] font-medium',
-        format === 'short' ? 'bg-accent/12 text-accent' : 'bg-[#3DDCFF]/12 text-[#3DDCFF]',
-      )}
-    >
-      {format === 'short' ? 'Short' : 'Video'}
-    </span>
-  );
 }
 
 function SetupSteps({ state }: { state: AutopilotState }) {
@@ -94,7 +47,7 @@ function SetupSteps({ state }: { state: AutopilotState }) {
   );
 }
 
-function NowCard({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
+function NowCard({ ap, state, onOpen }: { ap: Autopilot; state: AutopilotState; onOpen: OpenPost }) {
   const { activity } = useAutopilot();
   const slot = activity ? state.slots.find((s) => s.id === activity.slotId) : null;
   const next = state.slots.find((s) => s.status === 'planned' || s.status === 'rendered');
@@ -105,8 +58,10 @@ function NowCard({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
         <div>
           <div className="flex items-center gap-2 text-sm">
             <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
-            {activity.stage === 'rendering' ? 'Rendering' : 'Uploading'} a{' '}
-            {slot.format === 'short' ? 'Short' : 'video'} for {channel(slot.channelId)}
+            <button type="button" className="hover:underline" onClick={() => onOpen(slot.id)}>
+              {activity.stage === 'rendering' ? 'Rendering' : 'Uploading'} a{' '}
+              {slot.format === 'short' ? 'Short' : 'video'} for {channel(slot.channelId)}
+            </button>
             <Button
               size="sm"
               variant="ghost"
@@ -134,17 +89,23 @@ function NowCard({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
         </div>
       ) : (
         <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
-          <div>
+          <button
+            type="button"
+            className="text-left"
+            disabled={!next}
+            onClick={() => next && onOpen(next.id)}
+            aria-label={next ? `Next post at ${whenLabel(next.at)}, show details` : 'No post planned'}
+          >
             <div className="text-xs text-muted">Next post</div>
             <div className="font-display text-4xl leading-none tabular">
               {next ? fmtTime(next.at) : '--:--'}
             </div>
-          </div>
+          </button>
           <p className="text-sm text-muted">
             {!state.running
               ? 'The autopilot is paused. Start it to post on your schedule.'
               : next
-                ? `${next.format === 'short' ? 'A Short' : 'A long video'} for ${channel(next.channelId)}. Rendering starts about 30 minutes before.`
+                ? `${next.format === 'short' ? 'A Short' : 'A long video'} for ${channel(next.channelId)}, ${whenLabel(next.at).toLowerCase()}. Click it to follow every step.`
                 : 'Nothing planned yet. Connect a channel and set a schedule.'}
           </p>
         </div>
@@ -153,7 +114,7 @@ function NowCard({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
   );
 }
 
-function UpNext({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
+function UpNext({ ap, state, onOpen }: { ap: Autopilot; state: AutopilotState; onOpen: OpenPost }) {
   const upcoming = state.slots
     .filter((s) => ['planned', 'rendering', 'rendered', 'uploading'].includes(s.status))
     .slice(0, 10);
@@ -161,23 +122,25 @@ function UpNext({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
   return (
     <Card
       title="Up next"
-      note="Times are spread out with natural gaps. The plan for each day stays fixed unless you change the schedule."
+      note="Times follow your audience's busiest hours with natural gaps. Click a post to follow it live."
     >
       {upcoming.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted">Nothing scheduled.</p>
       ) : (
-        <ul className="divide-y divide-line">
+        <ul className="-mx-2 divide-y divide-line">
           {upcoming.map((s) => (
-            <li key={s.id} className="flex items-center gap-3 py-2.5 text-sm">
-              <span className="w-[150px] shrink-0 tabular">{whenLabel(s.at)}</span>
-              <FormatChip format={s.format} />
-              <span className="min-w-0 flex-1 truncate text-muted">
-                {channel(s.channelId)}, {moduleById(s.moduleId)?.name ?? s.moduleId}
-                {s.error && s.status === 'planned' && (
-                  <span className="text-danger"> (retrying: {s.error})</span>
-                )}
-              </span>
-              <span className={cn('text-xs', STATUS_STYLE[s.status])}>{STATUS_LABEL[s.status]}</span>
+            <li key={s.id} className="flex items-center gap-1">
+              <button type="button" className={rowClass} onClick={() => onOpen(s.id)}>
+                <span className="w-[150px] shrink-0 tabular">{whenLabel(s.at)}</span>
+                <FormatChip format={s.format} />
+                <span className="min-w-0 flex-1 truncate text-muted">
+                  {channel(s.channelId)}, {moduleById(s.moduleId)?.name ?? s.moduleId}
+                  {s.error && s.status === 'planned' && (
+                    <span className="text-danger"> (retrying: {s.error})</span>
+                  )}
+                </span>
+                <span className={cn('text-xs', STATUS_STYLE[s.status])}>{statusLabel(s)}</span>
+              </button>
               {(s.status === 'planned' || s.status === 'rendered') && (
                 <Button
                   size="sm"
@@ -196,7 +159,7 @@ function UpNext({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
   );
 }
 
-function History({ state }: { state: AutopilotState }) {
+function History({ state, onOpen }: { state: AutopilotState; onOpen: OpenPost }) {
   const done = state.slots
     .filter((s) => ['posted', 'failed', 'skipped'].includes(s.status))
     .sort((a, b) => b.at - a.at)
@@ -206,24 +169,26 @@ function History({ state }: { state: AutopilotState }) {
       {done.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted">Posts will show up here.</p>
       ) : (
-        <ul className="divide-y divide-line">
+        <ul className="-mx-2 divide-y divide-line">
           {done.map((s) => (
-            <li key={s.id} className="flex items-center gap-3 py-2.5 text-sm">
-              <span className="w-[150px] shrink-0 text-muted tabular">{whenLabel(s.postedAt ?? s.at)}</span>
-              <FormatChip format={s.format} />
-              <span className="min-w-0 flex-1 truncate">
-                {s.title ?? '(not rendered)'}
-                {s.status !== 'posted' && s.error && (
-                  <span className="block truncate text-xs text-muted">{s.error}</span>
-                )}
-              </span>
-              <span className={cn('text-xs', STATUS_STYLE[s.status])}>{STATUS_LABEL[s.status]}</span>
+            <li key={s.id} className="flex items-center gap-1">
+              <button type="button" className={rowClass} onClick={() => onOpen(s.id)}>
+                <span className="w-[150px] shrink-0 text-muted tabular">{whenLabel(s.at)}</span>
+                <FormatChip format={s.format} />
+                <span className="min-w-0 flex-1 truncate">
+                  {s.title ?? '(not rendered)'}
+                  {s.status !== 'posted' && s.error && (
+                    <span className="block truncate text-xs text-muted">{s.error}</span>
+                  )}
+                </span>
+                <span className={cn('text-xs', STATUS_STYLE[s.status])}>{statusLabel(s)}</span>
+              </button>
               {s.videoId && (
                 <Button
                   size="icon-sm"
                   variant="ghost"
                   aria-label="Open on YouTube"
-                  onClick={() => void desktop.openUrl(`https://www.youtube.com/watch?v=${s.videoId}`)}
+                  onClick={() => void desktop.openUrl(youtubeUrl(s))}
                 >
                   <ExternalLink size={14} />
                 </Button>
@@ -309,6 +274,32 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
             `${Math.floor(v / 60) ? `${Math.floor(v / 60)} h ` : ''}${v % 60 ? `${v % 60} min` : ''}`
           }
         />
+        <Toggle
+          label="Post at peak hours"
+          description="More posts land when your audience is most active (lunch and evening, later on weekends), at different times every day."
+          checked={draft.peakHours}
+          onChange={(v) => apply({ ...draft, peakHours: v })}
+        />
+        {draft.peakHours && (
+          <label className="block space-y-2 text-[13px] font-medium">
+            <span>Where most of your viewers live</span>
+            <select
+              value={draft.audienceTz}
+              onChange={(e) => apply({ ...draft, audienceTz: e.target.value })}
+              className="h-10 w-full rounded-xl border border-line-strong bg-bg px-3 text-sm"
+            >
+              {AUDIENCE_ZONES.map((z) => (
+                <option key={z.tz} value={z.tz}>
+                  {z.label}
+                </option>
+              ))}
+            </select>
+            <span className="block text-xs font-normal text-muted">
+              YouTube Studio shows this under Analytics, Audience, Top geographies. If it differs from your
+              own time zone, widen the posting window above so it covers their evening.
+            </span>
+          </label>
+        )}
         <Toggle
           label="Organic variation"
           description="Some days post one more or one fewer, at irregular minutes."
@@ -425,6 +416,7 @@ function PostNow({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
 
 export function AutopilotPage() {
   const { ap, state } = useAutopilot();
+  const [openId, setOpenId] = useState<string | null>(null);
   const ready = useMemo(() => !!state && !!state.google.clientId && state.channels.length > 0, [state]);
 
   if (!isDesktop()) {
@@ -447,6 +439,9 @@ export function AutopilotPage() {
       title="Autopilot"
       actions={
         <>
+          <Button variant="ghost" onClick={() => navigate('calendar')}>
+            <CalendarDays size={15} /> Calendar
+          </Button>
           <PostNow ap={ap} state={state} />
           <Button
             variant={state.running ? 'secondary' : 'primary'}
@@ -465,14 +460,15 @@ export function AutopilotPage() {
       <div className="mx-auto grid max-w-[1200px] gap-5 xl:grid-cols-[1fr_380px]">
         <div className="min-w-0 space-y-5">
           <SetupSteps state={state} />
-          <NowCard ap={ap} state={state} />
-          <UpNext ap={ap} state={state} />
-          <History state={state} />
+          <NowCard ap={ap} state={state} onOpen={setOpenId} />
+          <UpNext ap={ap} state={state} onOpen={setOpenId} />
+          <History state={state} onOpen={setOpenId} />
         </div>
         <div className="space-y-5">
           <ScheduleForm ap={ap} state={state} />
         </div>
       </div>
+      <PostDetail ap={ap} slotId={openId} onClose={() => setOpenId(null)} />
     </DesktopLayout>
   );
 }

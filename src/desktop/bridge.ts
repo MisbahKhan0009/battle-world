@@ -51,6 +51,13 @@ export const desktop = {
     invoke<Omit<Channel, 'connectedAt' | 'enabled'>>('oauth_connect', { clientId, clientSecret }),
   disconnectChannel: (channelId: string) => invoke<void>('oauth_disconnect', { channelId }),
   upload: (req: UploadRequest) => invoke<{ videoId: string }>('youtube_upload', { req }),
+  setThumbnail: (req: {
+    channelId: string;
+    clientId: string;
+    clientSecret: string;
+    videoId: string;
+    path: string;
+  }) => invoke<void>('youtube_set_thumbnail', { req }),
 
   onUploadProgress: (cb: (p: { path: string; sent: number; total: number }) => void) =>
     listen('upload-progress', cb),
