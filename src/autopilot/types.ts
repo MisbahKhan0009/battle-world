@@ -89,6 +89,8 @@ export type ContentRecord = {
   group?: string;
   theme?: string;
   template?: string;
+  /** The music track used instead of the game sounds, if any. */
+  music?: string;
 };
 
 export type VideoMeta = {
@@ -208,6 +210,11 @@ export type AutopilotState = {
   stats: Record<string, StatPoint[]>;
   /** The "made for kids" default has been applied to this install. */
   kidsDefaulted: boolean;
+  /**
+   * Music instead of the game sounds: tracks from a folder (e.g. downloaded from YouTube's Audio
+   * Library), a different one for each video.
+   */
+  music?: { enabled: boolean; dir: string };
   /** Ready games this install has already handed out to channels (new games get assigned once). */
   knownGames?: string[];
 };

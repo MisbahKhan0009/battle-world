@@ -34,6 +34,9 @@ export type UploadRequest = {
   categoryId: string;
 };
 
+/** A track in the music folder, with its credit line when a .txt file of the same name holds one. */
+export type MusicFile = { name: string; path: string; attribution: string | null };
+
 export const desktop = {
   readState: () => invoke<string | null>('state_read'),
   writeState: (json: string) => invoke<void>('state_write', { json }),
@@ -46,6 +49,13 @@ export const desktop = {
       'x-name': encodeURIComponent(name),
     }),
   deleteFile: (path: string) => invoke<void>('delete_file', { path }),
+
+  /** The default music folder (Music\Flag Clash Music). */
+  defaultMusicDir: () => invoke<string>('default_music_dir'),
+  /** Tracks in the music folder (the folder is created the first time). */
+  musicList: (dir: string) => invoke<MusicFile[]>('music_list', { dir }),
+  /** One track's raw bytes. */
+  musicRead: (path: string) => invoke<ArrayBuffer>('music_read', { path }),
 
   connectChannel: (clientId: string, clientSecret: string) =>
     invoke<Pick<Channel, 'id' | 'title' | 'thumbnail' | 'subscribers'>>('oauth_connect', {

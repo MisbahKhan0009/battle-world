@@ -14,6 +14,7 @@ import {
 } from '../autopilot/types';
 import { moduleById, readyModuleIds } from '../modules/registry';
 import { desktop, isDesktop } from './bridge';
+import { musicFor } from './music';
 
 let instance: Autopilot | null = null;
 let starting: Promise<Autopilot> | null = null;
@@ -91,6 +92,10 @@ function backend(): Backend {
     async load() {
       const [raw, dir] = await Promise.all([desktop.readState(), desktop.defaultOutputDir()]);
       state = mergeState(raw, dir);
+      if (!state.music?.dir) {
+        const musicDir = await desktop.defaultMusicDir().catch(() => '');
+        state.music = { enabled: state.music?.enabled ?? false, dir: musicDir };
+      }
       return state;
     },
     async save(s) {
@@ -100,11 +105,22 @@ function backend(): Backend {
     async render(slot, onProgress, signal, recent) {
       const mod = moduleById(slot.moduleId);
       if (!mod?.render) throw new Error(`Module "${slot.moduleId}" cannot render yet.`);
-      return mod.render(
-        { format: slot.format, seed: slot.seed, recent, kids: !!state?.post.madeForKids },
+      // Music instead of the game sounds, when it is switched on and the folder has tracks.
+      const music = await musicFor(state?.music, slot.seed, recent);
+      const result = await mod.render(
+        { format: slot.format, seed: slot.seed, recent, kids: !!state?.post.madeForKids, music: music?.bed },
         onProgress,
         signal,
       );
+      if (!music) return result;
+      const credit = music.track.attribution;
+      return {
+        ...result,
+        meta: credit
+          ? { ...result.meta, description: `${result.meta.description}\n\nMusic: ${credit}` }
+          : result.meta,
+        content: result.content ? { ...result.content, music: music.track.name } : result.content,
+      };
     },
     saveFile: (dir, name, bytes) => desktop.saveVideo(dir, name, bytes),
     deleteFile: (path) => desktop.deleteFile(path),

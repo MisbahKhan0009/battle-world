@@ -4,6 +4,7 @@
  */
 import type { Look } from '../engine/types';
 import type { SceneFighter } from '../render/scene';
+import type { MusicBed } from '../audio/music';
 import type { AudioSettings } from '../store/app';
 import { exportFonts } from './fonts';
 import type { ExportContent } from './production';
@@ -31,6 +32,8 @@ export type ExportInput = {
   fps: 30 | 60;
   quality: 'standard' | 'high';
   audio: AudioSettings;
+  /** A music track to play instead of the game sounds. */
+  music?: MusicBed | null;
   onProgress: (p: ExportProgress) => void;
   onThumb: (b: ImageBitmap) => void;
   signal: AbortSignal;
@@ -78,11 +81,14 @@ async function runWorker(input: ExportInput): Promise<ExportOutcome | 'unsupport
     fps: input.fps,
     bitrate: BITRATES[input.quality],
     audio: { enabled: input.audio.enabled, sfxVolume: input.audio.sfxVolume },
+    music: input.music ?? null,
     fonts: exportFonts(),
   };
   const transfer: Transferable[] = [
     ...fighters.map((f) => f.image).filter((b): b is ImageBitmap => !!b),
     ...(winnerImage ? [winnerImage] : []),
+    // The track is moved, not copied (a few minutes of stereo audio is tens of megabytes).
+    ...new Set(input.music ? [input.music.L.buffer, input.music.R.buffer] : []),
   ];
 
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });

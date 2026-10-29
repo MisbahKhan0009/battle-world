@@ -1,4 +1,5 @@
 import type { RenderResult } from '../autopilot/engine';
+import type { MusicBed } from '../audio/music';
 import type { ContentFormat, ContentRecord } from '../autopilot/types';
 
 /** What to render. `recent` is the channel's content history (oldest first) to avoid repeats. */
@@ -8,6 +9,8 @@ export type RenderJob = {
   recent?: ContentRecord[];
   /** Made for kids: comments are off on YouTube, so the video must not ask for them. */
   kids?: boolean;
+  /** A music track to play instead of the game sounds. */
+  music?: MusicBed | null;
 };
 
 export type ContentModule = {

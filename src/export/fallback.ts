@@ -23,6 +23,7 @@ export async function runFallback(input: ExportInput): Promise<ExportOutcome> {
     winnerImage: input.winnerImage,
     W,
     H,
+    music: input.music,
   });
   const total = production.total;
 

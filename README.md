@@ -34,7 +34,7 @@ human-looking schedule, while it sits quietly in the system tray.
 | 📅 **Posts on autopilot** | Each game on each channel has its own schedule (about 5 Shorts a day and 4 long videos a week per channel by default), all on one timeline per channel so posts never overlap, planned a full week ahead and timed for when your audience is most active. Everything is adjustable. |
 | 📊 **Channel dashboard** | Subscribers and views over time, every upload against your typical result, which game performs best, your best hours to post, and your top videos, in one page. |
 | 🗓️ **Calendar and live tracking** | One calendar for every game and channel, color-coded with filters per game and per channel. Click any post to watch it render, upload and go live, step by step. |
-| 🔊 **Sound that fits** | Every game has its own sound and color world: Flag Battle's punchy hits and brass fanfare in lime, Marble Race's wooden clicks, start-light beeps and bell in cyan or race amber, Ring Escape's glass celesta and shatter in magenta, Growing Ball's water-drop bloops in coral. All timed to the action, no background music, so no copyright claims. |
+| 🔊 **Sound that fits** | Every game has its own sound and color world: Flag Battle's punchy hits and brass fanfare in lime, Marble Race's wooden clicks, start-light beeps and bell in cyan or race amber, Ring Escape's glass celesta and shatter in magenta, Growing Ball's water-drop bloops in coral. All timed to the action. Prefer music? Point Settings at a folder of YouTube Audio Library tracks and videos use those instead. |
 | 🖥️ **Runs in the background** | Lives in the system tray, starts with Windows, renders each post a few hours ahead and lets YouTube publish it on the minute. |
 | 🔒 **Your account stays yours** | Uses your own free Google Cloud project. Your sign-in is stored in Windows Credential Manager, never in plain files. |
 | 🧩 **More games coming** | Flag Battle, Marble Race, Ring Escape and Growing Ball are live. Territory Wars, Black Hole (like Hole.io) and Paper Land (like Paper.io) are next, each with a written plan in the app. |
@@ -197,6 +197,13 @@ live.
   after posting (default 3; 0 deletes them right after upload).
 - **Background:** launch when you sign in to Windows, and keep running in the tray when the window closes (both on
   by default).
+- **Music:** turn on **Use music instead of the game sounds** and videos carry one track from your music folder
+  (default `Music\Flag Clash Music`) in place of the sound effects. Download tracks from YouTube Studio's
+  [Audio Library](https://www.youtube.com/audiolibrary) (MP3, M4A, WAV, OGG or FLAC). Each video picks a track you
+  haven't used lately, loops it with a crossfade if the video is longer, and fades it out at the end. If a track
+  needs attribution, save the credit line from the Audio Library as a `.txt` file with the same name next to it
+  (`Track Name.mp3` + `Track Name.txt`); it is added to the video description. Leave the switch off for the
+  synthesized game sounds.
 - **About:** the installed version. Newer versions are on the [Releases](https://github.com/MisbahKhan0009/battle-world/releases) page.
 
 ### Tray and startup
@@ -581,7 +588,9 @@ lineups and winners, and `src/export/production.ts` to plug the game's renderer 
 - **Export.** Frame-by-frame rendering on an `OffscreenCanvas` in a worker, H.264 via WebCodecs (VP9/AV1 fallback),
   keyframe every 2 s, sound effects mixed in one-second chunks and encoded as AAC or Opus, muxed with `mp4-muxer`
   with the index at the front for fast YouTube processing.
-- **Sound.** Every sound is synthesized in `src/audio/synth.ts`: no audio files and no licensing risk.
+- **Sound.** Every game sound is synthesized in `src/audio/synth.ts`: no audio files and no licensing risk. With
+  music on, `src/desktop/music.ts` decodes a track from the user's folder and `src/audio/music.ts` (`MusicMix`)
+  replaces the effects mixer with the looped, faded track.
 </details>
 
 <br />

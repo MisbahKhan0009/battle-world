@@ -1,4 +1,5 @@
 import type { Look } from '../engine/types';
+import type { MusicBed } from '../audio/music';
 import type { ExportContent } from './production';
 
 export type ExportFighter = {
@@ -18,8 +19,9 @@ export type ExportRequest = {
   winnerImage: ImageBitmap | null;
   fps: 30 | 60;
   bitrate: number;
-  /** Sound effects only (no background music). */
+  /** The game's sound effects, or `music` in their place. */
   audio: { enabled: boolean; sfxVolume: number };
+  music: MusicBed | null;
   fonts: { family: string; url: string; descriptors: FontFaceDescriptors }[];
 };
 

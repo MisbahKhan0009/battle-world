@@ -7,6 +7,8 @@ import { buildRingsCues } from '../audio/ringCues';
 import { buildGrowCues } from '../audio/growCues';
 import { runShow as runGrowShow, type GrowShow } from '../engine/grow/show';
 import { Mixer, type MixSettings } from '../audio/mix';
+import { MusicMix, type MusicBed } from '../audio/music';
+import type { Stereo } from '../audio/synth';
 import { runRace } from '../engine/race/race';
 import type { RaceConfig } from '../engine/race/types';
 import { runShow, type RingsShow } from '../engine/rings/show';
@@ -29,20 +31,34 @@ export type ExportContent =
   | { kind: 'ring-escape'; config: RingsShow }
   | { kind: 'growing-ball'; config: GrowShow };
 
+/** Anything that renders the soundtrack in chunks: the game sounds, or a music track. */
+export type Soundtrack = { render(start: number, frames: number): Stereo };
+
 export type Production = {
   total: number;
   render(ctx: Ctx2D, v: number): void;
-  mixer(settings: MixSettings): Mixer;
+  mixer(settings: MixSettings): Soundtrack;
 };
 
-export function buildProduction(args: {
+type ProductionArgs = {
   content: ExportContent;
   look: Look;
   fighters: SceneFighter[];
   winnerImage: ImageSource | null;
   W: number;
   H: number;
-}): Production {
+  /** A music track to play instead of the game sounds. */
+  music?: MusicBed | null;
+};
+
+export function buildProduction(args: ProductionArgs): Production {
+  const game = buildGameProduction(args);
+  const { music } = args;
+  if (!music) return game;
+  return { ...game, mixer: (settings) => new MusicMix(music, game.total, settings.sfxVolume) };
+}
+
+function buildGameProduction(args: ProductionArgs): Production {
   const { content, look, fighters, winnerImage, W, H } = args;
   if (content.kind === 'marble-race') {
     const result = runRace(content.config, { record: true });

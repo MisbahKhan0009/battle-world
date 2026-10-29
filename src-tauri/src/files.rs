@@ -1,9 +1,10 @@
-//! App state file and rendered video files.
+//! App state file, rendered video files, and the music folder.
 
 use std::path::PathBuf;
 
 use percent_encoding::percent_decode_str;
-use tauri::ipc::{InvokeBody, Request};
+use serde::Serialize;
+use tauri::ipc::{InvokeBody, Request, Response};
 use tauri::{AppHandle, Manager};
 
 fn state_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -90,4 +91,76 @@ pub async fn delete_file(path: String) -> Result<(), String> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(e) => Err(e.to_string()),
     }
+}
+
+/// Audio files the music folder may hold (what YouTube's Audio Library and most stores download).
+const MUSIC_EXTENSIONS: [&str; 6] = ["mp3", "m4a", "aac", "wav", "ogg", "flac"];
+
+fn is_music(path: &std::path::Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .map(|e| MUSIC_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
+        .unwrap_or(false)
+}
+
+#[tauri::command]
+pub fn default_music_dir(app: AppHandle) -> Result<String, String> {
+    let base = app
+        .path()
+        .audio_dir()
+        .or_else(|_| app.path().document_dir())
+        .or_else(|_| app.path().app_data_dir())
+        .map_err(|e| e.to_string())?;
+    Ok(base.join("Flag Clash Music").to_string_lossy().into_owned())
+}
+
+#[derive(Serialize)]
+pub struct MusicFile {
+    name: String,
+    path: String,
+    /// Credit text from a .txt file with the same name, for tracks that ask for attribution.
+    attribution: Option<String>,
+}
+
+/// Lists the tracks in the music folder (creating the folder the first time), sorted by name.
+#[tauri::command]
+pub async fn music_list(dir: String) -> Result<Vec<MusicFile>, String> {
+    let dir = PathBuf::from(dir);
+    tokio::fs::create_dir_all(&dir)
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut entries = tokio::fs::read_dir(&dir).await.map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    while let Some(entry) = entries.next_entry().await.map_err(|e| e.to_string())? {
+        let path = entry.path();
+        if !path.is_file() || !is_music(&path) {
+            continue;
+        }
+        let attribution = tokio::fs::read_to_string(path.with_extension("txt"))
+            .await
+            .ok()
+            .map(|t| t.trim().to_string())
+            .filter(|t| !t.is_empty());
+        out.push(MusicFile {
+            name: path
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default(),
+            path: path.to_string_lossy().into_owned(),
+            attribution,
+        });
+    }
+    out.sort_by_key(|a| a.name.to_lowercase());
+    Ok(out)
+}
+
+/// Reads one track as raw bytes (only audio files can be read this way).
+#[tauri::command]
+pub async fn music_read(path: String) -> Result<Response, String> {
+    let p = PathBuf::from(&path);
+    if !is_music(&p) {
+        return Err("only audio files can be read as music".into());
+    }
+    let bytes = tokio::fs::read(&p).await.map_err(|e| e.to_string())?;
+    Ok(Response::new(bytes))
 }

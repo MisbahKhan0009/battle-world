@@ -26,7 +26,9 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
   worlds (`GAME_THEMES` in `themes.ts`) and voices (`src/audio/*Cues.ts`; no sound is shared between games).
   Overlay type goes through `overlay.ts` (soft-shadow text, accent band banners, the winner name + verb lockup);
   no outlined text, no eyebrow labels, no emoji on screen.
-- `src/audio/` – synthesized sound effects only (no music, by design).
+- `src/audio/` – synthesized sound effects. Optional music: `state.music` (Settings) picks a track from the user's
+  Audio Library folder (`src/desktop/music.ts`, Rust `music_list`/`music_read`); `MusicMix` replaces the effects mixer
+  in `buildProduction` (music only, no effects); a sidecar `.txt` credit goes into the description.
 - `src/export/` – WebCodecs worker + mp4-muxer, with a timer-driven WebM fallback.
 - `src/autopilot/` – `planner.ts` (organic daily plan, deterministic per channel+day, weighted by `engagement.ts`
   audience-activity curves in the audience's time zone; each channel posts its own games (`Channel.games`, about 2

@@ -66,6 +66,7 @@ async function run(req: ExportRequest): Promise<void> {
     winnerImage: req.winnerImage,
     W,
     H,
+    music: req.music,
   });
   const total = production.total;
   const frames = Math.ceil(total * req.fps);

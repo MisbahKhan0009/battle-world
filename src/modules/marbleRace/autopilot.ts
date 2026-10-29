@@ -44,6 +44,7 @@ export async function renderMarbleRace(
       fps: job.format === 'short' ? 60 : 30,
       quality: 'high',
       audio: { enabled: true, sfxVolume: 0.85 },
+      music: job.music,
       onProgress: (p) => onProgress(Math.max(0.02, p.percent / 100)),
       onThumb: (b) => b.close(),
       signal,
