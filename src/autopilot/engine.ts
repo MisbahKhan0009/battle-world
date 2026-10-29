@@ -6,7 +6,15 @@
  * All side effects go through a Backend, so the logic is testable without Tauri.
  */
 import { dayKey, planDay, type PlannedSlot } from './planner';
-import type { AutopilotState, ContentFormat, ContentRecord, Slot, VideoMeta } from './types';
+import {
+  channelGames,
+  channelSchedule,
+  type AutopilotState,
+  type ContentFormat,
+  type ContentRecord,
+  type Slot,
+  type VideoMeta,
+} from './types';
 
 export type RenderResult = {
   bytes: Uint8Array;
@@ -148,13 +156,6 @@ export class Autopilot {
     await this.persist();
   }
 
-  private enabledModules(): string[] {
-    const ready = new Set(this.readyModules());
-    return Object.entries(this.state!.modules)
-      .filter(([id, on]) => on && ready.has(id))
-      .map(([id]) => id);
-  }
-
   /** Drops planned (not started) automatic slots and plans the coming week again. */
   replanFuture(): void {
     const st = this.state!;
@@ -166,26 +167,27 @@ export class Autopilot {
   private ensurePlans(): boolean {
     const st = this.state!;
     const now = this.backend.now();
-    const modules = this.enabledModules();
+    const ready = this.readyModules();
     let changed = false;
     for (const ch of st.channels) {
       if (!ch.enabled) continue;
+      // Each channel posts its own games, at its own pace and daily limit.
+      const modules = channelGames(ch, ready);
+      const schedule = channelSchedule(st.schedule, ch);
       const done = new Set(st.plannedDays[ch.id] ?? []);
       for (let offset = 0; offset < PLAN_DAYS; offset++) {
         const today = startOfDay(now);
         const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
         const key = dayKey(day);
         if (done.has(key)) continue;
-        let plan: PlannedSlot[] = planDay(ch.id, day, st.schedule, modules);
+        let plan: PlannedSlot[] = planDay(ch.id, day, schedule, modules);
         if (offset === 0) {
           // Planning mid-day: keep only future slots, within what is left of today's cap.
           const used = st.slots.filter(
             (s) =>
               s.channelId === ch.id && !s.manual && dayKey(new Date(s.at)) === key && s.status !== 'skipped',
           ).length;
-          plan = plan
-            .filter((p) => p.at > now + 2 * 60_000)
-            .slice(0, Math.max(0, st.schedule.dailyCap - used));
+          plan = plan.filter((p) => p.at > now + 2 * 60_000).slice(0, Math.max(0, schedule.dailyCap - used));
         }
         const existing = new Set(st.slots.map((s) => s.id));
         for (const p of plan) {
@@ -207,8 +209,11 @@ export class Autopilot {
   }
 
   /** Queues an immediate post (renders and uploads right away, outside the plan). */
-  async postNow(channelId: string, format: ContentFormat, moduleId = 'flag-battle'): Promise<void> {
+  async postNow(channelId: string, format: ContentFormat, moduleId?: string): Promise<void> {
     if (!this.state) return;
+    const ch = this.state.channels.find((c) => c.id === channelId);
+    // Default to one of the channel's own games.
+    moduleId ??= (ch ? channelGames(ch, this.readyModules())[0] : undefined) ?? this.readyModules()[0];
     const now = this.backend.now();
     this.state.slots.push({
       id: `${channelId}:now:${now}`,

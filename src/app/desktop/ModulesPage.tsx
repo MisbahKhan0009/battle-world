@@ -1,8 +1,7 @@
-import { ArrowUpRight, ChevronRight } from 'lucide-react';
+import { ArrowUpRight, Check, ChevronRight } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { Toggle } from '../../components/ui/controls';
 import { isDesktop } from '../../desktop/bridge';
-import { paceFor } from '../../autopilot/types';
+import { DEFAULT_PACE } from '../../autopilot/types';
 import { useAutopilot } from '../../desktop/runtime';
 import { cn } from '../../lib/utils';
 import { PLANS } from '../../modules/plans';
@@ -133,13 +132,13 @@ export function ModulesPage() {
   return (
     <DesktopLayout title="Modules">
       <p className="mb-6 max-w-[64ch] text-sm text-muted">
-        Each module is a game that renders complete videos on its own. The autopilot picks from the modules
-        you switch on, so your channel gets variety without any work.
+        Each module is a game that renders complete videos on its own. Every channel posts its own games (two
+        per channel works best); pick which channels a game posts on here or on the Channels page.
       </p>
       <div className="grid max-w-[1200px] items-start gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {MODULES.map((m) => {
           const ready = m.status === 'ready';
-          const enabled = !!state?.modules[m.id];
+          const onChannels = state?.channels.filter((c) => m.id in (c.games ?? {})) ?? [];
           return (
             <article key={m.id} className={cn('panel flex flex-col overflow-hidden', !ready && 'opacity-80')}>
               <div className="relative aspect-[16/9]">
@@ -194,21 +193,56 @@ export function ModulesPage() {
                 )}
                 {ready && (
                   <div className="mt-4 space-y-3 border-t border-line pt-4">
-                    {desktop && ap && state && (
-                      <Toggle
-                        label="Use in autopilot"
-                        checked={enabled}
-                        onChange={(on) =>
-                          void ap.update({ modules: { ...state.modules, [m.id]: on } }, { replan: true })
-                        }
-                      />
-                    )}
-                    {desktop && ap && state && enabled && (
-                      <p className="text-xs text-muted">
-                        {paceFor(state.schedule, m.id).shortsPerDay} Shorts a day,{' '}
-                        {paceFor(state.schedule, m.id).videosPerWeek} long videos a week. Change it on the
-                        Autopilot page.
-                      </p>
+                    {desktop && ap && state && state.channels.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-[13px] font-medium">Posts on</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {state.channels.map((c) => {
+                            const on = m.id in (c.games ?? {});
+                            return (
+                              <button
+                                key={c.id}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => {
+                                  const games = { ...(c.games ?? {}) };
+                                  if (on) delete games[m.id];
+                                  else
+                                    games[m.id] = {
+                                      ...(DEFAULT_PACE[m.id] ?? { shortsPerDay: 2, videosPerWeek: 2 }),
+                                    };
+                                  void ap.update(
+                                    {
+                                      channels: state.channels.map((x) =>
+                                        x.id === c.id ? { ...c, games } : x,
+                                      ),
+                                    },
+                                    { replan: true },
+                                  );
+                                }}
+                                className={cn(
+                                  'flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs ring-1 transition-colors',
+                                  on ? 'bg-surface-3 text-text' : 'text-muted ring-line hover:text-text',
+                                )}
+                                style={on ? { boxShadow: `inset 0 0 0 1.5px ${m.accent}` } : undefined}
+                              >
+                                {on && <Check size={12} />}
+                                {c.title}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-xs text-muted">
+                          {onChannels.length
+                            ? onChannels
+                                .map(
+                                  (c) =>
+                                    `${c.title}: ${c.games[m.id].shortsPerDay} Shorts a day, ${c.games[m.id].videosPerWeek} long videos a week`,
+                                )
+                                .join('. ') + '. Change the pace on the Autopilot page.'
+                            : 'Not on any channel yet. Pick a channel above.'}
+                        </p>
+                      </div>
                     )}
                     {m.studioRoute && (
                       <Button variant="secondary" onClick={() => navigate(m.studioRoute!)}>

@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { dayKey, parseDayKey, planDay, type PlannedSlot } from '../../autopilot/planner';
-import type { AutopilotState, Slot } from '../../autopilot/types';
+import { channelGames, channelSchedule, type AutopilotState, type Slot } from '../../autopilot/types';
 import { Button } from '../../components/ui/Button';
 import { isDesktop } from '../../desktop/bridge';
 import { useAutopilot } from '../../desktop/runtime';
@@ -20,19 +20,18 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 function previews(state: AutopilotState, from: Date, to: Date): Entry[] {
   const out: Entry[] = [];
   if (state.running) {
-    const ready = new Set(readyModuleIds());
-    const modules = Object.entries(state.modules)
-      .filter(([id, on]) => on && ready.has(id))
-      .map(([id]) => id);
+    const ready = readyModuleIds();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     for (const ch of state.channels) {
       if (!ch.enabled) continue;
       const planned = new Set(state.plannedDays[ch.id] ?? []);
+      const modules = channelGames(ch, ready);
+      const schedule = channelSchedule(state.schedule, ch);
       for (let d = new Date(Math.max(from.getTime(), today.getTime())); d < to; d.setDate(d.getDate() + 1)) {
         const key = dayKey(d);
         if (planned.has(key)) continue;
-        for (const p of planDay(ch.id, new Date(d), state.schedule, modules))
+        for (const p of planDay(ch.id, new Date(d), schedule, modules))
           out.push({ kind: 'preview', slot: p });
       }
     }
@@ -80,7 +79,17 @@ function GameMark({ moduleId, format }: { moduleId: string; format: Slot['format
   );
 }
 
-function EntryButton({ e, onOpen, compact }: { e: Entry; onOpen: (e: Entry) => void; compact?: boolean }) {
+function EntryButton({
+  e,
+  onOpen,
+  compact,
+  channel,
+}: {
+  e: Entry;
+  onOpen: (e: Entry) => void;
+  compact?: boolean;
+  channel?: string;
+}) {
   const s = e.slot;
   return (
     <button
@@ -105,6 +114,7 @@ function EntryButton({ e, onOpen, compact }: { e: Entry; onOpen: (e: Entry) => v
       )}
       {!compact && (
         <span className="min-w-0 flex-1 truncate text-muted">
+          {channel && <span className="text-text">{channel} · </span>}
           {e.kind === 'preview'
             ? 'In the plan'
             : (e.slot.title ??
@@ -133,6 +143,7 @@ export function CalendarPage() {
   const [selected, setSelected] = useState(() => dayKey(new Date()));
   const [open, setOpen] = useState<Entry | null>(null);
   const [game, setGame] = useState<string>('all');
+  const [channelId, setChannelId] = useState<string>('all');
 
   // Grid: whole weeks (Monday first) covering the month.
   const gridStart = useMemo(() => {
@@ -159,18 +170,24 @@ export function CalendarPage() {
         state.running,
         state.schedule,
         state.plannedDays,
-        state.modules,
-        state.channels.map((c) => [c.id, c.enabled]),
+        state.channels.map((c) => [c.id, c.enabled, c.games, c.dailyCap]),
       ])
     : '';
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const extra = useMemo(() => (state ? previews(state, days[0], end) : []), [previewKey, days, end]);
   const byDayAll = state ? groupByDay(state, extra, days[0], end) : new Map<string, Entry[]>();
+  const shown = (e: Entry) =>
+    (game === 'all' || e.slot.moduleId === game) && (channelId === 'all' || e.slot.channelId === channelId);
   const byDay =
-    game === 'all'
+    game === 'all' && channelId === 'all'
       ? byDayAll
-      : new Map([...byDayAll].map(([k, list]) => [k, list.filter((e) => e.slot.moduleId === game)]));
-  const games = MODULES.filter((m) => m.status === 'ready');
+      : new Map([...byDayAll].map(([k, list]) => [k, list.filter(shown)]));
+  const filterChannel = state?.channels.find((c) => c.id === channelId);
+  const games = MODULES.filter(
+    (m) => m.status === 'ready' && (!filterChannel || m.id in (filterChannel.games ?? {})),
+  );
+  const channelName = (id: string) =>
+    (state?.channels.length ?? 0) > 1 ? state?.channels.find((c) => c.id === id)?.title : undefined;
 
   if (!isDesktop()) {
     return (
@@ -248,8 +265,29 @@ export function CalendarPage() {
             <span>
               <span className="text-text tabular">{upcoming}</span> coming up
             </span>
+            {state.channels.length > 1 && (
+              <select
+                aria-label="Show channel"
+                value={channelId}
+                onChange={(ev) => {
+                  setChannelId(ev.target.value);
+                  setGame('all');
+                }}
+                className="ml-auto h-8 rounded-lg border border-line-strong bg-bg px-2 text-xs text-text"
+              >
+                <option value="all">All channels</option>
+                {state.channels.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            )}
             <div
-              className="ml-auto flex items-center gap-1 rounded-lg bg-surface-2/60 p-0.5 ring-1 ring-line"
+              className={cn(
+                'flex items-center gap-1 rounded-lg bg-surface-2/60 p-0.5 ring-1 ring-line',
+                state.channels.length <= 1 && 'ml-auto',
+              )}
               role="group"
               aria-label="Show games"
             >
@@ -358,7 +396,7 @@ export function CalendarPage() {
           ) : (
             <div className="space-y-1.5">
               {dayEntries.map((e) => (
-                <EntryButton key={e.slot.id} e={e} onOpen={setOpen} />
+                <EntryButton key={e.slot.id} e={e} onOpen={setOpen} channel={channelName(e.slot.channelId)} />
               ))}
             </div>
           )}

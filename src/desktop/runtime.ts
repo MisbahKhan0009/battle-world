@@ -30,10 +30,29 @@ function mergeState(raw: string | null, outputDir: string): AutopilotState {
       if (shortsPerDay !== undefined && !(shortsPerDay === 5 && videosPerWeek === 4))
         perModule['flag-battle'] = { shortsPerDay, videosPerWeek: videosPerWeek ?? 2 };
     }
+    // Before games belonged to channels, every channel posted every switched-on game. Give each
+    // existing channel those games with the paces and limit it had.
+    const legacyModules: Record<string, boolean> = { 'flag-battle': true, 'marble-race': true, ...p.modules };
+    const needGames = (p.channels ?? []).some((c) => !c.games);
+    const channels = (p.channels ?? []).map((c) =>
+      c.games
+        ? c
+        : {
+            ...c,
+            games: Object.fromEntries(
+              ['flag-battle', 'marble-race']
+                .filter((id) => legacyModules[id])
+                .map((id) => [id, perModule![id] ?? DEFAULT_PACE[id]]),
+            ),
+            dailyCap: old?.dailyCap ?? base.schedule.dailyCap,
+          },
+    );
+    const replan = migrate || needGames;
     return {
       ...base,
       ...p,
-      ...(migrate
+      channels,
+      ...(replan
         ? { slots: (p.slots ?? []).filter((s) => s.status !== 'planned' || s.manual), plannedDays: {} }
         : {}),
       schedule: { ...base.schedule, ...restSchedule, perModule },

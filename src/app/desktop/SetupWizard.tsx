@@ -17,12 +17,18 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { AUDIENCE_ZONES } from '../../autopilot/engagement';
-import type { AutopilotState, PostSettings } from '../../autopilot/types';
-import { DEFAULT_SCHEDULE, paceFor, splitPace } from '../../autopilot/types';
-import { MODULES } from '../../modules/registry';
+import type { AutopilotState, Channel, PostSettings } from '../../autopilot/types';
+import {
+  channelGames,
+  connectedChannel,
+  DEFAULT_SCHEDULE,
+  PROJECT_UPLOADS_PER_DAY,
+  splitPace,
+} from '../../autopilot/types';
 import { Button } from '../../components/ui/Button';
 import { inputClass, Toggle } from '../../components/ui/controls';
 import { desktop, isDesktop } from '../../desktop/bridge';
+import { readyModuleIds } from '../../modules/registry';
 import { pickClientSecretFile } from '../../desktop/clientSecret';
 import { useAutopilot } from '../../desktop/runtime';
 import { cn } from '../../lib/utils';
@@ -363,7 +369,7 @@ function ConnectBody({ state, update }: StepCtx) {
       const info = await desktop.connectChannel(state.google.clientId, state.google.clientSecret);
       const others = state.channels.filter((c) => c.id !== info.id);
       await update(
-        { channels: [...others, { ...info, connectedAt: Date.now(), enabled: true }] },
+        { channels: [...others, connectedChannel(info, state.channels, readyModuleIds())] },
         { replan: true },
       );
       toast.success(`Connected ${info.title}`);
@@ -504,18 +510,16 @@ const PACES: { id: string; name: string; desc: string; shorts: number; videos: n
   },
 ];
 
-const activeGames = (state: AutopilotState) =>
-  MODULES.filter((m) => m.status === 'ready' && state.modules[m.id]).map((m) => m.id);
+/** A preset's pace split across one channel's games. */
+const presetFor = (ch: Channel, p: (typeof PACES)[number]) =>
+  splitPace(p.shorts, p.videos, channelGames(ch, readyModuleIds()));
 
 function PaceBody({ state, update }: StepCtx) {
-  const games = activeGames(state);
-  const current = PACES.find((p) => {
-    const split = splitPace(p.shorts, p.videos, games);
-    return games.every((g) => {
-      const pace = paceFor(state.schedule, g);
-      return pace.shortsPerDay === split[g].shortsPerDay && pace.videosPerWeek === split[g].videosPerWeek;
-    });
-  })?.id;
+  const current = PACES.find(
+    (p) =>
+      state.channels.length > 0 &&
+      state.channels.every((ch) => JSON.stringify(presetFor(ch, p)) === JSON.stringify(ch.games ?? {})),
+  )?.id;
   const setPrivacy = (privacy: PostSettings['privacy']) => void update({ post: { ...state.post, privacy } });
   return (
     <div className="space-y-6">
@@ -529,12 +533,12 @@ function PaceBody({ state, update }: StepCtx) {
             onClick={() =>
               void update(
                 {
-                  schedule: {
-                    ...DEFAULT_SCHEDULE,
-                    ...state.schedule,
-                    dailyCap: 6,
-                    perModule: { ...state.schedule.perModule, ...splitPace(p.shorts, p.videos, games) },
-                  },
+                  schedule: { ...DEFAULT_SCHEDULE, ...state.schedule },
+                  channels: state.channels.map((ch) => ({
+                    ...ch,
+                    games: presetFor(ch, p),
+                    dailyCap: PROJECT_UPLOADS_PER_DAY,
+                  })),
                 },
                 { replan: true },
               )

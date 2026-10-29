@@ -8,7 +8,16 @@ import {
   type Backend,
 } from './engine';
 import { dayKey, planDay, videosOnDay } from './planner';
-import { DEFAULT_SCHEDULE, defaultState, paceFor, type AutopilotState, type ScheduleSettings } from './types';
+import {
+  connectedChannel,
+  DEFAULT_SCHEDULE,
+  defaultState,
+  gamesForNewChannel,
+  paceFor,
+  type AutopilotState,
+  type Channel,
+  type ScheduleSettings,
+} from './types';
 
 const DAY = new Date(2026, 9, 29); // a Thursday
 
@@ -184,7 +193,17 @@ describe('planner', () => {
 function fakeBackend(start: number) {
   let now = start;
   let stored: AutopilotState = { ...defaultState('/out'), running: true };
-  stored.channels = [{ id: 'UC1', title: 'Me', thumbnail: '', connectedAt: start, enabled: true }];
+  stored.channels = [
+    {
+      id: 'UC1',
+      title: 'Me',
+      thumbnail: '',
+      connectedAt: start,
+      enabled: true,
+      games: { 'flag-battle': { shortsPerDay: 3, videosPerWeek: 2 } },
+      dailyCap: 6,
+    },
+  ];
   const uploads: { publishAt?: string; privacy: string }[] = [];
   const thumbs: string[] = [];
   const failNext: string[] = [];
@@ -274,6 +293,40 @@ describe('engine', () => {
     expect(ap.snapshot!.slots.some((s) => dayKey(new Date(s.at)) === '2026-11-05')).toBe(true);
   });
 
+  test('each channel posts only its own games', async () => {
+    const env = fakeBackend(new Date(2026, 9, 29, 6, 0).getTime());
+    const ap = new Autopilot(env.backend, () => ['flag-battle', 'marble-race', 'ring-escape']);
+    await ap.init();
+    const [first] = ap.snapshot!.channels;
+    await ap.update(
+      {
+        channels: [
+          {
+            ...first,
+            games: {
+              'flag-battle': { shortsPerDay: 2, videosPerWeek: 1 },
+              'marble-race': { shortsPerDay: 2, videosPerWeek: 1 },
+            },
+          },
+          {
+            ...first,
+            id: 'UC2',
+            title: 'Second',
+            games: { 'ring-escape': { shortsPerDay: 3, videosPerWeek: 2 } },
+          },
+        ],
+      },
+      { replan: true },
+    );
+    const slots = ap.snapshot!.slots;
+    expect(new Set(slots.filter((s) => s.channelId === 'UC1').map((s) => s.moduleId))).toEqual(
+      new Set(['flag-battle', 'marble-race']),
+    );
+    expect(new Set(slots.filter((s) => s.channelId === 'UC2').map((s) => s.moduleId))).toEqual(
+      new Set(['ring-escape']),
+    );
+  });
+
   test('scheduled publishing renders hours ahead so the PC can be off at post time', async () => {
     const env = fakeBackend(new Date(2026, 9, 29, 6, 0).getTime());
     const ap = new Autopilot(env.backend, () => ['flag-battle']);
@@ -352,15 +405,43 @@ describe('engine', () => {
     await ap.tick();
     await ap.update(
       {
-        schedule: {
-          ...ap.snapshot!.schedule,
-          perModule: { 'flag-battle': { shortsPerDay: 1, videosPerWeek: 0 } },
-          varyDaily: false,
-        },
+        schedule: { ...ap.snapshot!.schedule, varyDaily: false },
+        channels: ap.snapshot!.channels.map((c) => ({
+          ...c,
+          games: { 'flag-battle': { shortsPerDay: 1, videosPerWeek: 0 } },
+        })),
       },
       { replan: true },
     );
     const today = ap.snapshot!.slots.filter((s) => dayKey(new Date(s.at)) === '2026-10-29');
     expect(today.length).toBe(1);
+  });
+});
+
+describe('channels', () => {
+  const ready = ['flag-battle', 'marble-race', 'ring-escape'];
+  const info = (id: string) => ({ id, title: id, thumbnail: '' });
+
+  test('each new channel gets its own two games', () => {
+    const first = connectedChannel(info('UC1'), [], ready);
+    expect(Object.keys(first.games)).toEqual(['flag-battle', 'marble-race']);
+    const second = connectedChannel(info('UC2'), [first], ready);
+    expect(Object.keys(second.games)).toEqual(['ring-escape']);
+    // Once every game is taken, a new channel starts empty instead of copying another channel.
+    expect(gamesForNewChannel([first, second], ready)).toEqual({});
+  });
+
+  test("reconnecting keeps a channel's games and limit", () => {
+    const before: Channel = {
+      ...connectedChannel(info('UC1'), [], ready),
+      games: { 'ring-escape': { shortsPerDay: 4, videosPerWeek: 1 } },
+      dailyCap: 3,
+      enabled: false,
+    };
+    const again = connectedChannel({ ...info('UC1'), title: 'Renamed' }, [before], ready);
+    expect(again.games).toEqual(before.games);
+    expect(again.dailyCap).toBe(3);
+    expect(again.enabled).toBe(false);
+    expect(again.title).toBe('Renamed');
   });
 });

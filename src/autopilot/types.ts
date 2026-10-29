@@ -99,7 +99,61 @@ export type Channel = {
   subscribers?: number;
   connectedAt: number;
   enabled: boolean;
+  /** Games this channel posts (module id -> pace). Two per channel works best. */
+  games: Record<string, ModulePace>;
+  /** Uploads a day on this channel. All channels on the same Google keys share one API quota. */
+  dailyCap: number;
 };
+
+/** Recommended number of games per channel. */
+export const GAMES_PER_CHANNEL = 2;
+
+/** Upload quota of one Google Cloud project (10,000 units, about 1,600 per upload). */
+export const PROJECT_UPLOADS_PER_DAY = 6;
+
+/** Games on a channel that can post (ready modules only), in a stable order. */
+export function channelGames(ch: Pick<Channel, 'games'>, ready: string[]): string[] {
+  return ready.filter((id) => ch.games && id in ch.games);
+}
+
+/** The schedule as seen by one channel: shared timing settings with its own games and limit. */
+export function channelSchedule(
+  base: ScheduleSettings,
+  ch: Pick<Channel, 'games' | 'dailyCap'>,
+): ScheduleSettings {
+  return { ...base, perModule: ch.games ?? {}, dailyCap: ch.dailyCap ?? base.dailyCap };
+}
+
+/** A freshly connected channel (or a reconnected one, keeping its games and settings). */
+export function connectedChannel(
+  info: Pick<Channel, 'id' | 'title' | 'thumbnail' | 'subscribers'>,
+  existing: Channel[],
+  ready: string[],
+): Channel {
+  const prev = existing.find((c) => c.id === info.id);
+  const others = existing.filter((c) => c.id !== info.id);
+  return {
+    games: gamesForNewChannel(others, ready),
+    dailyCap: PROJECT_UPLOADS_PER_DAY,
+    enabled: true,
+    ...prev,
+    ...info,
+    connectedAt: Date.now(),
+  };
+}
+
+/**
+ * Games for a newly connected channel: the first channel gets the first two games; later
+ * channels get ready games no other channel uses yet (so each channel has its own games).
+ */
+export function gamesForNewChannel(existing: Channel[], ready: string[]): Record<string, ModulePace> {
+  const taken = new Set(existing.flatMap((c) => Object.keys(c.games ?? {})));
+  const free = ready.filter((id) => !taken.has(id));
+  const pick = (existing.length ? free : ready).slice(0, GAMES_PER_CHANNEL);
+  return Object.fromEntries(
+    pick.map((id) => [id, { ...(DEFAULT_PACE[id] ?? { shortsPerDay: 2, videosPerWeek: 2 }) }]),
+  );
+}
 
 export type AutopilotState = {
   version: 1;

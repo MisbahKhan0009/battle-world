@@ -6,8 +6,9 @@ import { AUDIENCE_ZONES } from '../../autopilot/engagement';
 import type { Autopilot } from '../../autopilot/engine';
 import { dayKey, parseDayKey } from '../../autopilot/planner';
 import {
-  paceFor,
+  PROJECT_UPLOADS_PER_DAY,
   type AutopilotState,
+  type Channel,
   type ContentFormat,
   type ModulePace,
   type PostSettings,
@@ -262,12 +263,13 @@ function History({ state, onOpen }: { state: AutopilotState; onOpen: OpenPost })
 }
 
 /** Posts in the next 7 days by game and format ("flag-battle:short" → count), from the live plan. */
-function upcomingWeek(state: AutopilotState): Record<string, number> {
+function upcomingWeek(state: AutopilotState, channelId?: string): Record<string, number> {
   const now = Date.now();
   const out: Record<string, number> = {};
   for (const s of state.slots) {
     if (s.at < now || s.at > now + 7 * 86_400_000 || s.status === 'skipped' || s.status === 'failed')
       continue;
+    if (channelId && s.channelId !== channelId) continue;
     out[`${s.moduleId}:${s.format}`] = (out[`${s.moduleId}:${s.format}`] ?? 0) + 1;
   }
   return out;
@@ -308,24 +310,47 @@ function ReplanBar({
   );
 }
 
+type ChannelDraft = Record<string, Pick<Channel, 'games' | 'dailyCap'>>;
+
+const channelDraftOf = (channels: Channel[]): ChannelDraft =>
+  Object.fromEntries(channels.map((c) => [c.id, { games: c.games ?? {}, dailyCap: c.dailyCap }]));
+
 function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
   const [draft, setDraft] = useState<ScheduleSettings>(state.schedule);
+  const [chDraft, setChDraft] = useState<ChannelDraft>(() => channelDraftOf(state.channels));
   const [post, setPost] = useState<PostSettings>(state.post);
   const [busy, setBusy] = useState(false);
-  // Edits stay a draft until "Replan the week"; follow the saved schedule when it changes elsewhere.
+  const [sel, setSel] = useState(state.channels[0]?.id ?? '');
+  // Edits stay a draft until "Replan the week"; follow the saved settings when they change elsewhere.
   const applied = JSON.stringify(state.schedule);
+  const appliedCh = JSON.stringify(channelDraftOf(state.channels));
   useEffect(() => setDraft(JSON.parse(applied) as ScheduleSettings), [applied]);
-  const dirty = JSON.stringify(draft) !== applied;
+  useEffect(() => setChDraft(JSON.parse(appliedCh) as ChannelDraft), [appliedCh]);
+  const dirty = JSON.stringify(draft) !== applied || JSON.stringify(chDraft) !== appliedCh;
   const apply = (s: ScheduleSettings) => setDraft(s);
+  const reset = () => {
+    setDraft(state.schedule);
+    setChDraft(channelDraftOf(state.channels));
+  };
   const replan = async () => {
     setBusy(true);
     try {
-      await ap.update({ schedule: draft }, { replan: true });
-      const week = upcomingWeek(ap.snapshot!);
+      await ap.update(
+        {
+          schedule: draft,
+          channels: state.channels.map((c) => ({ ...c, ...(chDraft[c.id] ?? {}) })),
+        },
+        { replan: true },
+      );
+      const snap = ap.snapshot!;
       toast.success('Week re-planned', {
-        description: games
-          .filter((m) => ap.snapshot!.modules[m.id])
-          .map((m) => `${m.name}: ${week[`${m.id}:short`] ?? 0} Shorts, ${week[`${m.id}:video`] ?? 0} videos`)
+        description: snap.channels
+          .filter((c) => c.enabled)
+          .map((c) => {
+            const week = upcomingWeek(snap, c.id);
+            const n = Object.values(week).reduce((a, b) => a + b, 0);
+            return `${c.title}: ${n} posts`;
+          })
           .join(' · '),
       });
     } finally {
@@ -336,96 +361,146 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
     setPost(p);
     void ap.update({ post: p });
   };
-  const games = MODULES.filter((m) => m.status === 'ready');
-  const active = games.filter((m) => state.modules[m.id]);
-  const totals = active.reduce(
+  const ready = MODULES.filter((m) => m.status === 'ready');
+  const channel = state.channels.find((c) => c.id === sel) ?? state.channels[0];
+  const cd = channel ? (chDraft[channel.id] ?? { games: {}, dailyCap: 6 }) : null;
+  const games = cd ? ready.filter((m) => m.id in cd.games) : [];
+  const totals = games.reduce(
     (acc, m) => {
-      const p = paceFor(draft, m.id);
+      const p = cd!.games[m.id];
       return { shorts: acc.shorts + p.shortsPerDay, videos: acc.videos + p.videosPerWeek };
     },
     { shorts: 0, videos: 0 },
   );
   const perDayAvg = totals.shorts + totals.videos / 7;
-  const overCap = perDayAvg > draft.dailyCap;
-  const week = upcomingWeek(state);
-  const quotaUnits = Math.round(
-    Math.min(draft.dailyCap, Math.ceil(perDayAvg + (draft.varyDaily ? 1 : 0))) * 1600,
-  );
+  const overCap = !!cd && perDayAvg > cd.dailyCap;
+  const week = channel ? upcomingWeek(state, channel.id) : {};
+  // The Google quota is shared by every channel on the same keys.
+  const projectPerDay = state.channels
+    .filter((c) => c.enabled)
+    .reduce((sum, c) => {
+      const d = chDraft[c.id];
+      if (!d) return sum;
+      const asked = Object.values(d.games).reduce((a, p) => a + p.shortsPerDay + p.videosPerWeek / 7, 0);
+      return sum + Math.min(d.dailyCap, asked);
+    }, 0);
+  const setCh = (patch: Partial<Pick<Channel, 'games' | 'dailyCap'>>) =>
+    channel && setChDraft({ ...chDraft, [channel.id]: { ...cd!, ...patch } });
   const setPace = (id: string, patch: Partial<ModulePace>) =>
-    apply({ ...draft, perModule: { ...draft.perModule, [id]: { ...paceFor(draft, id), ...patch } } });
+    setCh({ games: { ...cd!.games, [id]: { ...cd!.games[id], ...patch } } });
 
   return (
     <Card
       title="Schedule"
-      note="Defaults post as often as YouTube's API quota allows while still looking natural."
+      note="Every channel posts its own games. Defaults post as often as YouTube's API quota allows while still looking natural."
     >
       <div className="space-y-6">
-        <ReplanBar
-          dirty={dirty}
-          busy={busy}
-          onReplan={() => void replan()}
-          onReset={() => setDraft(state.schedule)}
-        />
-        <div className="space-y-3">
-          <div className="text-[13px] font-medium">Each game's schedule</div>
-          {games.map((m) => {
-            const on = !!state.modules[m.id];
-            const pace = paceFor(draft, m.id);
-            return (
-              <div
-                key={m.id}
-                className="space-y-4 rounded-xl bg-surface-2/50 p-4 ring-1 ring-line"
-                style={{ boxShadow: `inset 3px 0 0 ${m.accent}` }}
+        <ReplanBar dirty={dirty} busy={busy} onReplan={() => void replan()} onReset={reset} />
+        {!channel ? (
+          <p className="text-sm text-muted">Connect a channel to set its schedule.</p>
+        ) : (
+          <div className="space-y-3">
+            {state.channels.length > 1 && (
+              <label className="block space-y-2 text-[13px] font-medium">
+                <span>Channel</span>
+                <select
+                  value={channel.id}
+                  onChange={(e) => setSel(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-line-strong bg-bg px-3 text-sm"
+                >
+                  {state.channels.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                      {c.enabled ? '' : ' (paused)'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-[13px] font-medium">Games on {channel.title}</span>
+              <button
+                type="button"
+                className="text-xs text-muted underline-offset-2 hover:text-text hover:underline"
+                onClick={() => navigate('channels')}
               >
-                <Toggle
-                  label={m.name}
-                  description={on ? undefined : 'Not posting. Switch on to give this game its own slots.'}
-                  checked={on}
-                  onChange={(v) =>
-                    void ap.update({ modules: { ...state.modules, [m.id]: v } }, { replan: true })
-                  }
-                />
-                {on && (
-                  <>
-                    <Stepper
-                      label="Shorts"
-                      value={pace.shortsPerDay}
-                      min={0}
-                      max={10}
-                      unit="a day"
-                      onChange={(v) => setPace(m.id, { shortsPerDay: v })}
-                    />
-                    <Stepper
-                      label="Long videos"
-                      value={pace.videosPerWeek}
-                      min={0}
-                      max={14}
-                      unit="a week"
-                      onChange={(v) => setPace(m.id, { videosPerWeek: v })}
-                    />
-                    <p className="text-xs text-muted">
-                      Planned for the next 7 days:{' '}
-                      <span className="text-text tabular">{week[`${m.id}:short`] ?? 0}</span> Shorts,{' '}
-                      <span className="text-text tabular">{week[`${m.id}:video`] ?? 0}</span> long videos
-                    </p>
-                  </>
-                )}
-              </div>
-            );
-          })}
-          <p className="text-xs text-muted">
-            Together: {totals.shorts} Shorts a day and {totals.videos} long videos a week (about{' '}
-            {perDayAvg.toFixed(1)} posts a day). All games share one timeline, so their posts never overlap,
-            keep the minimum gap, and alternate between games.
-          </p>
-          {overCap && (
-            <p className="rounded-xl bg-hp-mid/10 p-3 text-xs text-hp-mid ring-1 ring-hp-mid/30">
-              That is more than your daily upload limit of {draft.dailyCap}. Each day keeps {draft.dailyCap}{' '}
-              posts, trimmed fairly from the busiest game, so raising a game above this changes nothing. Lower
-              another game, or raise the limit below (above 6 needs extra YouTube API quota from Google).
+                Change games
+              </button>
+            </div>
+            {games.length === 0 && (
+              <p className="rounded-xl bg-surface-2/50 p-4 text-sm text-muted ring-1 ring-line">
+                No games on this channel yet. Pick them on the Channels page.
+              </p>
+            )}
+            {games.map((m) => {
+              const pace = cd!.games[m.id];
+              return (
+                <div
+                  key={m.id}
+                  className="space-y-4 rounded-xl bg-surface-2/50 p-4 ring-1 ring-line"
+                  style={{ boxShadow: `inset 3px 0 0 ${m.accent}` }}
+                >
+                  <div className="text-[13px] font-medium" style={{ color: m.accent }}>
+                    {m.name}
+                  </div>
+                  <Stepper
+                    label="Shorts"
+                    value={pace.shortsPerDay}
+                    min={0}
+                    max={10}
+                    unit="a day"
+                    onChange={(v) => setPace(m.id, { shortsPerDay: v })}
+                  />
+                  <Stepper
+                    label="Long videos"
+                    value={pace.videosPerWeek}
+                    min={0}
+                    max={14}
+                    unit="a week"
+                    onChange={(v) => setPace(m.id, { videosPerWeek: v })}
+                  />
+                  <p className="text-xs text-muted">
+                    Planned for the next 7 days:{' '}
+                    <span className="text-text tabular">{week[`${m.id}:short`] ?? 0}</span> Shorts,{' '}
+                    <span className="text-text tabular">{week[`${m.id}:video`] ?? 0}</span> long videos
+                  </p>
+                </div>
+              );
+            })}
+            <Stepper
+              label="Daily upload limit"
+              hint="for this channel"
+              value={cd!.dailyCap}
+              min={1}
+              max={20}
+              unit="a day"
+              onChange={(dailyCap) => setCh({ dailyCap })}
+            />
+            <p className="text-xs text-muted">
+              Together: {totals.shorts} Shorts a day and {totals.videos} long videos a week on this channel
+              (about {perDayAvg.toFixed(1)} posts a day). Its games share one timeline, so posts never
+              overlap, keep the minimum gap, and alternate between games.
             </p>
-          )}
-        </div>
+            {overCap && (
+              <p className="rounded-xl bg-hp-mid/10 p-3 text-xs text-hp-mid ring-1 ring-hp-mid/30">
+                That is more than this channel&apos;s daily upload limit of {cd!.dailyCap}. Each day keeps{' '}
+                {cd!.dailyCap} posts, trimmed fairly from the busiest game, so raising a game above this
+                changes nothing. Lower another game, or raise the limit.
+              </p>
+            )}
+            <p
+              className={cn(
+                'text-xs',
+                projectPerDay > PROJECT_UPLOADS_PER_DAY + 0.01 ? 'text-hp-mid' : 'text-muted',
+              )}
+            >
+              All channels together: about {projectPerDay.toFixed(1)} uploads a day. Your Google project
+              allows about {PROJECT_UPLOADS_PER_DAY} a day (10,000 API units, about 1,600 per upload); above
+              that, uploads wait for the daily reset. Ask Google for more quota to go higher.
+            </p>
+          </div>
+        )}
+        <div className="text-[13px] font-medium">Timing (all channels)</div>
         <div className="grid grid-cols-2 gap-3">
           <label className="space-y-2 text-[13px] font-medium">
             <span>Post from</span>
@@ -489,27 +564,7 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
           checked={draft.varyDaily}
           onChange={(v) => apply({ ...draft, varyDaily: v })}
         />
-        <div className="space-y-2">
-          <Stepper
-            label="Daily upload limit"
-            value={draft.dailyCap}
-            min={1}
-            max={20}
-            unit="a day"
-            onChange={(v) => apply({ ...draft, dailyCap: v })}
-          />
-          <p className={cn('text-xs', quotaUnits > 10_000 ? 'text-hp-mid' : 'text-muted')}>
-            About {quotaUnits.toLocaleString()} of the default 10,000 daily API units. Each upload costs about
-            1,600, so the default quota fits about 6 uploads a day. Ask Google for more quota to go higher.
-          </p>
-        </div>
-
-        <ReplanBar
-          dirty={dirty}
-          busy={busy}
-          onReplan={() => void replan()}
-          onReset={() => setDraft(state.schedule)}
-        />
+        <ReplanBar dirty={dirty} busy={busy} onReplan={() => void replan()} onReset={reset} />
 
         <div className="space-y-3 border-t border-line pt-5">
           <Segmented<PostSettings['privacy']>
@@ -545,9 +600,13 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
 function PostNow({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
   const [channelId, setChannelId] = useState(state.channels[0]?.id ?? '');
   const [format, setFormat] = useState<ContentFormat>('short');
+  const [game, setGame] = useState('');
   useEffect(() => {
     if (!channelId && state.channels[0]) setChannelId(state.channels[0].id);
   }, [channelId, state.channels]);
+  const ch = state.channels.find((c) => c.id === channelId);
+  const games = ch ? MODULES.filter((m) => m.status === 'ready' && m.id in (ch.games ?? {})) : [];
+  const gameId = games.some((m) => m.id === game) ? game : games[0]?.id;
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
@@ -587,13 +646,30 @@ function PostNow({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
               </select>
             </label>
           )}
+          {games.length > 1 && (
+            <label className="block space-y-2 text-[13px] font-medium">
+              <span>Game</span>
+              <select
+                value={gameId}
+                onChange={(e) => setGame(e.target.value)}
+                className="h-10 w-full rounded-xl border border-line-strong bg-bg px-3 text-sm"
+              >
+                {games.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <Popover.Close asChild>
             <Button
               variant="primary"
               className="w-full justify-center"
+              disabled={!gameId}
               onClick={() => {
                 toast('Rendering your post. It uploads as soon as it is ready.');
-                void ap.postNow(channelId, format);
+                void ap.postNow(channelId, format, gameId);
               }}
             >
               Render and post

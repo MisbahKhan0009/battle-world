@@ -48,7 +48,10 @@ export const desktop = {
   deleteFile: (path: string) => invoke<void>('delete_file', { path }),
 
   connectChannel: (clientId: string, clientSecret: string) =>
-    invoke<Omit<Channel, 'connectedAt' | 'enabled'>>('oauth_connect', { clientId, clientSecret }),
+    invoke<Pick<Channel, 'id' | 'title' | 'thumbnail' | 'subscribers'>>('oauth_connect', {
+      clientId,
+      clientSecret,
+    }),
   disconnectChannel: (channelId: string) => invoke<void>('oauth_disconnect', { channelId }),
   upload: (req: UploadRequest) => invoke<{ videoId: string }>('youtube_upload', { req }),
   /** Read-only YouTube Data API call (channels, playlistItems, videos); returns the JSON text. */
