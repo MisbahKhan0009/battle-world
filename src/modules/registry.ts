@@ -23,7 +23,7 @@ export type ContentModule = {
   /** Brand color for the module card. */
   accent: string;
   /** Route of the module's sample page, if it has one. */
-  previewRoute?: 'battle' | 'race' | 'rings' | 'grow' | 'paper';
+  previewRoute?: 'battle' | 'race' | 'rings' | 'grow' | 'paper' | 'territory';
   render?: (job: RenderJob, onProgress: (p: number) => void, signal: AbortSignal) => Promise<RenderResult>;
 };
 
@@ -76,10 +76,13 @@ export const MODULES: ContentModule[] = [
     name: 'Territory Wars',
     tagline: 'Conquer the map tile by tile',
     description:
-      'Countries expand across a pixel world map, capturing tiles from each other until one rules the globe.',
-    status: 'coming-soon',
+      'Countries start on their real land on a pixel map and fight for every tile: borders push back and forth, small countries strike back, and the last country standing rules the map.',
+    status: 'ready',
     formats: ['short', 'video'],
     accent: '#FFB23D',
+    previewRoute: 'territory',
+    render: (job, onProgress, signal) =>
+      import('./territoryWars/autopilot').then((m) => m.renderTerritoryWars(job, onProgress, signal)),
   },
   {
     id: 'growing-ball',

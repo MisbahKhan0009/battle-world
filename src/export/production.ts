@@ -6,8 +6,10 @@ import { buildRaceCues } from '../audio/raceCues';
 import { buildRingsCues } from '../audio/ringCues';
 import { buildGrowCues } from '../audio/growCues';
 import { buildPaperCues } from '../audio/paperCues';
+import { buildTerritoryCues } from '../audio/territoryCues';
 import { runShow as runGrowShow, type GrowShow } from '../engine/grow/show';
 import { runShow as runPaperShow, type PaperShow } from '../engine/paper/show';
+import { runShow as runTerritoryShow, type TerritoryShow } from '../engine/territory/show';
 import { Mixer, type MixSettings } from '../audio/mix';
 import { MusicMix, type MusicBed } from '../audio/music';
 import type { Stereo } from '../audio/synth';
@@ -25,6 +27,8 @@ import { GrowRenderer } from '../render/grow/renderer';
 import { buildGrowScene } from '../render/grow/scene';
 import { PaperRenderer } from '../render/paper/renderer';
 import { buildPaperScene } from '../render/paper/scene';
+import { TerritoryRenderer } from '../render/territory/renderer';
+import { buildTerritoryScene } from '../render/territory/scene';
 import { buildRingsScene } from '../render/rings/scene';
 import { BattleRenderer } from '../render/renderer';
 import { buildScene, type SceneFighter } from '../render/scene';
@@ -34,7 +38,8 @@ export type ExportContent =
   | { kind: 'marble-race'; config: RaceConfig }
   | { kind: 'ring-escape'; config: RingsShow }
   | { kind: 'growing-ball'; config: GrowShow }
-  | { kind: 'paper-land'; config: PaperShow };
+  | { kind: 'paper-land'; config: PaperShow }
+  | { kind: 'territory-wars'; config: TerritoryShow };
 
 /** Anything that renders the soundtrack in chunks: the game sounds, or a music track. */
 export type Soundtrack = { render(start: number, frames: number): Stereo };
@@ -93,6 +98,16 @@ function buildGameProduction(args: ProductionArgs): Production {
       total: scene.timeline.total,
       render: (ctx, v) => renderer.render(ctx, v),
       mixer: (settings) => new Mixer(null, settings, buildPaperCues(scene)),
+    };
+  }
+  if (content.kind === 'territory-wars') {
+    const result = runTerritoryShow(content.config, { record: true });
+    const scene = buildTerritoryScene({ result, look, fighters, winnerImage });
+    const renderer = new TerritoryRenderer(scene, W, H);
+    return {
+      total: scene.timeline.total,
+      render: (ctx, v) => renderer.render(ctx, v),
+      mixer: (settings) => new Mixer(null, settings, buildTerritoryCues(scene)),
     };
   }
   if (content.kind === 'ring-escape') {

@@ -44,9 +44,10 @@ import { buildPaperScene } from '../../render/paper/scene';
 import { buildRingsScene } from '../../render/rings/scene';
 import type { SceneFighter } from '../../render/scene';
 import { DesktopLayout } from './Layout';
+import { TERRITORY_WARS } from './territoryPreview';
 
 /** One playable sample of a game, ready to preview and export. */
-type Loaded = {
+export type Loaded = {
   meta: VideoMeta;
   look: Look;
   content: ExportContent;
@@ -58,7 +59,7 @@ type Loaded = {
   summary: string;
 };
 
-type PreviewGame = {
+export type PreviewGame = {
   id: string;
   title: string;
   newLabel: string;
@@ -265,6 +266,7 @@ export const RacePage = () => <GamePreview game={MARBLE_RACE} />;
 export const GrowPage = () => <GamePreview game={GROWING_BALL} />;
 export const PaperPage = () => <GamePreview game={PAPER_LAND} />;
 export const RingsPage = () => <GamePreview game={RING_ESCAPE} />;
+export const TerritoryPage = () => <GamePreview game={TERRITORY_WARS} />;
 
 const fmt = (v: number) => `${Math.floor(v / 60)}:${String(Math.floor(v % 60)).padStart(2, '0')}`;
 

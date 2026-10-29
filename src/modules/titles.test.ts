@@ -6,9 +6,17 @@ import { planGrowingBall } from './growingBall/content';
 import { planMarbleRace } from './marbleRace/content';
 import { planPaperLand } from './paperLand/content';
 import { planRingEscape } from './ringEscape/content';
+import { planTerritoryWars } from './territoryWars/content';
 
 const all = countries as Country[];
-const PLANNERS = [planFlagBattle, planMarbleRace, planRingEscape, planGrowingBall, planPaperLand];
+const PLANNERS = [
+  planFlagBattle,
+  planMarbleRace,
+  planRingEscape,
+  planGrowingBall,
+  planPaperLand,
+  planTerritoryWars,
+];
 
 describe('video titles', () => {
   test('never name a country', () => {
