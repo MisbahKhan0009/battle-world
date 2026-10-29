@@ -23,7 +23,7 @@ export type ContentModule = {
   /** Brand color for the module card. */
   accent: string;
   /** Route of the module's sample page, if it has one. */
-  previewRoute?: 'battle' | 'race' | 'rings' | 'grow' | 'paper' | 'territory';
+  previewRoute?: 'battle' | 'race' | 'rings' | 'grow' | 'paper' | 'territory' | 'black';
   render?: (job: RenderJob, onProgress: (p: number) => void, signal: AbortSignal) => Promise<RenderResult>;
 };
 
@@ -102,10 +102,13 @@ export const MODULES: ContentModule[] = [
     name: 'Black Hole',
     tagline: 'Swallow the city, then each other',
     description:
-      'Like Hole.io: country holes roam a city and swallow everything smaller than them. Bigger holes eat smaller ones; the biggest hole wins.',
-    status: 'coming-soon',
+      'Like Hole.io: country holes roam a city and swallow everything smaller than them. Bigger holes eat smaller ones; when the clock runs out, the biggest hole wins. Long videos are a knockout.',
+    status: 'ready',
     formats: ['short', 'video'],
     accent: '#B07CFF',
+    previewRoute: 'black',
+    render: (job, onProgress, signal) =>
+      import('./blackHole/autopilot').then((m) => m.renderBlackHole(job, onProgress, signal)),
   },
   {
     id: 'paper-land',

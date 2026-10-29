@@ -289,6 +289,7 @@ export const DEFAULT_PACE: Record<string, ModulePace> = {
   'growing-ball': { shortsPerDay: 1, videosPerWeek: 1 },
   'paper-land': { shortsPerDay: 1, videosPerWeek: 1 },
   'territory-wars': { shortsPerDay: 1, videosPerWeek: 1 },
+  'black-hole': { shortsPerDay: 1, videosPerWeek: 1 },
 };
 
 /** Splits an overall pace across games (remainders go to the first games). */

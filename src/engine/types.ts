@@ -48,7 +48,9 @@ export type Look = {
     | 'mint'
     | 'kraft'
     | 'atlas'
-    | 'parchment';
+    | 'parchment'
+    | 'dusk'
+    | 'lilac';
   title: string;
   subtitle: string;
   titleFont: 'display' | 'sans';

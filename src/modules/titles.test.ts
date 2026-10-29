@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import countries from '../data/countries.json';
 import type { Country } from '../data/countries';
+import { planBlackHole } from './blackHole/content';
 import { planFlagBattle } from './flagBattle/content';
 import { planGrowingBall } from './growingBall/content';
 import { planMarbleRace } from './marbleRace/content';
@@ -16,6 +17,7 @@ const PLANNERS = [
   planGrowingBall,
   planPaperLand,
   planTerritoryWars,
+  planBlackHole,
 ];
 
 describe('video titles', () => {

@@ -5,7 +5,7 @@
  * Works in the main thread and in workers (plain Float32Array math, no Web Audio needed).
  */
 import { hashFloat } from '../engine/rng';
-import { horn, wardrum } from './territoryVoices';
+import { GAME_VOICES } from './gameVoices';
 
 export const SAMPLE_RATE = 48000;
 const SR = SAMPLE_RATE;
@@ -39,7 +39,9 @@ export type SoundId =
   | 'marimba'
   | 'snip'
   | 'wardrum'
-  | 'horn';
+  | 'horn'
+  | 'gulp'
+  | 'whomp';
 export type Stereo = { L: Float32Array; R: Float32Array };
 
 const noise = (i: number, seed: number) => hashFloat(seed, i) * 2 - 1;
@@ -474,8 +476,7 @@ const VOICES: Record<string, () => Float32Array> = {
   riser,
   marimba,
   snip,
-  wardrum,
-  horn,
+  ...GAME_VOICES,
 };
 
 const sfxCache = new Map<SoundId, Float32Array>();

@@ -7,6 +7,10 @@ import { buildRingsCues } from '../audio/ringCues';
 import { buildGrowCues } from '../audio/growCues';
 import { buildPaperCues } from '../audio/paperCues';
 import { buildTerritoryCues } from '../audio/territoryCues';
+import { buildBlackCues } from '../audio/blackCues';
+import { runShow as runBlackShow, type BlackShow } from '../engine/black/show';
+import { BlackRenderer } from '../render/black/renderer';
+import { buildBlackScene } from '../render/black/scene';
 import { runShow as runGrowShow, type GrowShow } from '../engine/grow/show';
 import { runShow as runPaperShow, type PaperShow } from '../engine/paper/show';
 import { runShow as runTerritoryShow, type TerritoryShow } from '../engine/territory/show';
@@ -39,7 +43,8 @@ export type ExportContent =
   | { kind: 'ring-escape'; config: RingsShow }
   | { kind: 'growing-ball'; config: GrowShow }
   | { kind: 'paper-land'; config: PaperShow }
-  | { kind: 'territory-wars'; config: TerritoryShow };
+  | { kind: 'territory-wars'; config: TerritoryShow }
+  | { kind: 'black-hole'; config: BlackShow };
 
 /** Anything that renders the soundtrack in chunks: the game sounds, or a music track. */
 export type Soundtrack = { render(start: number, frames: number): Stereo };
@@ -108,6 +113,16 @@ function buildGameProduction(args: ProductionArgs): Production {
       total: scene.timeline.total,
       render: (ctx, v) => renderer.render(ctx, v),
       mixer: (settings) => new Mixer(null, settings, buildTerritoryCues(scene)),
+    };
+  }
+  if (content.kind === 'black-hole') {
+    const result = runBlackShow(content.config, { record: true });
+    const scene = buildBlackScene({ result, look, fighters, winnerImage });
+    const renderer = new BlackRenderer(scene, W, H);
+    return {
+      total: scene.timeline.total,
+      render: (ctx, v) => renderer.render(ctx, v),
+      mixer: (settings) => new Mixer(null, settings, buildBlackCues(scene)),
     };
   }
   if (content.kind === 'ring-escape') {
