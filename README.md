@@ -176,8 +176,9 @@ extra to set up. **Refresh** reloads it; **YouTube Studio** opens your channel t
 - **Disconnect** (the plug icon) stops posting there and removes its access.
 
 All channels share your one Google Cloud project, and its free quota allows about **6 uploads a day in total**.
-The banner at the top adds up what your channels ask for and warns when it is more than that: then lower some
-paces or daily limits, or [ask Google for more quota](https://support.google.com/youtube/contact/yt_api_form).
+The card at the top sets **Uploads a day, all channels** (6 by default) and shows what your channels ask for. When
+they ask for more, every day keeps the limit, shared fairly between the channels and their games, so nothing fails
+for lack of quota. If Google [approves more quota](https://support.google.com/youtube/contact/yt_api_form), raise it.
 
 ### Calendar
 
@@ -301,6 +302,7 @@ thumbnails; their own schedule on the shared timeline.
 | Minimum gap between posts | **1 h 15 min** | 30 min to 4 h |
 | Organic variation | **On** | on or off |
 | Daily upload limit (per channel) | **6** | 1 to 20 |
+| Uploads a day, all channels | **6** (your Google quota) | 1 to 30 |
 | Made for kids | **On** | on or off |
 
 - **One timeline per channel.** Each game keeps its own pace, and a channel's games share the posting hours, the
@@ -318,9 +320,10 @@ thumbnails; their own schedule on the shared timeline.
 - **Organic variation.** Some days post one more and others one fewer, balanced within each week, so every game's
   weekly total always matches its pace.
 - **Right at the limit, not over it.** YouTube's default API quota is 10,000 units a day and each upload costs about
-  1,600, so about **6 uploads a day** fit, shared by every channel on the same Google project. One channel's
-  defaults use that fully; with more channels, the Channels page shows the total and warns when it is over. To post
-  more, request a quota increase from Google and raise the daily limits.
+  1,600, so about **6 uploads a day** fit, shared by every channel on the same Google project. **Uploads a day, all
+  channels** (Channels page, or the Autopilot schedule) keeps the total there: each day's posts are shared fairly
+  between channels (the odd one rotates), and within a channel between its games. With two channels that is about
+  3 a day each. If Google approves more quota, raise it.
 - **On time, every time.** Each post renders up to 3 hours ahead, uploads as private with a publish time, and
   YouTube publishes it on the planned minute, even if your PC is asleep by then.
 - **Never repeats itself.** Flag Clash remembers what it posted. A country that already won doesn't win again until

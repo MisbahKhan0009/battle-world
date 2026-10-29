@@ -5,10 +5,9 @@
  *
  * All side effects go through a Backend, so the logic is testable without Tauri.
  */
-import { dayKey, planDay, type PlannedSlot } from './planner';
+import { dayKey, planChannelsDay } from './planner';
 import {
   channelGames,
-  channelSchedule,
   type AutopilotState,
   type ContentFormat,
   type ContentRecord,
@@ -169,27 +168,29 @@ export class Autopilot {
     const now = this.backend.now();
     const ready = this.readyModules();
     let changed = false;
-    for (const ch of st.channels) {
-      if (!ch.enabled) continue;
-      // Each channel posts its own games, at its own pace and daily limit.
-      const modules = channelGames(ch, ready);
-      const schedule = channelSchedule(st.schedule, ch);
-      const done = new Set(st.plannedDays[ch.id] ?? []);
-      for (let offset = 0; offset < PLAN_DAYS; offset++) {
-        const today = startOfDay(now);
-        const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
-        const key = dayKey(day);
-        if (done.has(key)) continue;
-        let plan: PlannedSlot[] = planDay(ch.id, day, schedule, modules);
+    const active = st.channels.filter((c) => c.enabled);
+    const done = new Map(active.map((ch) => [ch.id, new Set(st.plannedDays[ch.id] ?? [])]));
+    const today = startOfDay(now);
+    for (let offset = 0; offset < PLAN_DAYS; offset++) {
+      const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
+      const key = dayKey(day);
+      const todo = active.filter((ch) => !done.get(ch.id)!.has(key));
+      if (!todo.length) continue;
+      // Each channel posts its own games at its own pace and limit; together they share the
+      // all-channels limit (one Google project's quota).
+      const plans = planChannelsDay(day, st.channels, st.schedule, ready);
+      const existing = new Set(st.slots.map((s) => s.id));
+      for (const ch of todo) {
+        let plan = plans.get(ch.id) ?? [];
         if (offset === 0) {
-          // Planning mid-day: keep only future slots, within what is left of today's cap.
+          // Planning mid-day: keep only future slots, within what is left of today's share.
           const used = st.slots.filter(
             (s) =>
               s.channelId === ch.id && !s.manual && dayKey(new Date(s.at)) === key && s.status !== 'skipped',
           ).length;
-          plan = plan.filter((p) => p.at > now + 2 * 60_000).slice(0, Math.max(0, schedule.dailyCap - used));
+          const share = plan.length;
+          plan = plan.filter((p) => p.at > now + 2 * 60_000).slice(0, Math.max(0, share - used));
         }
-        const existing = new Set(st.slots.map((s) => s.id));
         for (const p of plan) {
           if (existing.has(p.id)) continue;
           st.slots.push({
@@ -199,11 +200,11 @@ export class Autopilot {
             log: [{ t: now, text: 'Added to the schedule' }],
           });
         }
-        done.add(key);
+        done.get(ch.id)!.add(key);
         changed = true;
       }
-      st.plannedDays[ch.id] = [...done].sort().slice(-(PLAN_DAYS + 7));
     }
+    for (const ch of active) st.plannedDays[ch.id] = [...done.get(ch.id)!].sort().slice(-(PLAN_DAYS + 7));
     if (changed) st.slots.sort((a, b) => a.at - b.at);
     return changed;
   }

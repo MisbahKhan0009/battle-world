@@ -12,7 +12,16 @@
  */
 import { hash32, Rng } from '../engine/rng';
 import { audienceClock, engagement } from './engagement';
-import { paceFor, type ContentFormat, type ScheduleSettings, type Slot } from './types';
+import {
+  channelGames,
+  channelSchedule,
+  paceFor,
+  PROJECT_UPLOADS_PER_DAY,
+  type Channel,
+  type ContentFormat,
+  type ScheduleSettings,
+  type Slot,
+} from './types';
 
 export function dayKey(d: Date): string {
   const y = d.getFullYear();
@@ -212,4 +221,53 @@ export function planDay(
     moduleId: slotMods[i],
     seed: (rng.int(999_999) + 1) >>> 0,
   }));
+}
+
+/**
+ * Shares `cap` posts between demands, one at a time round-robin (starting at `start`, so the odd
+ * post rotates between channels from day to day). Nobody gets more than they asked for.
+ */
+export function shareFairly(want: number[], cap: number, start: number): number[] {
+  const got = want.map(() => 0);
+  let left = Math.max(0, Math.floor(cap));
+  for (let progress = true; left > 0 && progress; ) {
+    progress = false;
+    for (let q = 0; q < want.length && left > 0; q++) {
+      const k = (start + q) % want.length;
+      if (got[k] < want[k]) {
+        got[k]++;
+        left--;
+        progress = true;
+      }
+    }
+  }
+  return got;
+}
+
+/**
+ * Every enabled channel's plan for a day. Each channel keeps its own games, pace and daily limit,
+ * and all of them together stay within the shared all-channels limit (`schedule.projectCap`).
+ */
+export function planChannelsDay(
+  day: Date,
+  channels: Channel[],
+  base: ScheduleSettings,
+  ready: string[],
+): Map<string, PlannedSlot[]> {
+  const active = channels.filter((c) => c.enabled);
+  const own = active.map((ch) => planDay(ch.id, day, channelSchedule(base, ch), channelGames(ch, ready)));
+  const dayNo = Math.round(Date.UTC(day.getFullYear(), day.getMonth(), day.getDate()) / 86_400_000);
+  const share = shareFairly(
+    own.map((p) => p.length),
+    base.projectCap ?? PROJECT_UPLOADS_PER_DAY,
+    active.length ? dayNo % active.length : 0,
+  );
+  return new Map(
+    active.map((ch, k) => [
+      ch.id,
+      share[k] === own[k].length
+        ? own[k]
+        : planDay(ch.id, day, { ...channelSchedule(base, ch), dailyCap: share[k] }, channelGames(ch, ready)),
+    ]),
+  );
 }

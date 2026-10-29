@@ -30,7 +30,8 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
   per channel, each with its own pace) on one non-overlapping timeline with the channel's `dailyCap`; the engine
   plans with `channelGames` + `channelSchedule`; `schedule` holds the shared timing; `state.modules` and
   `schedule.perModule` are legacy, migrated in `runtime.ts`; a newly released game goes once to a channel with room
-  via `assignNewGames` + `state.knownGames`), `engine.ts` (render → upload → thumbnail state machine,
+  via `assignNewGames` + `state.knownGames`; `planChannelsDay` shares `schedule.projectCap` (all channels, default 6 =
+  one Google project's quota) fairly between channels each day), `engine.ts` (render → upload → thumbnail state machine,
   retries, quota handling, per-slot event log, `contentLog` history), `types.ts` (defaults). Tests in
   `autopilot.test.ts`.
 - `src/modules/common.ts` – shared no-repeat rules: `chooseLineup` (counts, lineups, groups vs recent posts) and

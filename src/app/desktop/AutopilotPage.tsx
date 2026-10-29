@@ -488,15 +488,22 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
                 changes nothing. Lower another game, or raise the limit.
               </p>
             )}
-            <p
-              className={cn(
-                'text-xs',
-                projectPerDay > PROJECT_UPLOADS_PER_DAY + 0.01 ? 'text-hp-mid' : 'text-muted',
-              )}
-            >
-              All channels together: about {projectPerDay.toFixed(1)} uploads a day. Your Google project
-              allows about {PROJECT_UPLOADS_PER_DAY} a day (10,000 API units, about 1,600 per upload); above
-              that, uploads wait for the daily reset. Ask Google for more quota to go higher.
+            <Stepper
+              label="Uploads a day, all channels"
+              hint="shared by every channel"
+              value={draft.projectCap ?? PROJECT_UPLOADS_PER_DAY}
+              min={1}
+              max={30}
+              unit="a day"
+              onChange={(projectCap) => apply({ ...draft, projectCap })}
+            />
+            <p className="text-xs text-muted">
+              All channels together ask for about {projectPerDay.toFixed(1)} uploads a day.{' '}
+              {projectPerDay > (draft.projectCap ?? PROJECT_UPLOADS_PER_DAY) + 0.01
+                ? `Each day keeps ${draft.projectCap ?? PROJECT_UPLOADS_PER_DAY}, shared fairly between the channels and their games.`
+                : 'That fits.'}{' '}
+              Your Google project allows about {PROJECT_UPLOADS_PER_DAY} a day (10,000 API units, about 1,600
+              per upload); raise this only after Google approves more quota.
             </p>
           </div>
         )}

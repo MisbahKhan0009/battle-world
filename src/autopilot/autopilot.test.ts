@@ -7,7 +7,7 @@ import {
   SCHEDULED_RENDER_LEAD_MS,
   type Backend,
 } from './engine';
-import { dayKey, planDay, videosOnDay } from './planner';
+import { dayKey, planChannelsDay, planDay, shareFairly, videosOnDay } from './planner';
 import {
   assignNewGames,
   connectedChannel,
@@ -340,6 +340,53 @@ describe('engine', () => {
     );
   });
 
+  test('the week ahead never plans more than the all-channels limit on any day', async () => {
+    const env = fakeBackend(new Date(2026, 9, 29, 6, 0).getTime());
+    const ap = new Autopilot(env.backend, () => [
+      'flag-battle',
+      'marble-race',
+      'ring-escape',
+      'growing-ball',
+    ]);
+    await ap.init();
+    const [first] = ap.snapshot!.channels;
+    await ap.update(
+      {
+        channels: [
+          {
+            ...first,
+            games: {
+              'flag-battle': { shortsPerDay: 3, videosPerWeek: 2 },
+              'marble-race': { shortsPerDay: 2, videosPerWeek: 2 },
+            },
+          },
+          {
+            ...first,
+            id: 'UC2',
+            title: 'Second',
+            games: {
+              'ring-escape': { shortsPerDay: 3, videosPerWeek: 2 },
+              'growing-ball': { shortsPerDay: 2, videosPerWeek: 2 },
+            },
+          },
+        ],
+      },
+      { replan: true },
+    );
+    const perDay = new Map<string, { UC1: number; UC2: number }>();
+    for (const s of ap.snapshot!.slots) {
+      const d = perDay.get(dayKey(new Date(s.at))) ?? { UC1: 0, UC2: 0 };
+      d[s.channelId as 'UC1' | 'UC2']++;
+      perDay.set(dayKey(new Date(s.at)), d);
+    }
+    expect(perDay.size).toBeGreaterThanOrEqual(6);
+    for (const d of perDay.values()) {
+      expect(d.UC1 + d.UC2).toBeLessThanOrEqual(6);
+      expect(d.UC1).toBeGreaterThan(0);
+      expect(d.UC2).toBeGreaterThan(0);
+    }
+  });
+
   test('scheduled publishing renders hours ahead so the PC can be off at post time', async () => {
     const env = fakeBackend(new Date(2026, 9, 29, 6, 0).getTime());
     const ap = new Autopilot(env.backend, () => ['flag-battle']);
@@ -470,5 +517,41 @@ describe('channels', () => {
     expect(assignNewGames([one, two], ready, ready)).toBeNull();
     // Every channel full: it waits for the next channel.
     expect(assignNewGames([one], ready, known)).toBeNull();
+  });
+
+  test('all channels together stay within the shared daily limit, split fairly', () => {
+    expect(shareFairly([5, 6], 6, 0)).toEqual([3, 3]);
+    expect(shareFairly([2, 6], 6, 0)).toEqual([2, 4]);
+    expect(shareFairly([5, 6], 7, 1)).toEqual([3, 4]);
+    expect(shareFairly([1, 1], 6, 0)).toEqual([1, 1]);
+    const ready = ['flag-battle', 'marble-race', 'ring-escape', 'growing-ball'];
+    const one = connectedChannel(info('UC1'), [], ready);
+    const two = connectedChannel(info('UC2'), [one], ready);
+    const totals = [0, 0];
+    for (let d = 0; d < 28; d++) {
+      const plans = planChannelsDay(new Date(2026, 10, 1 + d), [one, two], DEFAULT_SCHEDULE, ready);
+      const a = plans.get('UC1')!.length;
+      const b = plans.get('UC2')!.length;
+      expect(a + b).toBeLessThanOrEqual(6);
+      expect(Math.abs(a - b)).toBeLessThanOrEqual(1);
+      totals[0] += a;
+      totals[1] += b;
+      // Each channel still posts only its own games.
+      for (const p of plans.get('UC2')!) expect(['ring-escape', 'growing-ball']).toContain(p.moduleId);
+    }
+    expect(totals[0] + totals[1]).toBe(6 * 28);
+    // A raised limit (more quota from Google) lets each channel post its full pace again.
+    const roomy = planChannelsDay(
+      new Date(2026, 10, 3),
+      [one, two],
+      { ...DEFAULT_SCHEDULE, projectCap: 30 },
+      ready,
+    );
+    expect(roomy.get('UC1')!.length).toBe(
+      planDay('UC1', new Date(2026, 10, 3), { ...DEFAULT_SCHEDULE, perModule: one.games }, [
+        'flag-battle',
+        'marble-race',
+      ]).length,
+    );
   });
 });

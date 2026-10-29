@@ -20,6 +20,11 @@ export type ScheduleSettings = {
   varyDaily: boolean;
   /** Hard cap on uploads per channel per day (YouTube API quota). */
   dailyCap: number;
+  /**
+   * Uploads a day for all channels together: they share one Google project's API quota (about 6 by default).
+   * Each day's posts are shared fairly between channels within it.
+   */
+  projectCap?: number;
   /** Favour the hours when the audience is most active on YouTube. */
   peakHours: boolean;
   /** IANA time zone of the main audience ('' = this computer's time zone). */
@@ -246,6 +251,7 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   minGapMin: 75,
   varyDaily: true,
   dailyCap: 6,
+  projectCap: 6,
   peakHours: true,
   audienceTz: '',
 };

@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { dayKey, parseDayKey, planDay, type PlannedSlot } from '../../autopilot/planner';
-import { channelGames, channelSchedule, type AutopilotState, type Slot } from '../../autopilot/types';
+import { dayKey, parseDayKey, planChannelsDay, type PlannedSlot } from '../../autopilot/planner';
+import type { AutopilotState, Slot } from '../../autopilot/types';
 import { Button } from '../../components/ui/Button';
 import { isDesktop } from '../../desktop/bridge';
 import { useAutopilot } from '../../desktop/runtime';
@@ -23,17 +23,15 @@ function previews(state: AutopilotState, from: Date, to: Date): Entry[] {
     const ready = readyModuleIds();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    for (const ch of state.channels) {
-      if (!ch.enabled) continue;
-      const planned = new Set(state.plannedDays[ch.id] ?? []);
-      const modules = channelGames(ch, ready);
-      const schedule = channelSchedule(state.schedule, ch);
-      for (let d = new Date(Math.max(from.getTime(), today.getTime())); d < to; d.setDate(d.getDate() + 1)) {
-        const key = dayKey(d);
-        if (planned.has(key)) continue;
-        for (const p of planDay(ch.id, new Date(d), schedule, modules))
-          out.push({ kind: 'preview', slot: p });
-      }
+    for (let d = new Date(Math.max(from.getTime(), today.getTime())); d < to; d.setDate(d.getDate() + 1)) {
+      const key = dayKey(d);
+      const todo = state.channels.filter(
+        (ch) => ch.enabled && !(state.plannedDays[ch.id] ?? []).includes(key),
+      );
+      if (!todo.length) continue;
+      // The same plan the autopilot makes: shared within the all-channels daily limit.
+      const plans = planChannelsDay(new Date(d), state.channels, state.schedule, ready);
+      for (const ch of todo) for (const p of plans.get(ch.id) ?? []) out.push({ kind: 'preview', slot: p });
     }
   }
   return out;

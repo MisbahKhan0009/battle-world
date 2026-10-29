@@ -9,6 +9,7 @@ import {
   DEFAULT_PACE,
   GAMES_PER_CHANNEL,
   PROJECT_UPLOADS_PER_DAY,
+  type AutopilotState,
   type Channel,
 } from '../../autopilot/types';
 import { desktop, isDesktop } from '../../desktop/bridge';
@@ -18,29 +19,51 @@ import { useAutopilot } from '../../desktop/runtime';
 import { navigate } from '../router';
 import { Card, DesktopLayout, DesktopOnly } from './Layout';
 
-function QuotaBanner({ channels }: { channels: Channel[] }) {
-  const active = channels.filter((c) => c.enabled);
-  const perDay = active.reduce((sum, c) => {
-    const asked = Object.values(c.games ?? {}).reduce((a, p) => a + p.shortsPerDay + p.videosPerWeek / 7, 0);
-    return sum + Math.min(c.dailyCap, asked);
-  }, 0);
-  const over = perDay > PROJECT_UPLOADS_PER_DAY + 0.01;
+/** Uploads a day the channels' paces ask for (within each channel's own limit). */
+export function askedPerDay(channels: Channel[]): number {
+  return channels
+    .filter((c) => c.enabled)
+    .reduce((sum, c) => {
+      const asked = Object.values(c.games ?? {}).reduce(
+        (a, p) => a + p.shortsPerDay + p.videosPerWeek / 7,
+        0,
+      );
+      return sum + Math.min(c.dailyCap, asked);
+    }, 0);
+}
+
+function QuotaCard({ state, onCap }: { state: AutopilotState; onCap: (cap: number) => void }) {
+  const active = state.channels.filter((c) => c.enabled);
+  const cap = state.schedule.projectCap ?? PROJECT_UPLOADS_PER_DAY;
+  const asked = askedPerDay(state.channels);
+  const trimmed = asked > cap + 0.01;
   return (
-    <div
-      className={cn(
-        'rounded-2xl p-4 text-[13px] ring-1',
-        over ? 'bg-hp-mid/10 text-hp-mid ring-hp-mid/30' : 'bg-surface-2/60 text-muted ring-line',
+    <div className="panel space-y-3 p-5">
+      <Stepper
+        label="Uploads a day, all channels"
+        hint="shared by every channel"
+        value={cap}
+        min={1}
+        max={30}
+        unit="a day"
+        onChange={onCap}
+      />
+      <p className="text-[13px] text-muted">
+        Your channels ask for about <span className="text-text tabular">{asked.toFixed(1)}</span> uploads a
+        day
+        {active.length > 1 ? ` across ${active.length} channels` : ''}.{' '}
+        {trimmed
+          ? `The limit keeps the total at ${cap} a day, shared fairly between the channels (about ${(cap / Math.max(1, active.length)).toFixed(1)} each) and, within each channel, between its games.`
+          : `That is within the limit of ${cap} a day.`}{' '}
+        All channels use one Google project, whose free quota allows about {PROJECT_UPLOADS_PER_DAY} uploads a
+        day (10,000 API units, about 1,600 per upload). Raise this only after Google approves more quota.
+      </p>
+      {cap > PROJECT_UPLOADS_PER_DAY && (
+        <p className="rounded-xl bg-hp-mid/10 p-3 text-xs text-hp-mid ring-1 ring-hp-mid/30">
+          Above {PROJECT_UPLOADS_PER_DAY} a day, uploads fail with a quota error and wait for the daily reset
+          unless Google has raised your quota.
+        </p>
       )}
-    >
-      <span className={over ? '' : 'text-text'}>
-        About {perDay.toFixed(1)} uploads a day across {active.length} channel{active.length === 1 ? '' : 's'}
-        .
-      </span>{' '}
-      All channels use your one Google project, which allows about {PROJECT_UPLOADS_PER_DAY} uploads a day
-      (10,000 API units).{' '}
-      {over
-        ? 'Above that, uploads wait for the daily reset and fall behind. Lower some paces or daily limits, or request more quota from Google.'
-        : 'You are within it.'}
     </div>
   );
 }
@@ -238,7 +261,12 @@ export function ChannelsPage() {
           </p>
         ) : (
           <>
-            <QuotaBanner channels={state.channels} />
+            <QuotaCard
+              state={state}
+              onCap={(projectCap) =>
+                void ap.update({ schedule: { ...state.schedule, projectCap } }, { replan: true })
+              }
+            />
             <ul className="space-y-4">
               {state.channels.map((c) => (
                 <ChannelCard

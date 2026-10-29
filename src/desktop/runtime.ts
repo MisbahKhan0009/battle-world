@@ -57,7 +57,9 @@ function mergeState(raw: string | null, outputDir: string): AutopilotState {
     // A game released since the last start goes to a channel that still has room for one.
     const assigned = assignNewGames(channels, readyModuleIds(), p.knownGames ?? LEGACY_GAMES);
     if (assigned) channels = assigned;
-    const replan = migrate || needGames || !!assigned;
+    // The all-channels daily limit is new: plan the week again so it applies right away.
+    const newCap = !!old && old.projectCap === undefined;
+    const replan = migrate || needGames || !!assigned || newCap;
     return {
       ...base,
       ...p,
