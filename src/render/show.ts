@@ -5,7 +5,7 @@
  * (scene, video time), so preview and export match frame for frame.
  */
 import { bandBanner, legibleText, winnerLockup } from './overlay';
-import { paintEyes } from '../render3d/countryball';
+import { paintEyes } from './countryball';
 import type { Timeline } from '../engine/timeline';
 import type { Look } from '../engine/types';
 import {

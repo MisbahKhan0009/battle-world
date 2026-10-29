@@ -8,11 +8,11 @@
 import * as THREE from 'three';
 import { TRAIL_R } from '../../engine/paper/sim';
 import { hashFloat } from '../../engine/rng';
-import { blinking, Countryball, type Expression } from '../../render3d/countryball';
 import { landPaths } from '../../render3d/contour';
 import { drawScene } from '../../render3d/gl';
 import { addLights, frameCamera, project, type Frame } from '../../render3d/rig';
 import { context2d, createCanvas, FONT_DISPLAY, FONT_SANS, type AnyCanvas, type Ctx2D } from '../canvas';
+import { blinking, drawCountryball, type Expression } from '../countryball';
 import { easeOut } from '../effects';
 import { ShowRenderer, type BoardRow } from '../show';
 import {
@@ -69,7 +69,6 @@ type Board = {
   g: number;
   paths: Path2D[];
   wipes: Wipe[];
-  balls: Countryball[];
   pointers: THREE.Mesh[];
   trails: { mesh: THREE.Mesh; pos: Float32Array; geo: THREE.BufferGeometry }[];
   rings: THREE.Mesh[];
@@ -95,7 +94,6 @@ export class PaperRenderer extends ShowRenderer<PaperScene> {
   private buildBoard(k: number): Board {
     if (this.board) {
       this.scene3.remove(this.board.group);
-      this.board.balls.forEach((b) => b.dispose());
       this.board.tex.dispose();
     }
     const { scene, theme: th } = this;
@@ -126,11 +124,6 @@ export class PaperRenderer extends ShowRenderer<PaperScene> {
     slab.receiveShadow = true;
     group.add(top, slab);
 
-    const balls = ids.map((f) => {
-      const b = new Countryball(scene.fighters[f].image, scene.colors[f]);
-      group.add(b.root);
-      return b;
-    });
     const arrow = new THREE.Shape();
     arrow.moveTo(0, 1.4);
     arrow.lineTo(1.1, -0.6);
@@ -205,7 +198,6 @@ export class PaperRenderer extends ShowRenderer<PaperScene> {
       g: -1,
       paths: [],
       wipes: [],
-      balls,
       pointers,
       trails,
       rings,
@@ -299,7 +291,6 @@ export class PaperRenderer extends ShowRenderer<PaperScene> {
     this.paint(b, local);
 
     frameCamera(this.camera, this.frame, new THREE.Vector3(0, 0, size * 0.02), size * 0.52, 0.66);
-    const toCam = this.camera.position.clone().normalize();
     const ft = frameAt(round, local);
     const fi = Math.floor(ft);
     const cuts = scene.cuts[k];
@@ -338,11 +329,19 @@ export class PaperRenderer extends ShowRenderer<PaperScene> {
       tr.geo.setDrawRange(0, Math.max(0, (m - 1) * 6));
     });
 
-    // Countryballs and their pointers.
+    // Countryballs (2D, drawn over the board after it is rendered) and their pointers.
     const lead = done ? round.winnerIndex : leaderAt(scene, k, local);
-    const labels: { x: number; y: number; name: string; lead: boolean }[] = [];
+    const sprites: {
+      f: number;
+      x: number;
+      y: number;
+      r: number;
+      expression: Expression;
+      look: [number, number];
+      name: string | null;
+      lead: boolean;
+    }[] = [];
     ids.forEach((f, i) => {
-      const ball = b.balls[i];
       const ptr = b.pointers[i];
       let scale = 1;
       let expression: Expression = blinking(scene.seed, f, local) ? 'blink' : 'open';
@@ -351,7 +350,6 @@ export class PaperRenderer extends ShowRenderer<PaperScene> {
         const c = cuts.find((x) => x.i === i);
         const u = c ? (local - c.t) / 0.35 : 1;
         if (u >= 1) {
-          ball.set({ x: 0, y: 0, z: 0, r: 1, facing: toCam, visible: false });
           ptr.visible = false;
           return;
         }
@@ -368,27 +366,27 @@ export class PaperRenderer extends ShowRenderer<PaperScene> {
       }
       const R = BALL_R * size;
       const r = R * scale;
-      const pos = this.world(size, h.x, h.y, r);
-      const facing = toCam
-        .clone()
-        .multiplyScalar(1.4)
-        .add(new THREE.Vector3(h.dx, 0, h.dy))
-        .normalize();
-      ball.set({ x: pos.x, y: pos.y, z: pos.z, r, facing, look: [h.dx * 0.8, -h.dy * 0.5], expression });
+      // Where it stands on the board, how big it is there, and which way it looks on screen.
+      const base = project(this.camera, this.frame, this.world(size, h.x, h.y, 0));
+      const ahead = project(this.camera, this.frame, this.world(size, h.x + h.dx * 10, h.y + h.dy * 10, 0));
+      const lx = ahead.x - base.x;
+      const ly = ahead.y - base.y;
+      const ll = Math.hypot(lx, ly) || 1;
+      sprites.push({
+        f,
+        x: base.x,
+        y: base.y,
+        r: r * base.scale * 1.3,
+        expression,
+        look: [(lx / ll) * 0.9, (ly / ll) * 0.9],
+        name: scale === 1 ? scene.fighters[f].name : null,
+        lead: i === lead && ids.length > 1 && !opts.thumbnail && scale === 1,
+      });
       ptr.visible = scale === 1 && !done;
       ptr.position.copy(this.world(size, h.x + h.dx * R * 1.9, h.y + h.dy * R * 1.9, 0.25));
       // Lay the arrow flat, pointing along the heading.
       ptr.rotation.set(-Math.PI / 2, 0, Math.atan2(-h.dx, -h.dy));
       ptr.scale.setScalar(R * 0.42);
-      if (scale === 1) {
-        const p = project(this.camera, this.frame, this.world(size, h.x, h.y, r * 2.3));
-        labels.push({
-          x: p.x,
-          y: p.y,
-          name: scene.fighters[f].name,
-          lead: i === lead && ids.length > 1 && !opts.thumbnail,
-        });
-      }
     });
 
     // Claim rings.
@@ -440,18 +438,32 @@ export class PaperRenderer extends ShowRenderer<PaperScene> {
 
     drawScene(ctx, this.scene3, this.camera, this.width, this.height, this.L.W, this.L.H);
 
-    // Names over the balls, and a crown over the leader.
+    // The countryballs stand on the board (farther ones first), each on its own shadow, with
+    // its name above and a crown on the leader.
+    sprites.sort((a, c) => a.y - c.y);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `700 ${Math.round(Math.min(this.L.W, this.L.H) * 0.026)}px ${FONT_SANS}`;
-    for (const l of labels) {
+    const font = `700 ${Math.round(Math.min(this.L.W, this.L.H) * 0.026)}px ${FONT_SANS}`;
+    for (const sp of sprites) {
+      ctx.fillStyle = 'rgba(20,40,40,0.22)';
+      ctx.beginPath();
+      ctx.ellipse(sp.x, sp.y + sp.r * 0.05, sp.r * 0.95, sp.r * 0.38, 0, 0, Math.PI * 2);
+      ctx.fill();
+      const cy = sp.y - sp.r * 0.9;
+      drawCountryball(ctx, this.tokens.get(sp.f, 2 * sp.r * this.px), sp.x, cy, sp.r, {
+        expression: sp.expression,
+        look: sp.look,
+      });
+      if (!sp.name) continue;
+      const ny = cy - sp.r - 18;
+      ctx.font = font;
       ctx.save();
       ctx.shadowColor = 'rgba(255,255,255,0.95)';
       ctx.shadowBlur = 6 * this.px;
       ctx.fillStyle = '#1D2A30';
-      ctx.fillText(l.name, l.x, l.y);
+      ctx.fillText(sp.name, sp.x, ny);
       ctx.restore();
-      if (l.lead) this.crown(ctx, l.x, l.y - 24, 38);
+      if (sp.lead) this.crown(ctx, sp.x, ny - 24, 38);
     }
   }
 

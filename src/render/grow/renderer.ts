@@ -7,7 +7,7 @@ import { ARENA, END_FILL } from '../../engine/grow/sim';
 import { FONT_DISPLAY, type Ctx2D } from '../canvas';
 import { easeOut } from '../effects';
 import { ShowRenderer, type BoardRow } from '../show';
-import { TOKEN_SCALE } from '../tokens';
+import { blinking, drawCountryball, type Expression } from '../countryball';
 import { ballAt, lastBefore, leaderAt, roundOf, sharesAt, type GrowScene } from './scene';
 
 const TAU = Math.PI * 2;
@@ -17,6 +17,8 @@ const PULSE = 0.3;
 const pct = (share: number) => `${Math.round(share * 100)}%`;
 
 export class GrowRenderer extends ShowRenderer<GrowScene> {
+  protected readonly countryballs = true;
+
   protected drawArena(ctx: Ctx2D, t: number, opts: { thumbnail?: boolean }): void {
     const { scene, L, theme: th } = this;
     const { k, local, round } = roundOf(scene, t);
@@ -62,18 +64,39 @@ export class GrowRenderer extends ShowRenderer<GrowScene> {
     const balls = ids.map((_, i) => ({ i, p: ballAt(round, i, local) }));
     balls.sort((a, b) => b.p[2] - a.p[2] || a.i - b.i);
     const leader = local >= round.winnerT ? round.winnerIndex : leaderAt(scene, k, local);
+    const done = local >= round.winnerT;
     for (const { i, p } of balls) {
       const [x, y, r] = p;
-      const tok = this.tokens.get(ids[i], 2 * r * s * this.px);
-      const size = 2 * r * TOKEN_SCALE;
-      ctx.drawImage(tok, x - size / 2, y - size / 2, size, size);
-      // Pulse when it grew.
       let last = -1;
       for (let w = lastBefore(walls, local); w >= 0 && local - walls[w].t < PULSE; w--)
         if (walls[w].i === i) {
           last = w;
           break;
         }
+      // A countryball: it squashes against the wall and squints as it grows, the biggest looks
+      // determined, the winner smiles, and the eyes follow where it is going.
+      const [px, py] = ballAt(round, i, Math.max(0, local - 1 / 30));
+      const sp = Math.hypot(x - px, y - py) || 1;
+      const lean = Math.min(1, sp / 8);
+      const age = last >= 0 ? local - walls[last].t : Infinity;
+      const f = ids[i];
+      const expression: Expression =
+        done && i === round.winnerIndex
+          ? 'happy'
+          : last >= 0
+            ? 'squint'
+            : i === leader && !opts.thumbnail
+              ? 'determined'
+              : blinking(scene.seed, f, local)
+                ? 'blink'
+                : 'open';
+      drawCountryball(ctx, this.tokens.get(f, 2 * r * s * this.px), x, y, r, {
+        expression,
+        look: [((x - px) / sp) * lean, ((y - py) / sp) * lean],
+        squash: age < 0.15 ? 0.16 * (1 - age / 0.15) : 0,
+        angle: last >= 0 ? Math.atan2(walls[last].y, walls[last].x) : 0,
+      });
+      // Pulse when it grew.
       if (last >= 0) {
         const u = (local - walls[last].t) / PULSE;
         ctx.strokeStyle = '#FFFFFF';

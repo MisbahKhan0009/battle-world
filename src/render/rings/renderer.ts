@@ -7,7 +7,7 @@ import { hashFloat } from '../../engine/rng';
 import { FONT_DISPLAY, type Ctx2D } from '../canvas';
 import { easeOut } from '../effects';
 import { ShowRenderer, type BoardRow } from '../show';
-import { TOKEN_SCALE } from '../tokens';
+import { blinking, drawCountryball, type Expression } from '../countryball';
 import { ballAt, breaksAt, brokenAt, camAt, gapAngle, roundOf, type RingsScene } from './scene';
 
 const TAU = Math.PI * 2;
@@ -18,6 +18,8 @@ const SHARDS = 22;
 const ringColor = (hue: number, l = 62) => `hsl(${((hue % 360) + 360) % 360} 95% ${l}%)`;
 
 export class RingsRenderer extends ShowRenderer<RingsScene, { full?: boolean }> {
+  protected readonly countryballs = true;
+
   /** World units on screen (view radius) and the camera center for a round at its local time. */
   private camera(k: number, local: number, full: boolean): { V: number; x: number; y: number } {
     const round = this.scene.result.rounds[k];
@@ -154,9 +156,27 @@ export class RingsRenderer extends ShowRenderer<RingsScene, { full?: boolean }> 
         ctx.stroke();
         ctx.globalAlpha = 1;
       }
-      const tok = this.tokens.get(ids[i], tokenPx);
-      const size = 2 * r * TOKEN_SCALE;
-      ctx.drawImage(tok, x - size / 2, y - size / 2, size, size);
+      // A countryball: it cheers when it breaks a ring, looks scared when flung fast, and the
+      // winner smiles; the eyes follow where it is going.
+      const [px, py] = ballAt(round, i, Math.max(0, local - 1 / 30));
+      const sp = Math.hypot(x - px, y - py) || 1;
+      const lean = Math.min(1, sp / 10);
+      const expression: Expression =
+        local >= round.winnerT
+          ? i === round.winnerIndex
+            ? 'happy'
+            : 'blink'
+          : i === lastBreak && glowU < 1.2
+            ? 'happy'
+            : sp > 30
+              ? 'scared'
+              : blinking(scene.seed, ids[i], local)
+                ? 'blink'
+                : 'open';
+      drawCountryball(ctx, this.tokens.get(ids[i], tokenPx), x, y, r, {
+        expression,
+        look: [((x - px) / sp) * lean, ((y - py) / sp) * lean],
+      });
     }
     for (let i = 0; i < ids.length; i++) {
       if (!breaks[i] || local >= round.winnerT) continue;

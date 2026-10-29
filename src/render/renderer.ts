@@ -3,6 +3,7 @@
  * (baked tokens, background layers) are memoization only. Preview and export both use this
  * class, so the exported video matches the preview frame for frame.
  */
+import { blinking, drawCountryball, paintEyes, type Expression } from './countryball';
 import { bandBanner, legibleText, winnerLockup } from './overlay';
 import { ARENA_R, ROUNDED_CORNER } from '../engine/physics';
 import { hashFloat } from '../engine/rng';
@@ -405,10 +406,18 @@ export class BattleRenderer {
         ctx.stroke();
       }
       const scale = 1 - 0.35 * p;
-      const tok = this.tokens.get(e.i, 2 * r * zoomPx * scale);
-      const size = 2 * r * TOKEN_SCALE * scale;
       ctx.globalAlpha = 1 - p * p;
-      ctx.drawImage(tok, e.x + e.vx * age - size / 2, e.y + e.vy * age - size / 2, size, size);
+      drawCountryball(
+        ctx,
+        this.tokens.get(e.i, 2 * r * zoomPx * scale),
+        e.x + e.vx * age,
+        e.y + e.vy * age,
+        r * scale,
+        {
+          expression: 'scared',
+          look: [e.vx / (Math.hypot(e.vx, e.vy) || 1), e.vy / (Math.hypot(e.vx, e.vy) || 1)],
+        },
+      );
     }
     ctx.globalAlpha = 1;
   }
@@ -473,6 +482,7 @@ export class BattleRenderer {
     const th = this.theme;
     let alive = 0;
     for (let i = 0; i < n; i++) if (this.isAlive(i, t)) alive++;
+    const final2 = result.final2T !== null && t >= result.final2T;
 
     // Discs.
     for (let i = 0; i < n; i++) {
@@ -481,9 +491,31 @@ export class BattleRenderer {
       const age = t - lastHitTime(fx, i, t);
       // Bumps in escape mode do no damage, so they get a lighter pop and flash.
       const pop = age < 0.16 ? 1 + (this.escapeMode ? 0.05 : 0.09) * (1 - age / 0.16) : 1;
-      const tok = this.tokens.get(i, 2 * r * zoomPx * pop);
-      const size = 2 * r * TOKEN_SCALE * pop;
-      ctx.drawImage(tok, this.x[i] - size / 2, this.y[i] - size / 2, size, size);
+      // A countryball: it squints and squashes when hit, looks scared on low health, determined in
+      // the final two, and the winner smiles; the eyes follow where it is going.
+      const [px, py] = this.posAt(i, Math.max(0, t - 1 / 30));
+      const vx = this.x[i] - px;
+      const vy = this.y[i] - py;
+      const sp = Math.hypot(vx, vy) || 1;
+      const lean = Math.min(1, sp / 12);
+      const expression: Expression =
+        t >= result.winnerT && i === result.winnerIndex
+          ? 'happy'
+          : age < 0.25
+            ? 'squint'
+            : !this.escapeMode && this.hp[i] / result.maxHp[i] < 0.3
+              ? 'scared'
+              : final2
+                ? 'determined'
+                : blinking(scene.seed, i, t)
+                  ? 'blink'
+                  : 'open';
+      drawCountryball(ctx, this.tokens.get(i, 2 * r * zoomPx * pop), this.x[i], this.y[i], r * pop, {
+        expression,
+        look: [(vx / sp) * lean, (vy / sp) * lean],
+        squash: age < 0.16 ? 0.12 * (1 - age / 0.16) : 0,
+        angle: Math.atan2(vy, vx),
+      });
       if (age < 0.18) {
         ctx.globalAlpha = (this.escapeMode ? 0.3 : 0.85) * (1 - age / 0.18) ** 2;
         ctx.fillStyle = '#FFFFFF';
@@ -879,6 +911,7 @@ export class BattleRenderer {
       const tok = this.getWinnerToken(2 * R * this.px);
       const size = 2 * R * TOKEN_SCALE;
       ctx.drawImage(tok, -size / 2, -size / 2, size, size);
+      paintEyes(ctx, 0, -R * 0.08, R * 1.24, 'happy');
       ctx.restore();
     }
 
@@ -934,6 +967,7 @@ export class BattleRenderer {
       const tok = this.tokens.get(i, d * this.px);
       const size = d * TOKEN_SCALE;
       ctx.drawImage(tok, cx - size / 2, cy - size / 2, size, size);
+      paintEyes(ctx, cx, cy - d * 0.04, d * 0.62, 'open');
     }
 
     ctx.textAlign = 'center';
@@ -982,6 +1016,7 @@ export class BattleRenderer {
     const tok = this.getWinnerToken(2 * R * this.px);
     const size = 2 * R * TOKEN_SCALE * (0.9 + 0.1 * easeOut(u / 0.6));
     ctx.drawImage(tok, W / 2 - size / 2, discY - size / 2, size, size);
+    paintEyes(ctx, W / 2, discY - R * 0.08, R * 1.24, 'happy');
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

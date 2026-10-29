@@ -3,6 +3,7 @@
  * renderer, so preview and export match frame for frame. The camera follows the front of the
  * race down the track; flags spin with the marbles' real rotation.
  */
+import { blinking, drawCountryball, paintEyes, type Expression } from '../countryball';
 import { bandBanner, legibleText, winnerLockup } from '../overlay';
 import { SLOWMO_SEC } from '../../engine/timeline';
 import { context2d, createCanvas, FONT_DISPLAY, FONT_SANS, type AnyCanvas, type Ctx2D } from '../canvas';
@@ -290,13 +291,26 @@ export class RaceRenderer {
         ctx.stroke();
         ctx.globalAlpha = 1;
       }
-      const tok = this.tokens.get(i, tokenPx);
-      const size = 2 * r * TOKEN_SCALE;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(a);
-      ctx.drawImage(tok, -size / 2, -size / 2, size, size);
-      ctx.restore();
+      // A countryball rolling down: the flag spins, the eyes stay upright and look ahead. The
+      // leader looks determined, finishers smile.
+      const [px, py] = marbleAt(scene, i, Math.max(0, t - 1 / 30));
+      const sp = Math.hypot(x - px, y - py) || 1;
+      const lean = Math.min(1, sp / 10);
+      const finished = scene.result.finishT[i] <= t;
+      const expression: Expression = finished
+        ? 'happy'
+        : sp > 40
+          ? 'scared'
+          : i === leader
+            ? 'determined'
+            : blinking(scene.seed, i, t)
+              ? 'blink'
+              : 'open';
+      drawCountryball(ctx, this.tokens.get(i, tokenPx), x, y, r, {
+        expression,
+        look: [((x - px) / sp) * lean, ((y - py) / sp) * lean],
+        spin: a,
+      });
       if (k === 0 && t < scene.result.winnerT + 0.2) {
         // "1" badge above the leader only.
         ctx.fillStyle = th.accent;
@@ -473,6 +487,7 @@ export class RaceRenderer {
       const cx = gx + (i % cols) * cell + cell / 2;
       const cy = gy + Math.floor(i / cols) * cell + cell / 2;
       ctx.drawImage(tok, cx - size / 2, cy - size / 2, size, size);
+      paintEyes(ctx, cx, cy - d * 0.04, d * 0.62, 'open');
     }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -555,6 +570,7 @@ export class RaceRenderer {
       const tok = this.getWinnerToken(2 * R * this.px);
       const size = 2 * R * TOKEN_SCALE;
       ctx.drawImage(tok, -size / 2, -size / 2, size, size);
+      paintEyes(ctx, 0, -R * 0.08, R * 1.24, 'happy');
       ctx.restore();
     }
     const tp = easeOut((u - 0.8) / 0.45);
@@ -591,6 +607,7 @@ export class RaceRenderer {
     const tok = this.getWinnerToken(2 * R * this.px);
     const size = 2 * R * TOKEN_SCALE * (0.9 + 0.1 * easeOut(u / 0.6));
     ctx.drawImage(tok, W / 2 - size / 2, discY - size / 2, size, size);
+    paintEyes(ctx, W / 2, discY - R * 0.08, R * 1.24, 'happy');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineJoin = 'round';

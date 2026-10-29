@@ -29,6 +29,7 @@ human-looking schedule, while it sits quietly in the system tray.
 | | |
 | --- | --- |
 | 🎬 **Makes the videos** | Five games so far. **Flag Battle**: up to 64 country flags bounce inside a circle with one rotating exit; the last flag inside wins. **Marble Race**: flag marbles roll down a track of ramps, plinko pegs, spinners and bumpers; first across the line wins. **Ring Escape**: flag balls bounce inside spinning rings and shatter each one they slip through; first out of the last ring wins. **Growing Ball**: every bounce off the wall makes a flag bigger; when the arena is full, the biggest wins. **Paper Land**: like Paper.io, flags draw trails to claim land and cut each other's trails; when the clock runs out, the most land wins. No two posts repeat a winner, a lineup or even a flag count. |
+| 🙂 **Countryballs** | Every flag is a countryball with cartoon eyes that look where it's going and react: they blink, squint when hit, look scared in danger, determined when it counts, and smile when they win. Balls squash when they bounce. |
 | 📺 **One channel, every game** | Your channel posts every game: one Short a day from each game, plus one long video a day that takes turns between them. You can still connect more channels and split the games between them. |
 | 🖼️ **Spoiler-free thumbnails** | Every post gets its own cover ("WHO ESCAPES LAST?") made from the start of the battle, so the thumbnail never gives the winner away. |
 | 📅 **Posts on autopilot** | Every day's posts are planned ahead on one timeline so they never overlap, timed for when your audience is most active. Everything is adjustable. |
@@ -274,9 +275,8 @@ long videos are a knockout of 9 to 16 flags in 3 or 4 heats and a final. Every g
 
 <img src="docs/images/paper-land.jpg" alt="Four frames from a Paper Land Short: the countdown with every flag, flags drawing trails out of their first squares of land, the board covered in flag-tiled land with the leader's crown and the clock running down, and the winner card" width="100%" />
 
-Like Paper.io 2, in 3D. Every country is a **countryball** (a glossy flag ball with cartoon eyes that look where
-it's heading, blink, get scared when a rival is close and smile when it wins) rolling over a pale board floating on
-aqua water. Flags steer smoothly in curves, with an arrow showing where each one is heading and its name above. Outside
+Like Paper.io 2. Every country is a **countryball** (its flag disc with cartoon eyes that look where it's heading,
+blink, get scared when a rival is close and smile when it wins) rolling over a pale, tilted board floating on aqua water. Flags steer smoothly in curves, with an arrow showing where each one is heading and its name above. Outside
 its land a flag leaves a ribbon trail; when it gets back home, the trail and everything it encloses become its land, in
 one solid color per country, taken from whoever owned it. Crossing a rival's trail knocks that rival out: its land
 fades away and it bursts into cubes. The flag with the most land wears a crown, banners call every cut, new leader
@@ -621,8 +621,8 @@ lineups and winners, and `src/export/production.ts` to plug the game's renderer 
   plan a loop out of its land (bigger when behind), test each heading by flying the arc it can really turn (so flags
   don't run into walls or their own trail), head home along the shortest path when a rival gets close to its trail,
   and go for a rival's trail it can reach before the rival gets home (only in the second half). Land outlines are
-  drawn with marching squares on a softened field, so they read as smooth blobs. The board is rendered in 3D with
-  three.js (also inside the export worker), with the 2D titles and banners on top. The game runs on a clock of the target length; a few
+  drawn with marching squares on a softened field, so they read as smooth blobs. The tilted board is rendered with
+  three.js (also inside the export worker); the countryballs, titles and banners are 2D on top. The game runs on a clock of the target length; a few
   starts are played in full and the liveliest is kept (lead changes, a few cuts, a well-covered board, a close
   finish). Land is recorded only when it changes. Tests check the board always matches every flag's land, a cut
   flag's land is wiped, and the most land wins.
