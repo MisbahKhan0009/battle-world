@@ -6,7 +6,7 @@
  */
 import { ArrayBufferTarget, Muxer } from 'mp4-muxer';
 import { Mixer } from '../audio/mix';
-import { SAMPLE_RATE, getMusic } from '../audio/synth';
+import { SAMPLE_RATE } from '../audio/synth';
 import { simulate } from '../engine/sim';
 import { WINNER_HOLD_SEC } from '../engine/timeline';
 import { DESIGN_SIZE } from '../render/layout';
@@ -90,8 +90,6 @@ async function run(req: ExportRequest): Promise<void> {
     encoder.configure(audio.config);
     const mixer = new Mixer(scene, {
       sfxVolume: req.audio.sfxVolume,
-      musicVolume: req.audio.musicVolume,
-      music: req.audio.custom ?? (req.audio.musicId ? getMusic(req.audio.musicId) : null),
     });
     const totalSamples = Math.ceil(total * SAMPLE_RATE);
     const chunk = SAMPLE_RATE;

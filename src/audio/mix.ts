@@ -1,5 +1,5 @@
 /**
- * Soundtrack mixing. Cues are derived deterministically from the battle (video-time positions,
+ * Sound-effect mixing (no background music). Cues are derived deterministically from the battle (video-time positions,
  * seeded variant and pitch choice, density capping). The mixer renders any sample range on
  * demand in plain JS, so the exporter can stream audio in chunks inside a worker without ever
  * holding the whole soundtrack in memory.
@@ -11,7 +11,7 @@ import { SAMPLE_RATE, getSound, type SoundId, type Stereo } from './synth';
 
 export type Cue = { at: number; sound: SoundId; gain: number; rate: number; pan: number };
 
-export type MixSettings = { sfxVolume: number; musicVolume: number; music: Stereo | null };
+export type MixSettings = { sfxVolume: number };
 
 const MIN_HIT_GAP = 0.045;
 const MAX_HITS_PER_SEC = 14;
@@ -62,31 +62,8 @@ export function buildCues(scene: Scene): Cue[] {
   return cues.sort((a, b) => a.at - b.at);
 }
 
-/** Music gain envelope: fades, ducking under eliminations and the winner, softer slow motion. */
-export function musicEnvelope(scene: Scene, cues: Cue[]): (v: number) => number {
-  const { timeline } = scene;
-  const ducks = cues.filter((c) => c.sound === 'elim').map((c) => ({ at: c.at, hold: 0.12, depth: 0.45 }));
-  ducks.push({ at: timeline.vWinner, hold: 1.4, depth: 0.6 });
-  const total = timeline.total;
-  return (v: number) => {
-    let g = Math.min(1, v / 1) * Math.min(1, Math.max(0, (total - v) / 2));
-    let duck = 1;
-    for (const d of ducks) {
-      const u = v - d.at;
-      if (u < -0.04 || u > d.hold + 0.7) continue;
-      const env = u < 0 ? (u + 0.04) / 0.04 : u < d.hold ? 1 : 1 - (u - d.hold) / 0.7;
-      duck = Math.min(duck, 1 - d.depth * env);
-    }
-    g *= duck;
-    const s = timeline.speedAt(v);
-    if (s < 1) g *= 0.6 + 0.4 * s;
-    return g;
-  };
-}
-
 export class Mixer {
   private readonly cues: Cue[];
-  private readonly env: (v: number) => number;
   private maxCueLen = 0;
 
   constructor(
@@ -95,7 +72,6 @@ export class Mixer {
     cues?: Cue[],
   ) {
     this.cues = cues ?? buildCues(scene);
-    this.env = musicEnvelope(scene, this.cues);
     for (const c of this.cues) this.maxCueLen = Math.max(this.maxCueLen, getSound(c.sound).length / c.rate);
   }
 
@@ -103,23 +79,7 @@ export class Mixer {
   render(start: number, frames: number): Stereo {
     const L = new Float32Array(frames);
     const R = new Float32Array(frames);
-    const { music, musicVolume, sfxVolume } = this.settings;
-
-    if (music && musicVolume > 0) {
-      const loop = music.L.length;
-      const block = 128;
-      for (let b = 0; b < frames; b += block) {
-        const g0 = this.env((start + b) / SAMPLE_RATE) * musicVolume;
-        const g1 = this.env((start + Math.min(frames, b + block)) / SAMPLE_RATE) * musicVolume;
-        const end = Math.min(frames, b + block);
-        for (let i = b; i < end; i++) {
-          const g = g0 + ((g1 - g0) * (i - b)) / block;
-          const k = (start + i) % loop;
-          L[i] += music.L[k] * g;
-          R[i] += music.R[k] * g;
-        }
-      }
-    }
+    const { sfxVolume } = this.settings;
 
     if (sfxVolume > 0) {
       const endFrame = start + frames;

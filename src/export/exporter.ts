@@ -2,11 +2,9 @@
  * Main-thread export controller. Runs the WebCodecs worker when available and falls back to
  * real-time MediaRecorder (WebM) otherwise.
  */
-import type { Stereo } from '../audio/synth';
 import type { Look, SimConfig } from '../engine/types';
 import type { SceneFighter } from '../render/scene';
 import type { AudioSettings } from '../store/app';
-import { decodeMusic } from '../lib/images';
 import { exportFonts } from './fonts';
 import type { ExportFighter, ExportMessage, ExportRequest } from './protocol';
 
@@ -43,11 +41,6 @@ export function webCodecsAvailable(): boolean {
   return typeof window !== 'undefined' && 'VideoEncoder' in window && 'OffscreenCanvas' in window;
 }
 
-async function resolveCustomMusic(audio: AudioSettings): Promise<Stereo | null> {
-  if (!audio.enabled || audio.music !== 'custom' || !audio.customMusicKey) return null;
-  return decodeMusic(audio.customMusicKey);
-}
-
 async function cloneBitmap(b: ImageBitmap | null | undefined): Promise<ImageBitmap | null> {
   if (!b) return null;
   return createImageBitmap(b as ImageBitmap);
@@ -55,16 +48,15 @@ async function cloneBitmap(b: ImageBitmap | null | undefined): Promise<ImageBitm
 
 export async function runExport(input: ExportInput): Promise<ExportOutcome> {
   input.onProgress({ stage: 'preparing', percent: 0, etaSec: null });
-  const custom = await resolveCustomMusic(input.audio);
   if (webCodecsAvailable()) {
-    const res = await runWorker(input, custom);
+    const res = await runWorker(input);
     if (res !== 'unsupported') return res;
   }
   const { runFallback } = await import('./fallback');
-  return runFallback(input, custom);
+  return runFallback(input);
 }
 
-async function runWorker(input: ExportInput, custom: Stereo | null): Promise<ExportOutcome | 'unsupported'> {
+async function runWorker(input: ExportInput): Promise<ExportOutcome | 'unsupported'> {
   const fighters: ExportFighter[] = await Promise.all(
     input.fighters.map(async (f) => ({
       id: f.id,
@@ -76,7 +68,6 @@ async function runWorker(input: ExportInput, custom: Stereo | null): Promise<Exp
     })),
   );
   const winnerImage = await cloneBitmap(input.winnerImage);
-  const musicCopy = custom ? { L: custom.L.slice(), R: custom.R.slice() } : null;
   const req: ExportRequest = {
     type: 'start',
     config: input.config,
@@ -85,19 +76,12 @@ async function runWorker(input: ExportInput, custom: Stereo | null): Promise<Exp
     winnerImage,
     fps: input.fps,
     bitrate: BITRATES[input.quality],
-    audio: {
-      enabled: input.audio.enabled,
-      sfxVolume: input.audio.sfxVolume,
-      musicVolume: input.audio.music === 'none' ? 0 : input.audio.musicVolume,
-      musicId: input.audio.music === 'none' || input.audio.music === 'custom' ? null : input.audio.music,
-      custom: musicCopy,
-    },
+    audio: { enabled: input.audio.enabled, sfxVolume: input.audio.sfxVolume },
     fonts: exportFonts(),
   };
   const transfer: Transferable[] = [
     ...fighters.map((f) => f.image).filter((b): b is ImageBitmap => !!b),
     ...(winnerImage ? [winnerImage] : []),
-    ...(musicCopy ? [musicCopy.L.buffer, musicCopy.R.buffer] : []),
   ];
 
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });

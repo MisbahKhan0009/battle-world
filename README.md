@@ -102,19 +102,17 @@ fighters land within ±3 s of 30, 45 and 58 s targets; 64 fighters tune in well 
   whatever the machine speed.
 - Video: best supported of H.264 High/Main/Baseline (level picked from resolution and fps), then VP9,
   then AV1. Keyframe every 2 s, backpressure on `encodeQueueSize`, every `VideoFrame` closed.
-- Audio: mixed in one-second chunks by a plain-JS streaming mixer (same cues as the preview) and encoded
+- Audio (sound effects only): mixed in one-second chunks by a plain-JS streaming mixer (same cues as the preview) and encoded
   with `AudioEncoder`: AAC where the browser has it (Chrome on Windows and macOS), Opus otherwise.
 - Muxed by `mp4-muxer` with `fastStart: 'in-memory'` (moov atom first, YouTube friendly).
 - Without WebCodecs, the app records in real time with `MediaRecorder` to WebM.
 
-## Adding sound effects and music
+## Sound
 
-- **Your own music:** in the Export dialog choose **Music → Yours** and pick any audio file. It is stored in
-  IndexedDB, decoded and resampled to 48 kHz, and used in both the preview and the export.
-- **Bundled sounds:** all bundled audio is generated in `src/audio/synth.ts` (no files, CC0). To add a
-  track, add an entry to `SONGS` (tempo, chords and a `build` function that places voices) and a label in
-  `MUSIC_LABELS`. To change a sound effect, edit its generator (`hit`, `elim`, `whoosh`, `fanfare`, `tick`,
-  `boom`). If you add real audio files under `public/audio/`, list them in `public/audio/CREDITS.md`.
+Videos carry **sound effects only** (bumps, exits, eliminations, final-2 riser, winner fanfare, intro
+ticks), with no background music. All sounds are generated in `src/audio/synth.ts` (no files, CC0). To
+change a sound, edit its generator (`hit`, `exit`, `elim`, `whoosh`, `fanfare`, `tick`, `boom`). If you add
+real audio files under `public/audio/`, list them in `public/audio/CREDITS.md`.
 
 ## Keyboard shortcuts
 
@@ -130,7 +128,7 @@ fighters land within ±3 s of 30, 45 and 58 s targets; 64 fighters tune in well 
 
 Decisions made where the requirements left room:
 
-- Audio is synthesized instead of shipping CC0 files: zero licensing risk, nothing to download.
+- Sound effects are synthesized instead of shipping CC0 files: zero licensing risk, nothing to download.
 - The export mixer is a streaming JS mixer rather than one big `OfflineAudioContext` render, because Web
   Audio is not available in workers and streaming keeps memory flat for long videos.
 - Linux builds of Chrome have no AAC encoder; there the MP4 carries Opus audio, which YouTube and VLC accept.

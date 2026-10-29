@@ -3,7 +3,7 @@
  * it with MediaRecorder (WebM). Audio is mixed with the same Mixer and played into the stream.
  */
 import { Mixer } from '../audio/mix';
-import { SAMPLE_RATE, getMusic, type Stereo } from '../audio/synth';
+import { SAMPLE_RATE } from '../audio/synth';
 import { simulate } from '../engine/sim';
 import { WINNER_HOLD_SEC } from '../engine/timeline';
 import { DESIGN_SIZE } from '../render/layout';
@@ -16,7 +16,7 @@ function pickMime(): string {
   return options.find((m) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(m)) ?? '';
 }
 
-export async function runFallback(input: ExportInput, custom: Stereo | null): Promise<ExportOutcome> {
+export async function runFallback(input: ExportInput): Promise<ExportOutcome> {
   if (typeof MediaRecorder === 'undefined')
     throw new Error('This browser cannot record video. Use the latest Chrome or Edge.');
   const { W, H } = DESIGN_SIZE[input.look.aspect];
@@ -41,14 +41,7 @@ export async function runFallback(input: ExportInput, custom: Stereo | null): Pr
   let source: AudioBufferSourceNode | null = null;
   if (input.audio.enabled) {
     audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
-    const music =
-      custom ??
-      (input.audio.music === 'none' || input.audio.music === 'custom' ? null : getMusic(input.audio.music));
-    const mixer = new Mixer(scene, {
-      sfxVolume: input.audio.sfxVolume,
-      musicVolume: input.audio.music === 'none' ? 0 : input.audio.musicVolume,
-      music,
-    });
+    const mixer = new Mixer(scene, { sfxVolume: input.audio.sfxVolume });
     const frames = Math.ceil(total * SAMPLE_RATE);
     const { L, R } = mixer.render(0, frames);
     const buffer = audioCtx.createBuffer(2, frames, SAMPLE_RATE);

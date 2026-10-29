@@ -1,13 +1,11 @@
-import { Check, Copy, Download, Music, TriangleAlert, Upload } from 'lucide-react';
+import { Check, Copy, Download, TriangleAlert } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { MUSIC_LABELS, type MusicId } from '../audio/synth';
 import { runExport, webCodecsAvailable, type ExportOutcome, type ExportProgress } from '../export/exporter';
 import { buildFilename, hashtagsFor } from '../lib/battle';
-import { saveBlob } from '../lib/images';
 import { cn, formatTime, slug } from '../lib/utils';
 import { DESIGN_SIZE } from '../render/layout';
-import { useApp, type AudioSettings } from '../store/app';
+import { useApp } from '../store/app';
 import { useBattle } from '../store/battle';
 import { useUi } from '../store/ui';
 import { Button } from './ui/Button';
@@ -45,7 +43,6 @@ export function ExportDialog() {
   const [phase, setPhase] = useState<Phase>({ kind: 'setup' });
   const abortRef = useRef<AbortController | null>(null);
   const thumbRef = useRef<HTMLCanvasElement>(null);
-  const musicRef = useRef<HTMLInputElement>(null);
   const [copied, setCopied] = useState(false);
 
   const { W, H } = DESIGN_SIZE[look.aspect];
@@ -130,15 +127,6 @@ export function ExportDialog() {
     }
   };
 
-  const onMusicFile = async (file: File | undefined) => {
-    if (!file) return;
-    if (file.size > 40 * 1024 * 1024)
-      return toast.error('That file is over 40 MB. Use a shorter or compressed track.');
-    const key = await saveBlob('music', file);
-    setAudio({ music: 'custom', customMusicKey: key, customMusicName: file.name });
-    toast.success(`Using "${file.name}"`);
-  };
-
   const copyMeta = async () => {
     if (!winner || !scene) return;
     const { title, tags } = hashtagsFor(winner.name, scene.fighters.length, scene.result.config.mode);
@@ -218,68 +206,12 @@ export function ExportDialog() {
           <div className="space-y-4 rounded-xl bg-surface-2/50 p-4 ring-1 ring-line">
             <Toggle
               label="Include audio"
-              description="Hit sounds, eliminations, fanfare and music."
+              description="Sound effects only: bumps, exits, eliminations and the winner fanfare."
               checked={audio.enabled}
               onChange={(enabled) => setAudio({ enabled })}
             />
             {audio.enabled && (
               <>
-                <Field label="Music">
-                  <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
-                    {(['energetic', 'epic', 'chill', 'none'] as (AudioSettings['music'] & string)[]).map(
-                      (m) => (
-                        <button
-                          key={m}
-                          type="button"
-                          aria-pressed={audio.music === m}
-                          onClick={() => setAudio({ music: m })}
-                          className={cn(
-                            'h-9 rounded-lg text-[13px] ring-1 transition-colors',
-                            audio.music === m
-                              ? 'bg-surface-3 text-text ring-accent'
-                              : 'text-muted ring-line hover:text-text',
-                          )}
-                        >
-                          {m === 'none' ? 'None' : MUSIC_LABELS[m as MusicId]}
-                        </button>
-                      ),
-                    )}
-                    <button
-                      type="button"
-                      aria-pressed={audio.music === 'custom'}
-                      onClick={() =>
-                        audio.customMusicKey ? setAudio({ music: 'custom' }) : musicRef.current?.click()
-                      }
-                      className={cn(
-                        'flex h-9 items-center justify-center gap-1.5 rounded-lg text-[13px] ring-1 transition-colors',
-                        audio.music === 'custom'
-                          ? 'bg-surface-3 text-text ring-accent'
-                          : 'text-muted ring-line hover:text-text',
-                      )}
-                    >
-                      <Upload size={13} /> Yours
-                    </button>
-                  </div>
-                  <input
-                    ref={musicRef}
-                    type="file"
-                    accept="audio/*"
-                    hidden
-                    onChange={(e) => void onMusicFile(e.target.files?.[0])}
-                  />
-                  {audio.music === 'custom' && audio.customMusicName && (
-                    <p className="flex items-center gap-2 text-xs text-muted">
-                      <Music size={12} /> <span className="truncate">{audio.customMusicName}</span>
-                      <button
-                        type="button"
-                        className="underline underline-offset-2 hover:text-text"
-                        onClick={() => musicRef.current?.click()}
-                      >
-                        Replace
-                      </button>
-                    </p>
-                  )}
-                </Field>
                 <Slider
                   label="Sound effects"
                   value={audio.sfxVolume}
@@ -288,16 +220,6 @@ export function ExportDialog() {
                   step={0.05}
                   onChange={(sfxVolume) => setAudio({ sfxVolume })}
                   format={(v) => `${Math.round(v * 100)}%`}
-                />
-                <Slider
-                  label="Music volume"
-                  value={audio.musicVolume}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(musicVolume) => setAudio({ musicVolume })}
-                  format={(v) => `${Math.round(v * 100)}%`}
-                  disabled={audio.music === 'none'}
                 />
               </>
             )}

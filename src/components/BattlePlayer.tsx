@@ -1,9 +1,7 @@
 import { Eye, EyeOff, Pause, Play, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { LiveAudio } from '../audio/player';
-import { getMusic, type Stereo } from '../audio/synth';
 import type { Phase } from '../engine/timeline';
-import { decodeMusic } from '../lib/images';
 import { cn, formatTime } from '../lib/utils';
 import { DESIGN_SIZE } from '../render/layout';
 import { BattleRenderer } from '../render/renderer';
@@ -120,26 +118,9 @@ export const BattlePlayer = forwardRef<PlayerHandle, Props>(function BattlePlaye
   }, [scene, ambient]);
 
   useEffect(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    let live = true;
-    const apply = (music: Stereo | null) =>
-      live &&
-      a.setSettings({
-        sfxVolume: audioSettings.enabled && !muted ? audioSettings.sfxVolume : 0,
-        musicVolume:
-          audioSettings.enabled && !muted && audioSettings.music !== 'none' ? audioSettings.musicVolume : 0,
-        music,
-      });
-    if (!audioSettings.enabled || audioSettings.music === 'none') apply(null);
-    else if (audioSettings.music === 'custom') {
-      if (audioSettings.customMusicKey)
-        decodeMusic(audioSettings.customMusicKey).then(apply, () => apply(null));
-      else apply(null);
-    } else apply(getMusic(audioSettings.music));
-    return () => {
-      live = false;
-    };
+    audioRef.current?.setSettings({
+      sfxVolume: audioSettings.enabled && !muted ? audioSettings.sfxVolume : 0,
+    });
   }, [audioSettings, muted]);
 
   useEffect(() => {

@@ -1,17 +1,13 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { MusicId } from '../audio/synth';
 import { flagUrl, STARTER, type Country } from '../data/countries';
 import type { Fighter, Look, Preset, Rules } from '../engine/types';
 import { randomSeed, uid } from '../lib/utils';
 
+/** Sound effects only; videos carry no background music. */
 export type AudioSettings = {
   enabled: boolean;
-  music: MusicId | 'none' | 'custom';
-  customMusicKey?: string;
-  customMusicName?: string;
   sfxVolume: number;
-  musicVolume: number;
 };
 
 export type ExportSettings = {
@@ -55,12 +51,7 @@ export const DEFAULT_LOOK: Look = {
   outroCta: 'Which flags should battle next? Comment below 👇',
 };
 
-export const DEFAULT_AUDIO: AudioSettings = {
-  enabled: true,
-  music: 'energetic',
-  sfxVolume: 0.8,
-  musicVolume: 0.45,
-};
+export const DEFAULT_AUDIO: AudioSettings = { enabled: true, sfxVolume: 0.85 };
 export const DEFAULT_EXPORT: ExportSettings = {
   fps: 60,
   quality: 'high',
@@ -228,7 +219,10 @@ export const useApp = create<State & Actions>()(
           ...p,
           rules: mergeRules(p.rules),
           look: { ...DEFAULT_LOOK, ...p.look },
-          audio: { ...DEFAULT_AUDIO, ...p.audio },
+          audio: {
+            enabled: p.audio?.enabled ?? DEFAULT_AUDIO.enabled,
+            sfxVolume: p.audio?.sfxVolume ?? DEFAULT_AUDIO.sfxVolume,
+          },
           exportSettings: { ...DEFAULT_EXPORT, ...p.exportSettings },
           ui: { ...current.ui, ...p.ui },
         };

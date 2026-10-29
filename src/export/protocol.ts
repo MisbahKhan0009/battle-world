@@ -1,4 +1,3 @@
-import type { MusicId, Stereo } from '../audio/synth';
 import type { Look, SimConfig } from '../engine/types';
 
 export type ExportFighter = {
@@ -18,13 +17,8 @@ export type ExportRequest = {
   winnerImage: ImageBitmap | null;
   fps: 30 | 60;
   bitrate: number;
-  audio: {
-    enabled: boolean;
-    sfxVolume: number;
-    musicVolume: number;
-    musicId: MusicId | null;
-    custom: Stereo | null;
-  };
+  /** Sound effects only (no background music). */
+  audio: { enabled: boolean; sfxVolume: number };
   fonts: { family: string; url: string; descriptors: FontFaceDescriptors }[];
 };
 
