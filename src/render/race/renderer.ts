@@ -9,7 +9,7 @@ import { drawConfetti, easeBack, easeOut } from '../effects';
 import { DESIGN_SIZE } from '../layout';
 import { THEMES, type Theme } from '../themes';
 import { TOKEN_SCALE, TokenCache, bakeToken } from '../tokens';
-import { cameraAt, marbleAt, podium, standingsAt, type RaceScene } from './scene';
+import { cameraAt, marbleAt, standingsAt, type RaceScene } from './scene';
 
 type Anchor = { x: number; y: number; align: CanvasTextAlign; maxW: number; size: number };
 
@@ -71,7 +71,6 @@ function layoutFor(aspect: RaceScene['look']['aspect']): RaceLayout {
 }
 
 const SPINNER = '#3DDCFF';
-const ORDINAL = ['1ST', '2ND', '3RD'];
 
 export class RaceRenderer {
   readonly L: RaceLayout;
@@ -302,9 +301,9 @@ export class RaceRenderer {
       ctx.rotate(a);
       ctx.drawImage(tok, -size / 2, -size / 2, size, size);
       ctx.restore();
-      if (k < 3 && t < scene.result.winnerT + 0.2) {
-        // Place badge above the top three.
-        ctx.fillStyle = k === 0 ? th.accent : '#FFFFFF';
+      if (k === 0 && t < scene.result.winnerT + 0.2) {
+        // "1" badge above the leader only.
+        ctx.fillStyle = th.accent;
         ctx.beginPath();
         ctx.arc(x, y - r - 22, 17, 0, Math.PI * 2);
         ctx.fill();
@@ -585,19 +584,6 @@ export class RaceRenderer {
         th.subtext,
         6,
       );
-      // Second and third: below the winner on tall frames, beside it on wide ones.
-      const pod = podium(this.scene).slice(1);
-      const pr = m * 0.055;
-      const wide = look.aspect === '16:9';
-      const py = wide ? cy + R * 0.3 : nameY + m * 0.25;
-      pod.forEach((i, k) => {
-        const x = W / 2 + (k === 0 ? -1 : 1) * (wide ? R + m * 0.42 : m * 0.2);
-        const tok = this.tokens.get(i, 2 * pr * this.px);
-        const size = 2 * pr * TOKEN_SCALE;
-        ctx.drawImage(tok, x - size / 2, py - size / 2, size, size);
-        ctx.font = `${m * 0.045}px ${FONT_DISPLAY}`;
-        this.outlined(ctx, ORDINAL[k + 1], x, py + pr + m * 0.04, th.subtext, 6);
-      });
       ctx.globalAlpha = 1;
     }
     if (look.particles) drawConfetti(ctx, u - 0.5, W, H, w.palette, this.scene.seed);

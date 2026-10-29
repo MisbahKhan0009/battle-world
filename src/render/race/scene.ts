@@ -117,9 +117,3 @@ export function standingsAt(scene: RaceScene, t: number): number[] {
     return ys[b] - ys[a] || a - b;
   });
 }
-
-/** Final podium (winner first). Unfinished marbles rank by how far they got. */
-export function podium(scene: RaceScene): number[] {
-  const end = scene.result.endT;
-  return standingsAt(scene, end).slice(0, 3);
-}

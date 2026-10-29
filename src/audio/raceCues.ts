@@ -1,7 +1,8 @@
 /**
  * Sound cues for a Marble Race, derived deterministically from the recorded race: countdown,
- * glassy clacks when marbles knock together, thuds on the track, bumper boings, a chime for
- * each podium finisher and the winner fanfare. Density is capped so big fields stay pleasant.
+ * glassy clacks when marbles knock together, dry wooden clicks on the track, pegs and spinners,
+ * a lower glass knock on bumpers, a chime for the winner and the fanfare. No drum-like thuds.
+ * Density is capped so big fields stay pleasant.
  */
 import { TRACK_W } from '../engine/race/track';
 import { hashFloat } from '../engine/rng';
@@ -17,7 +18,7 @@ export function buildRaceCues(scene: RaceScene): Cue[] {
   const cues: Cue[] = [];
   if (timeline.intro > 0) {
     for (const at of [0.2, 0.7, 1.2]) cues.push({ at, sound: 'tick', gain: 0.55, rate: 1, pan: 0 });
-    cues.push({ at: 1.7, sound: 'boom', gain: 0.75, rate: 1.15, pan: 0 });
+    cues.push({ at: 1.7, sound: 'ding', gain: 0.75, rate: 1.26, pan: 0 });
   }
   const recent: number[] = [];
   let last = -Infinity;
@@ -29,7 +30,13 @@ export function buildRaceCues(scene: RaceScene): Cue[] {
     if (at >= timeline.vOutro) break;
     const pan = Math.max(-0.6, Math.min(0.6, (e.x / TRACK_W - 0.5) * 1.2));
     if (e.kind === 'bumper') {
-      cues.push({ at, sound: 'boing', gain: 0.5, rate: 0.9 + 0.25 * hashFloat(seed, k, 911), pan });
+      cues.push({
+        at,
+        sound: `clack${Math.floor(hashFloat(seed, k, 910) * 3)}` as SoundId,
+        gain: 0.55,
+        rate: 0.62 + 0.12 * hashFloat(seed, k, 911),
+        pan,
+      });
       continue;
     }
     if (at - last < MIN_GAP) continue;
@@ -49,22 +56,18 @@ export function buildRaceCues(scene: RaceScene): Cue[] {
         pan,
       });
     } else {
-      const v = Math.floor(hashFloat(seed, k, 914) * 5);
+      const v = Math.floor(hashFloat(seed, k, 914) * 3);
       cues.push({
         at,
-        sound: `hit${v}` as SoundId,
-        gain: (e.kind === 'spinner' ? 0.35 : 0.12) + 0.4 * f,
-        rate: (1.25 + 0.3 * hashFloat(seed, k, 915)) * speed,
+        sound: `tock${v}` as SoundId,
+        gain: (e.kind === 'spinner' ? 0.38 : 0.16) + 0.5 * f,
+        rate: (0.9 + 0.25 * hashFloat(seed, k, 915)) * speed,
         pan,
       });
     }
   }
-  for (const e of result.events) {
-    if (e.type !== 'finish' || e.place > 3) continue;
-    const at = timeline.videoAt(e.t);
-    if (at >= timeline.vOutro) continue;
-    cues.push({ at, sound: 'ding', gain: e.place === 1 ? 0.8 : 0.5, rate: e.place === 1 ? 1 : 0.84, pan: 0 });
-  }
+  // Only the winner gets a chime (no 2nd or 3rd place).
+  cues.push({ at: timeline.vWinner, sound: 'ding', gain: 0.8, rate: 1, pan: 0 });
   if (timeline.vFinal2 !== null)
     cues.push({ at: timeline.vFinal2 + 0.05, sound: 'whoosh', gain: 0.7, rate: 1, pan: 0 });
   cues.push({ at: timeline.vWinner + 0.45, sound: 'fanfare', gain: 0.8, rate: 1, pan: 0 });

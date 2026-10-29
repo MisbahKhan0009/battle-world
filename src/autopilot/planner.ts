@@ -6,7 +6,8 @@
  * - a minimum gap separates posts; long videos go to the slots where long-form viewing peaks;
  * - every game has its own pace (Shorts a day, long videos a week, spread over the week per
  *   game); all games share one timeline, so their posts never overlap and keep the minimum gap;
- * - the daily count wobbles by one per game when enabled;
+ * - the daily count wobbles by one per game when enabled, balanced within each week so weekly
+ *   totals always match the pace;
  * - the daily upload cap is shared and always wins, trimmed fairly from the busiest game.
  */
 import { hash32, Rng } from '../engine/rng';
@@ -59,6 +60,27 @@ export function videosOnDay(channelId: string, d: Date, perWeek: number): number
   return count;
 }
 
+/**
+ * Organic day-to-day variation that still adds up: each week, a game gets one or two days with
+ * one Short more and as many days with one fewer, so the weekly total always matches its pace.
+ */
+export function weeklyWobble(key: string, d: Date, perDay: number): number {
+  if (perDay <= 0) return 0;
+  const rng = new Rng(hash32(strHash(key), weekIndex(d), 23));
+  const days = [0, 1, 2, 3, 4, 5, 6];
+  for (let i = days.length - 1; i > 0; i--) {
+    const j = rng.int(i + 1);
+    [days[i], days[j]] = [days[j], days[i]];
+  }
+  const pairs = 1 + rng.int(2);
+  const offsets = [0, 0, 0, 0, 0, 0, 0];
+  for (let p = 0; p < pairs; p++) {
+    offsets[days[2 * p]] += 1;
+    offsets[days[2 * p + 1]] -= 1;
+  }
+  return offsets[weekday(d)];
+}
+
 export type PlannedSlot = Pick<Slot, 'id' | 'channelId' | 'at' | 'format' | 'moduleId' | 'seed'>;
 
 export function planDay(
@@ -76,12 +98,8 @@ export function planDay(
   const mods = [...moduleIds].sort();
   const want = mods.map((m) => {
     const pace = paceFor(settings, m);
-    let shorts = Math.max(0, Math.round(pace.shortsPerDay));
-    if (settings.varyDaily && shorts > 0) {
-      const r = rng.next();
-      if (r < 0.2) shorts -= 1;
-      else if (r > 0.85) shorts += 1;
-    } else rng.next();
+    const base = Math.max(0, Math.round(pace.shortsPerDay));
+    const shorts = base + (settings.varyDaily ? weeklyWobble(`${channelId}:${m}`, day, base) : 0);
     const videos = videosOnDay(`${channelId}:${m}`, day, Math.round(pace.videosPerWeek));
     return { m, shorts, videos };
   });

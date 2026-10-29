@@ -204,3 +204,72 @@ export function Kbd({ children }: { children: ReactNode }) {
 
 export const inputClass =
   'h-10 w-full rounded-xl border border-line-strong bg-bg/60 px-3 text-sm text-text placeholder:text-muted/70 transition-colors focus:border-accent/60 focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-accent/25';
+
+/** A number with − and + buttons (and typing), for counts like "Shorts per day". */
+export function Stepper({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  onChange,
+  unit,
+  hint,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  onChange: (v: number) => void;
+  /** Shown after the number, e.g. "a day". */
+  unit?: string;
+  hint?: ReactNode;
+}) {
+  const id = useId();
+  const set = (v: number) => onChange(Math.max(min, Math.min(max, Math.round(v / step) * step)));
+  const btn =
+    'grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-surface-3 text-lg leading-none text-text transition-colors hover:bg-line-strong disabled:opacity-35 disabled:hover:bg-surface-3';
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <label htmlFor={id} className="text-[13px] font-medium text-text">
+          {label}
+        </label>
+        {hint && <div className="text-xs text-muted">{hint}</div>}
+      </div>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          className={btn}
+          aria-label={`Fewer: ${label}`}
+          disabled={value <= min}
+          onClick={() => set(value - step)}
+        >
+          −
+        </button>
+        <input
+          id={id}
+          type="number"
+          inputMode="numeric"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => e.target.value !== '' && set(Number(e.target.value))}
+          className="h-9 w-12 rounded-lg border border-line-strong bg-bg/60 text-center text-sm tabular [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        />
+        <button
+          type="button"
+          className={btn}
+          aria-label={`More: ${label}`}
+          disabled={value >= max}
+          onClick={() => set(value + step)}
+        >
+          +
+        </button>
+        {unit && <span className="w-[52px] text-xs text-muted">{unit}</span>}
+      </div>
+    </div>
+  );
+}

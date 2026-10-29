@@ -139,6 +139,32 @@ describe('planner', () => {
     expect(backToBack / pairs).toBeLessThan(0.35);
   });
 
+  test('organic variation keeps every weekly total exact, even at one a day', () => {
+    for (const perDay of [1, 2, 3]) {
+      const s: ScheduleSettings = {
+        ...DEFAULT_SCHEDULE,
+        dailyCap: 20,
+        perModule: {
+          'flag-battle': { shortsPerDay: perDay, videosPerWeek: 0 },
+          'marble-race': { shortsPerDay: 1, videosPerWeek: 0 },
+        },
+      };
+      for (let w = 0; w < 4; w++) {
+        const per: Record<string, number> = {};
+        const daily = new Set<number>();
+        for (let d = 0; d < 7; d++) {
+          const plan = planDay('UCw', new Date(2026, 10, 2 + w * 7 + d), s, ['flag-battle', 'marble-race']);
+          const fb = plan.filter((p) => p.moduleId === 'flag-battle').length;
+          daily.add(fb);
+          for (const p of plan) per[p.moduleId] = (per[p.moduleId] ?? 0) + 1;
+        }
+        expect(per['flag-battle']).toBe(perDay * 7);
+        expect(per['marble-race']).toBe(7);
+        expect(daily.size).toBeGreaterThan(1);
+      }
+    }
+  });
+
   test('the shared daily cap is split fairly between games', () => {
     const s: ScheduleSettings = {
       ...DEFAULT_SCHEDULE,

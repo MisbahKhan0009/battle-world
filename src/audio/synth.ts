@@ -26,7 +26,10 @@ export type SoundId =
   | 'clack1'
   | 'clack2'
   | 'boing'
-  | 'ding';
+  | 'ding'
+  | 'tock0'
+  | 'tock1'
+  | 'tock2';
 export type Stereo = { L: Float32Array; R: Float32Array };
 
 const noise = (i: number, seed: number) => hashFloat(seed, i) * 2 - 1;
@@ -231,6 +234,33 @@ function clack(variant: number): Float32Array {
   return normalize(out, 0.75);
 }
 
+/**
+ * A marble landing on a wooden track: a short, dry click with a small hollow resonance and no
+ * low "drum" body, like a real marble run.
+ */
+function tock(variant: number): Float32Array {
+  const len = Math.floor(SR * 0.07);
+  const out = new Float32Array(len);
+  const res = [1180, 1420, 980][variant];
+  // Two-pole resonator excited by a very short noise burst.
+  const r = Math.exp(-1 / (SR * 0.012));
+  const c = 2 * r * Math.cos((TAU * res) / SR);
+  let y1 = 0;
+  let y2 = 0;
+  let lp = 0;
+  const a = lpCoef(5200);
+  for (let i = 0; i < len; i++) {
+    const t = i / SR;
+    const burst = i < 70 ? noise(i, 640 + variant) * (1 - i / 70) : 0;
+    const y = burst + c * y1 - r * r * y2;
+    y2 = y1;
+    y1 = y;
+    lp += (noise(i, 660 + variant) - lp) * a;
+    out[i] = y * 0.6 + lp * Math.exp(-t / 0.004) * 0.9;
+  }
+  return normalize(out, 0.7);
+}
+
 /** Bumper: a springy pitch wobble. */
 function boing(): Float32Array {
   const dur = 0.42;
@@ -287,7 +317,9 @@ export function getSound(id: SoundId): Float32Array {
                       ? ding()
                       : id.startsWith('clack')
                         ? clack(Number(id.slice(5)))
-                        : hit(Number(id.slice(3)));
+                        : id.startsWith('tock')
+                          ? tock(Number(id.slice(4)))
+                          : hit(Number(id.slice(3)));
     sfxCache.set(id, s);
   }
   return s;

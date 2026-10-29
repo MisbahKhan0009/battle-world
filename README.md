@@ -151,9 +151,11 @@ extra to set up. **Refresh** reloads it; **YouTube Studio** opens your channel t
 - **Post now** renders and uploads one Short or long video immediately, outside the schedule. Great for a first test.
 - **Pause autopilot** stops new posts (also available from the tray icon).
 - **Recent posts** links each upload to YouTube and shows the reason if one failed.
-- **Schedule** (right column) has a card per game with its own **Shorts per day** and **long videos per week**,
-  and a switch to turn the game on or off. Changes take effect at once: posts in the week that have not started
-  yet are re-planned; anything already rendering or uploaded stays as it is.
+- **Schedule** (right column) has a card per game with **−** and **+** buttons for its **Shorts a day** and **long
+  videos a week**, a switch to turn the game on or off, and how many of each are actually planned for the next 7
+  days. Changes stay a draft until you click **Replan the week** (or **Reset** to undo): then the week, the calendar
+  and the counts update, and posts already rendering or uploaded are kept. If your games together ask for more than
+  the **daily upload limit**, a warning explains that each day keeps the limit, trimmed fairly from the busiest game.
 
 ### Calendar
 
@@ -181,12 +183,12 @@ Windows by default so the schedule survives restarts; turn that off in **Setting
 
 ### Marble Race
 
-<img src="docs/images/marble-race.jpg" alt="Four frames from a Marble Race Short: the countdown with every flag, marbles rolling down ramps and spinners with live standings, the final funnel before the finish line, and the winner card with second and third place" width="100%" />
+<img src="docs/images/marble-race.jpg" alt="Four frames from a Marble Race Short: the countdown with every flag, marbles rolling down ramps and spinners with live standings, the final funnel before the finish line, and the winner card" width="100%" />
 
 Flag marbles race down a freshly generated track: zigzag **ramps**, **plinko** peg fields, rotating **spinners**,
 **bumpers** that kick, funnels, and **forks** where the field splits into two lanes. The camera follows the front of
 the race, the standings update live, a **FINAL STRETCH** banner marks the last section, close finishes get a
-**PHOTO FINISH** slow motion, and the winner card shows the podium. Open **Modules, Marble Race, Watch a sample
+**PHOTO FINISH** slow motion, and the video ends on the winner alone. Sounds are glassy clicks between marbles and dry wooden clicks on the track (no drum thuds). Open **Modules, Marble Race, Watch a sample
 race** to play random races with sound and export one by hand.
 
 ### Studio and modules
@@ -266,7 +268,8 @@ thumbnails; their own schedule on the shared timeline.
   viewers, at a random point inside it, so the times change every day and never land on round minutes. Long videos
   go to the slot where long-form viewing peaks. Set **Where most of your viewers live** to match YouTube Studio's
   *Audience, Top geographies*.
-- **Organic variation.** Some days post one more or one fewer.
+- **Organic variation.** Some days post one more and others one fewer, balanced within each week, so every game's
+  weekly total always matches its pace.
 - **Right at the limit, not over it.** YouTube's default API quota is 10,000 units a day and each upload costs about
   1,600, so about **6 uploads a day** fit. The defaults use that fully. To post more, request a quota increase from
   Google and raise the daily limit.

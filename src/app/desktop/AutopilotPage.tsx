@@ -1,6 +1,6 @@
 import * as Popover from '@radix-ui/react-popover';
 import { CalendarDays, ExternalLink, Pause, Play, Send } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AUDIENCE_ZONES } from '../../autopilot/engagement';
 import type { Autopilot } from '../../autopilot/engine';
@@ -14,7 +14,7 @@ import {
   type ScheduleSettings,
 } from '../../autopilot/types';
 import { Button } from '../../components/ui/Button';
-import { Segmented, Slider, Toggle } from '../../components/ui/controls';
+import { Segmented, Slider, Stepper, Toggle } from '../../components/ui/controls';
 import { desktop, isDesktop } from '../../desktop/bridge';
 import { useAutopilot } from '../../desktop/runtime';
 import { cn } from '../../lib/utils';
@@ -261,16 +261,76 @@ function History({ state, onOpen }: { state: AutopilotState; onOpen: OpenPost })
   );
 }
 
+/** Posts in the next 7 days by game and format ("flag-battle:short" → count), from the live plan. */
+function upcomingWeek(state: AutopilotState): Record<string, number> {
+  const now = Date.now();
+  const out: Record<string, number> = {};
+  for (const s of state.slots) {
+    if (s.at < now || s.at > now + 7 * 86_400_000 || s.status === 'skipped' || s.status === 'failed')
+      continue;
+    out[`${s.moduleId}:${s.format}`] = (out[`${s.moduleId}:${s.format}`] ?? 0) + 1;
+  }
+  return out;
+}
+
+function ReplanBar({
+  dirty,
+  busy,
+  onReplan,
+  onReset,
+}: {
+  dirty: boolean;
+  busy: boolean;
+  onReplan: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-2 rounded-xl p-3 ring-1',
+        dirty ? 'bg-accent/10 ring-accent/40' : 'bg-surface-2/50 ring-line',
+      )}
+    >
+      <p className="min-w-0 flex-1 text-xs text-muted">
+        {dirty
+          ? 'Changes are not applied yet. Replan to update this week and the calendar.'
+          : 'Change the numbers, then replan. Posts already rendering or uploaded are kept.'}
+      </p>
+      {dirty && (
+        <Button size="sm" variant="ghost" onClick={onReset} disabled={busy}>
+          Reset
+        </Button>
+      )}
+      <Button size="sm" variant={dirty ? 'primary' : 'secondary'} onClick={onReplan} disabled={busy}>
+        {busy ? 'Replanning…' : 'Replan the week'}
+      </Button>
+    </div>
+  );
+}
+
 function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
   const [draft, setDraft] = useState<ScheduleSettings>(state.schedule);
   const [post, setPost] = useState<PostSettings>(state.post);
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  // Debounced apply: re-plans the not-yet-started future.
-  const apply = (s: ScheduleSettings) => {
-    setDraft(s);
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => void ap.update({ schedule: s }, { replan: true }), 500);
+  const [busy, setBusy] = useState(false);
+  // Edits stay a draft until "Replan the week"; follow the saved schedule when it changes elsewhere.
+  const applied = JSON.stringify(state.schedule);
+  useEffect(() => setDraft(JSON.parse(applied) as ScheduleSettings), [applied]);
+  const dirty = JSON.stringify(draft) !== applied;
+  const apply = (s: ScheduleSettings) => setDraft(s);
+  const replan = async () => {
+    setBusy(true);
+    try {
+      await ap.update({ schedule: draft }, { replan: true });
+      const week = upcomingWeek(ap.snapshot!);
+      toast.success('Week re-planned', {
+        description: games
+          .filter((m) => ap.snapshot!.modules[m.id])
+          .map((m) => `${m.name}: ${week[`${m.id}:short`] ?? 0} Shorts, ${week[`${m.id}:video`] ?? 0} videos`)
+          .join(' · '),
+      });
+    } finally {
+      setBusy(false);
+    }
   };
   const applyPost = (p: PostSettings) => {
     setPost(p);
@@ -286,6 +346,8 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
     { shorts: 0, videos: 0 },
   );
   const perDayAvg = totals.shorts + totals.videos / 7;
+  const overCap = perDayAvg > draft.dailyCap;
+  const week = upcomingWeek(state);
   const quotaUnits = Math.round(
     Math.min(draft.dailyCap, Math.ceil(perDayAvg + (draft.varyDaily ? 1 : 0))) * 1600,
   );
@@ -298,6 +360,12 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
       note="Defaults post as often as YouTube's API quota allows while still looking natural."
     >
       <div className="space-y-6">
+        <ReplanBar
+          dirty={dirty}
+          busy={busy}
+          onReplan={() => void replan()}
+          onReset={() => setDraft(state.schedule)}
+        />
         <div className="space-y-3">
           <div className="text-[13px] font-medium">Each game's schedule</div>
           {games.map((m) => {
@@ -319,31 +387,44 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
                 />
                 {on && (
                   <>
-                    <Slider
-                      label="Shorts per day"
+                    <Stepper
+                      label="Shorts"
                       value={pace.shortsPerDay}
                       min={0}
                       max={10}
+                      unit="a day"
                       onChange={(v) => setPace(m.id, { shortsPerDay: v })}
-                      format={(v) => (v === 0 ? 'None' : `${v} a day`)}
                     />
-                    <Slider
-                      label="Long videos per week"
+                    <Stepper
+                      label="Long videos"
                       value={pace.videosPerWeek}
                       min={0}
                       max={14}
+                      unit="a week"
                       onChange={(v) => setPace(m.id, { videosPerWeek: v })}
-                      format={(v) => (v === 0 ? 'None' : `${v} a week`)}
                     />
+                    <p className="text-xs text-muted">
+                      Planned for the next 7 days:{' '}
+                      <span className="text-text tabular">{week[`${m.id}:short`] ?? 0}</span> Shorts,{' '}
+                      <span className="text-text tabular">{week[`${m.id}:video`] ?? 0}</span> long videos
+                    </p>
                   </>
                 )}
               </div>
             );
           })}
           <p className="text-xs text-muted">
-            Together: {totals.shorts} Shorts a day and {totals.videos} long videos a week. All games share one
-            timeline, so their posts never overlap, keep the minimum gap, and alternate between games.
+            Together: {totals.shorts} Shorts a day and {totals.videos} long videos a week (about{' '}
+            {perDayAvg.toFixed(1)} posts a day). All games share one timeline, so their posts never overlap,
+            keep the minimum gap, and alternate between games.
           </p>
+          {overCap && (
+            <p className="rounded-xl bg-hp-mid/10 p-3 text-xs text-hp-mid ring-1 ring-hp-mid/30">
+              That is more than your daily upload limit of {draft.dailyCap}. Each day keeps {draft.dailyCap}{' '}
+              posts, trimmed fairly from the busiest game, so raising a game above this changes nothing. Lower
+              another game, or raise the limit below (above 6 needs extra YouTube API quota from Google).
+            </p>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <label className="space-y-2 text-[13px] font-medium">
@@ -409,19 +490,26 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
           onChange={(v) => apply({ ...draft, varyDaily: v })}
         />
         <div className="space-y-2">
-          <Slider
+          <Stepper
             label="Daily upload limit"
             value={draft.dailyCap}
             min={1}
             max={20}
+            unit="a day"
             onChange={(v) => apply({ ...draft, dailyCap: v })}
-            format={(v) => `${v} per channel`}
           />
           <p className={cn('text-xs', quotaUnits > 10_000 ? 'text-hp-mid' : 'text-muted')}>
             About {quotaUnits.toLocaleString()} of the default 10,000 daily API units. Each upload costs about
             1,600, so the default quota fits about 6 uploads a day. Ask Google for more quota to go higher.
           </p>
         </div>
+
+        <ReplanBar
+          dirty={dirty}
+          busy={busy}
+          onReplan={() => void replan()}
+          onReset={() => setDraft(state.schedule)}
+        />
 
         <div className="space-y-3 border-t border-line pt-5">
           <Segmented<PostSettings['privacy']>
