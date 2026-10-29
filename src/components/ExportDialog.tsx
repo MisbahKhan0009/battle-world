@@ -85,7 +85,7 @@ export function ExportDialog() {
     setPhase({ kind: 'running', progress: { stage: 'preparing', percent: 0, etaSec: null } });
     try {
       const out = await runExport({
-        config,
+        content: { kind: 'flag-battle', config },
         look,
         fighters: sceneFighters,
         winnerImage,

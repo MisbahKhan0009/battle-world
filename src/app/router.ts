@@ -6,6 +6,7 @@ export type Route =
   | 'preview'
   | 'autopilot'
   | 'calendar'
+  | 'race'
   | 'modules'
   | 'channels'
   | 'settings'
@@ -15,6 +16,7 @@ const ROUTES: Route[] = [
   'studio',
   'preview',
   'autopilot',
+  'race',
   'calendar',
   'modules',
   'channels',

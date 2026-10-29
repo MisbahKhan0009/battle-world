@@ -91,6 +91,17 @@ export function FormatChip({ format, className }: { format: ContentFormat; class
   );
 }
 
+/** The game a post belongs to, in its color. */
+export function GameTag({ moduleId, className }: { moduleId: string; className?: string }) {
+  const m = moduleById(moduleId);
+  return (
+    <span className={cn('inline-flex shrink-0 items-center gap-1.5 text-xs', className)}>
+      <span className="h-2 w-2 rounded-full" style={{ background: m?.accent ?? '#888' }} />
+      <span style={{ color: m?.accent }}>{m?.name ?? moduleId}</span>
+    </span>
+  );
+}
+
 export const youtubeUrl = (s: Pick<Slot, 'videoId' | 'format'>) =>
   s.format === 'short'
     ? `https://www.youtube.com/shorts/${s.videoId}`
@@ -365,7 +376,11 @@ export function PostDetail({
     <Dialog
       open={open}
       onOpenChange={(o) => !o && onClose()}
-      title={p ? `${p.format === 'short' ? 'Short' : 'Long video'}, ${whenLabel(p.at)}` : 'Post'}
+      title={
+        p
+          ? `${moduleById(p.moduleId)?.name ?? ''} ${p.format === 'short' ? 'Short' : 'video'}, ${whenLabel(p.at)}`.trim()
+          : 'Post'
+      }
       description={
         slot?.title ??
         (slot ? undefined : 'In the plan. It is queued the day before and rendered a few hours ahead.')

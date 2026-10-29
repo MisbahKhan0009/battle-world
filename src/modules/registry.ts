@@ -15,6 +15,8 @@ export type ContentModule = {
   accent: string;
   /** Route of the module's manual editor, if it has one. */
   studioRoute?: 'studio';
+  /** Route of the module's preview page, if it has one. */
+  previewRoute?: 'race';
   render?: (job: RenderJob, onProgress: (p: number) => void, signal: AbortSignal) => Promise<RenderResult>;
 };
 
@@ -41,10 +43,13 @@ export const MODULES: ContentModule[] = [
     name: 'Marble Race',
     tagline: 'Countries race to the finish',
     description:
-      'Flag marbles race down a twisting obstacle track with bumpers and drops. First across the line wins.',
-    status: 'coming-soon',
+      'Flag marbles roll down a track of ramps, plinko pegs, spinners, bumpers and forks. First across the line wins.',
+    status: 'ready',
     formats: ['short', 'video'],
     accent: '#3DDCFF',
+    previewRoute: 'race',
+    render: (job, onProgress, signal) =>
+      import('./marbleRace/autopilot').then((m) => m.renderMarbleRace(job, onProgress, signal)),
   },
   {
     id: 'ring-escape',

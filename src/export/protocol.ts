@@ -1,4 +1,5 @@
-import type { Look, SimConfig } from '../engine/types';
+import type { Look } from '../engine/types';
+import type { ExportContent } from './production';
 
 export type ExportFighter = {
   id: string;
@@ -11,7 +12,7 @@ export type ExportFighter = {
 
 export type ExportRequest = {
   type: 'start';
-  config: SimConfig;
+  content: ExportContent;
   look: Look;
   fighters: ExportFighter[];
   winnerImage: ImageBitmap | null;

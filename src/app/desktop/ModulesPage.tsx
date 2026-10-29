@@ -2,6 +2,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Toggle } from '../../components/ui/controls';
 import { isDesktop } from '../../desktop/bridge';
+import { paceFor } from '../../autopilot/types';
 import { useAutopilot } from '../../desktop/runtime';
 import { cn } from '../../lib/utils';
 import { MODULES, type ContentModule } from '../../modules/registry';
@@ -143,9 +144,21 @@ export function ModulesPage() {
                         }
                       />
                     )}
+                    {desktop && ap && state && enabled && (
+                      <p className="text-xs text-muted">
+                        {paceFor(state.schedule, m.id).shortsPerDay} Shorts a day,{' '}
+                        {paceFor(state.schedule, m.id).videosPerWeek} long videos a week. Change it on the
+                        Autopilot page.
+                      </p>
+                    )}
                     {m.studioRoute && (
                       <Button variant="secondary" onClick={() => navigate(m.studioRoute!)}>
                         Open studio <ArrowUpRight size={14} />
+                      </Button>
+                    )}
+                    {m.previewRoute && (
+                      <Button variant="secondary" onClick={() => navigate(m.previewRoute!)}>
+                        Watch a sample race <ArrowUpRight size={14} />
                       </Button>
                     )}
                   </div>

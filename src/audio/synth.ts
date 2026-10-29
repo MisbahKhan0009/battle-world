@@ -21,7 +21,12 @@ export type SoundId =
   | 'fanfare'
   | 'tick'
   | 'boom'
-  | 'exit';
+  | 'exit'
+  | 'clack0'
+  | 'clack1'
+  | 'clack2'
+  | 'boing'
+  | 'ding';
 export type Stereo = { L: Float32Array; R: Float32Array };
 
 const noise = (i: number, seed: number) => hashFloat(seed, i) * 2 - 1;
@@ -208,6 +213,56 @@ function fanfare(): Float32Array {
   return normalize(out, 0.85);
 }
 
+/** Glass marbles knocking: a bright click with a few short inharmonic partials. */
+function clack(variant: number): Float32Array {
+  const len = Math.floor(SR * 0.12);
+  const out = new Float32Array(len);
+  const base = [2350, 2780, 3150][variant];
+  const partials = [1, 2.31, 3.87, 5.2];
+  for (let i = 0; i < len; i++) {
+    const t = i / SR;
+    let v = 0;
+    partials.forEach((m, k) => {
+      v += (Math.sin(TAU * base * m * t) * Math.exp(-t / (0.022 / (k + 1)))) / (k + 1);
+    });
+    const click = i < 60 ? noise(i, 700 + variant) * (1 - i / 60) * 0.8 : 0;
+    out[i] = v + click;
+  }
+  return normalize(out, 0.75);
+}
+
+/** Bumper: a springy pitch wobble. */
+function boing(): Float32Array {
+  const dur = 0.42;
+  const len = Math.floor(SR * dur);
+  const out = new Float32Array(len);
+  let phase = 0;
+  for (let i = 0; i < len; i++) {
+    const t = i / SR;
+    const f = 330 + 260 * Math.exp(-t / 0.06) + 40 * Math.sin(TAU * 18 * t) * Math.exp(-t / 0.15);
+    phase += (TAU * f) / SR;
+    out[i] = (Math.sin(phase) + 0.3 * Math.sin(phase * 2)) * Math.min(1, t / 0.004) * Math.exp(-t / 0.12);
+  }
+  return normalize(out, 0.8);
+}
+
+/** Crossing the finish line: a small bell. */
+function ding(): Float32Array {
+  const len = Math.floor(SR * 0.9);
+  const out = new Float32Array(len);
+  const f = 1567.98; // G6
+  for (let i = 0; i < len; i++) {
+    const t = i / SR;
+    out[i] =
+      (Math.sin(TAU * f * t) +
+        0.45 * Math.sin(TAU * f * 2.76 * t) * Math.exp(-t / 0.08) +
+        0.25 * Math.sin(TAU * f * 5.4 * t) * Math.exp(-t / 0.04)) *
+      Math.min(1, t / 0.002) *
+      Math.exp(-t / 0.28);
+  }
+  return normalize(out, 0.7);
+}
+
 const sfxCache = new Map<SoundId, Float32Array>();
 
 export function getSound(id: SoundId): Float32Array {
@@ -226,7 +281,13 @@ export function getSound(id: SoundId): Float32Array {
                 ? boom()
                 : id === 'exit'
                   ? exit()
-                  : hit(Number(id.slice(3)));
+                  : id === 'boing'
+                    ? boing()
+                    : id === 'ding'
+                      ? ding()
+                      : id.startsWith('clack')
+                        ? clack(Number(id.slice(5)))
+                        : hit(Number(id.slice(3)));
     sfxCache.set(id, s);
   }
   return s;

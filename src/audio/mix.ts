@@ -66,12 +66,13 @@ export class Mixer {
   private readonly cues: Cue[];
   private maxCueLen = 0;
 
+  /** Pass the scene of a Flag Battle, or ready-made cues for any other game. */
   constructor(
-    scene: Scene,
+    scene: Scene | null,
     private readonly settings: MixSettings,
     cues?: Cue[],
   ) {
-    this.cues = cues ?? buildCues(scene);
+    this.cues = cues ?? buildCues(scene!);
     for (const c of this.cues) this.maxCueLen = Math.max(this.maxCueLen, getSound(c.sound).length / c.rate);
   }
 

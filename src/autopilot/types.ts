@@ -1,9 +1,16 @@
 export type ContentFormat = 'short' | 'video';
 
-/** How often and when the autopilot posts. Window times are the computer's local time. */
+/** How much one game posts. */
+export type ModulePace = { shortsPerDay: number; videosPerWeek: number };
+
+/**
+ * How often and when the autopilot posts. Each game has its own pace; all games share the
+ * posting window, gaps and the daily upload cap, so their posts never overlap. Window times are
+ * the computer's local time.
+ */
 export type ScheduleSettings = {
-  shortsPerDay: number;
-  videosPerWeek: number;
+  /** Pace per game (module id). Games missing here use DEFAULT_PACE. */
+  perModule: Record<string, ModulePace>;
   /** Active posting window, minutes after local midnight. */
   activeStartMin: number;
   activeEndMin: number;
@@ -117,14 +124,36 @@ export type AutopilotState = {
   contentLog: ContentRecord[];
 };
 
+/** Default pace per game: together 5 Shorts a day and 4 long videos a week. */
+export const DEFAULT_PACE: Record<string, ModulePace> = {
+  'flag-battle': { shortsPerDay: 3, videosPerWeek: 2 },
+  'marble-race': { shortsPerDay: 2, videosPerWeek: 2 },
+};
+
+/** Splits an overall pace across games (remainders go to the first games). */
+export function splitPace(shorts: number, videos: number, moduleIds: string[]): Record<string, ModulePace> {
+  const out: Record<string, ModulePace> = {};
+  const k = Math.max(1, moduleIds.length);
+  moduleIds.forEach((m, i) => {
+    out[m] = {
+      shortsPerDay: Math.floor(shorts / k) + (i < shorts % k ? 1 : 0),
+      videosPerWeek: Math.floor(videos / k) + (i < videos % k ? 1 : 0),
+    };
+  });
+  return out;
+}
+
+export function paceFor(settings: ScheduleSettings, moduleId: string): ModulePace {
+  return settings.perModule[moduleId] ?? DEFAULT_PACE[moduleId] ?? { shortsPerDay: 1, videosPerWeek: 1 };
+}
+
 /**
- * Defaults aim for "as much as possible while still looking organic": up to 5 Shorts a day plus
- * about every other day a long video, spread over waking hours with random gaps, capped at 6
+ * Defaults aim for "as much as possible while still looking organic": about 5 Shorts a day plus
+ * 4 long videos a week across the games, spread over waking hours with random gaps, capped at 6
  * uploads a day (the default YouTube API quota allows roughly six uploads per day).
  */
 export const DEFAULT_SCHEDULE: ScheduleSettings = {
-  shortsPerDay: 5,
-  videosPerWeek: 4,
+  perModule: structuredClone(DEFAULT_PACE),
   activeStartMin: 9 * 60,
   activeEndMin: 23 * 60,
   minGapMin: 75,
@@ -150,7 +179,7 @@ export function defaultState(outputDir = ''): AutopilotState {
     channels: [],
     slots: [],
     plannedDays: {},
-    modules: { 'flag-battle': true },
+    modules: { 'flag-battle': true, 'marble-race': true },
     google: { clientId: '', clientSecret: '' },
     outputDir,
     keepDays: 3,

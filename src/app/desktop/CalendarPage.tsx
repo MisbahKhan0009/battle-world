@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { isDesktop } from '../../desktop/bridge';
 import { useAutopilot } from '../../desktop/runtime';
 import { cn } from '../../lib/utils';
-import { readyModuleIds } from '../../modules/registry';
+import { MODULES, moduleById, readyModuleIds } from '../../modules/registry';
 import { Card, DesktopLayout, DesktopOnly } from './Layout';
 import { FormatChip, PostDetail, STATUS_STYLE, fmtTime, isScheduledOnYouTube, statusLabel } from './posts';
 
@@ -69,6 +69,17 @@ function entryTone(e: Entry): string {
   return 'border-line-strong text-text';
 }
 
+/** Game color; a dot for a Short, a small square for a long video. */
+function GameMark({ moduleId, format }: { moduleId: string; format: Slot['format'] }) {
+  return (
+    <span
+      aria-hidden
+      className={cn('h-2 w-2 shrink-0', format === 'short' ? 'rounded-full' : 'rounded-[2px]')}
+      style={{ background: moduleById(moduleId)?.accent ?? '#888' }}
+    />
+  );
+}
+
 function EntryButton({ e, onOpen, compact }: { e: Entry; onOpen: (e: Entry) => void; compact?: boolean }) {
   const s = e.slot;
   return (
@@ -84,15 +95,14 @@ function EntryButton({ e, onOpen, compact }: { e: Entry; onOpen: (e: Entry) => v
         entryTone(e),
       )}
     >
-      <span
-        aria-hidden
-        className={cn(
-          'h-1.5 w-1.5 shrink-0 rounded-full',
-          s.format === 'short' ? 'bg-accent' : 'bg-[#3DDCFF]',
-        )}
-      />
+      <GameMark moduleId={s.moduleId} format={s.format} />
       <span className="tabular">{fmtTime(s.at)}</span>
       {!compact && <FormatChip format={s.format} className="h-5" />}
+      {!compact && (
+        <span className="shrink-0 text-xs" style={{ color: moduleById(s.moduleId)?.accent }}>
+          {moduleById(s.moduleId)?.name}
+        </span>
+      )}
       {!compact && (
         <span className="min-w-0 flex-1 truncate text-muted">
           {e.kind === 'preview'
@@ -122,6 +132,7 @@ export function CalendarPage() {
   });
   const [selected, setSelected] = useState(() => dayKey(new Date()));
   const [open, setOpen] = useState<Entry | null>(null);
+  const [game, setGame] = useState<string>('all');
 
   // Grid: whole weeks (Monday first) covering the month.
   const gridStart = useMemo(() => {
@@ -154,7 +165,12 @@ export function CalendarPage() {
     : '';
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const extra = useMemo(() => (state ? previews(state, days[0], end) : []), [previewKey, days, end]);
-  const byDay = state ? groupByDay(state, extra, days[0], end) : new Map<string, Entry[]>();
+  const byDayAll = state ? groupByDay(state, extra, days[0], end) : new Map<string, Entry[]>();
+  const byDay =
+    game === 'all'
+      ? byDayAll
+      : new Map([...byDayAll].map(([k, list]) => [k, list.filter((e) => e.slot.moduleId === game)]));
+  const games = MODULES.filter((m) => m.status === 'ready');
 
   if (!isDesktop()) {
     return (
@@ -232,11 +248,32 @@ export function CalendarPage() {
             <span>
               <span className="text-text tabular">{upcoming}</span> coming up
             </span>
-            <span className="ml-auto flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent" /> Short
+            <div
+              className="ml-auto flex items-center gap-1 rounded-lg bg-surface-2/60 p-0.5 ring-1 ring-line"
+              role="group"
+              aria-label="Show games"
+            >
+              {[{ id: 'all', name: 'All games', accent: '' }, ...games].map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  aria-pressed={game === g.id}
+                  onClick={() => setGame(g.id)}
+                  className={cn(
+                    'flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors',
+                    game === g.id ? 'bg-surface-3 text-text' : 'text-muted hover:text-text',
+                  )}
+                >
+                  {g.accent && <span className="h-2 w-2 rounded-full" style={{ background: g.accent }} />}
+                  {g.name}
+                </button>
+              ))}
+            </div>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-muted" /> Short
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#3DDCFF]" /> Video
+              <span className="h-2 w-2 rounded-[2px] bg-muted" /> Video
             </span>
             <span className="flex items-center gap-1.5">
               <span className="h-3 w-4 rounded-sm border border-hp-high/50 bg-hp-high/10" /> Live

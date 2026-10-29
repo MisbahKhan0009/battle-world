@@ -4,12 +4,14 @@
  * - times are spread across the active window with random offsets, never on round minutes; with
  *   peak hours on, they follow the audience's activity curve (more posts when more people watch);
  * - a minimum gap separates posts; long videos go to the slots where long-form viewing peaks;
- * - long videos are spread across the week; the daily count wobbles by one when enabled;
- * - the daily upload cap always wins.
+ * - every game has its own pace (Shorts a day, long videos a week, spread over the week per
+ *   game); all games share one timeline, so their posts never overlap and keep the minimum gap;
+ * - the daily count wobbles by one per game when enabled;
+ * - the daily upload cap is shared and always wins, trimmed fairly from the busiest game.
  */
 import { hash32, Rng } from '../engine/rng';
 import { audienceClock, engagement } from './engagement';
-import type { ContentFormat, ScheduleSettings, Slot } from './types';
+import { paceFor, type ContentFormat, type ScheduleSettings, type Slot } from './types';
 
 export function dayKey(d: Date): string {
   const y = d.getFullYear();
@@ -70,19 +72,29 @@ export function planDay(
   const [y, mo, d] = key.split('-').map(Number);
   const rng = new Rng(hash32(strHash(channelId), y * 10000 + mo * 100 + d, 77));
 
-  let shorts = Math.max(0, Math.round(settings.shortsPerDay));
-  if (settings.varyDaily && shorts > 0) {
-    const r = rng.next();
-    if (r < 0.2) shorts -= 1;
-    else if (r > 0.85) shorts += 1;
-  } else rng.next();
-  let videos = videosOnDay(channelId, day, Math.round(settings.videosPerWeek));
-
-  const cap = Math.max(0, Math.round(settings.dailyCap));
-  while (shorts + videos > cap) {
-    if (shorts > 0) shorts--;
-    else videos--;
-  }
+  // Each game's own pace for the day (long-video days are spread per game).
+  const mods = [...moduleIds].sort();
+  const want = mods.map((m) => {
+    const pace = paceFor(settings, m);
+    let shorts = Math.max(0, Math.round(pace.shortsPerDay));
+    if (settings.varyDaily && shorts > 0) {
+      const r = rng.next();
+      if (r < 0.2) shorts -= 1;
+      else if (r > 0.85) shorts += 1;
+    } else rng.next();
+    const videos = videosOnDay(`${channelId}:${m}`, day, Math.round(pace.videosPerWeek));
+    return { m, shorts, videos };
+  });
+  const count = () => want.reduce((sum, w) => sum + w.shorts + w.videos, 0);
+  // Over the limit: take one post at a time from the game with the most, Shorts first.
+  const trimTo = (limit: number) => {
+    while (count() > limit) {
+      const w = want.reduce((a, b) => (b.shorts + b.videos > a.shorts + a.videos ? b : a));
+      if (w.shorts > 0) w.shorts--;
+      else w.videos--;
+    }
+  };
+  trimTo(Math.max(0, Math.round(settings.dailyCap)));
 
   let start = Math.max(0, Math.min(24 * 60 - 1, settings.activeStartMin));
   let end = Math.max(0, Math.min(24 * 60, settings.activeEndMin));
@@ -92,13 +104,10 @@ export function planDay(
   }
   const gap = Math.max(10, settings.minGapMin);
   // Only as many posts as fit with the minimum gap.
-  const fit = Math.floor((end - start) / gap) + 1;
-  while (shorts + videos > fit) {
-    if (shorts > 0) shorts--;
-    else videos--;
-  }
-  const n = shorts + videos;
+  trimTo(Math.floor((end - start) / gap) + 1);
+  const n = count();
   if (n === 0) return [];
+  const videos = want.reduce((sum, w) => sum + w.videos, 0);
 
   const clockAt = (m: number) =>
     audienceClock(new Date(y, mo - 1, d, 0, Math.round(m)).getTime(), settings.audienceTz);
@@ -156,12 +165,36 @@ export function planDay(
     .sort((a, b) => a.score - b.score);
   for (let v = 0; v < videos; v++) formats[order[v].i] = 'video';
 
+  // Which game each slot belongs to. Videos are dealt in random order; Shorts go to the game with
+  // the most left, avoiding the same game twice in a row so the feed alternates naturally.
+  const videoMods = want.flatMap((w) => Array<string>(w.videos).fill(w.m));
+  for (let i = videoMods.length - 1; i > 0; i--) {
+    const j = rng.int(i + 1);
+    [videoMods[i], videoMods[j]] = [videoMods[j], videoMods[i]];
+  }
+  const shortsLeft = new Map(want.map((w) => [w.m, w.shorts]));
+  let prev = '';
+  const slotMods = formats.map((f) => {
+    let m: string;
+    if (f === 'video') m = videoMods.pop()!;
+    else {
+      const open = mods.filter((x) => (shortsLeft.get(x) ?? 0) > 0);
+      const pool = open.filter((x) => x !== prev).length ? open.filter((x) => x !== prev) : open;
+      const most = Math.max(...pool.map((x) => shortsLeft.get(x)!));
+      const top = pool.filter((x) => shortsLeft.get(x) === most);
+      m = top[rng.int(top.length)];
+      shortsLeft.set(m, shortsLeft.get(m)! - 1);
+    }
+    prev = m;
+    return m;
+  });
+
   return minutes.map((m, i) => ({
     id: `${channelId}:${key}:${i}`,
     channelId,
     at: new Date(y, mo - 1, d, Math.floor(m / 60), m % 60, rng.int(60)).getTime(),
     format: formats[i],
-    moduleId: moduleIds[rng.int(moduleIds.length)],
+    moduleId: slotMods[i],
     seed: (rng.int(999_999) + 1) >>> 0,
   }));
 }

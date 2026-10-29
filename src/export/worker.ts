@@ -5,13 +5,9 @@
  * fastStart so the moov atom sits at the front (YouTube-friendly).
  */
 import { ArrayBufferTarget, Muxer } from 'mp4-muxer';
-import { Mixer } from '../audio/mix';
 import { SAMPLE_RATE } from '../audio/synth';
-import { simulate } from '../engine/sim';
-import { WINNER_HOLD_SEC } from '../engine/timeline';
 import { DESIGN_SIZE } from '../render/layout';
-import { BattleRenderer } from '../render/renderer';
-import { buildScene } from '../render/scene';
+import { buildProduction } from './production';
 import { pickAudioConfig, pickVideoConfig } from './codecs';
 import type { ExportMessage, ExportRequest } from './protocol';
 
@@ -63,10 +59,15 @@ async function run(req: ExportRequest): Promise<void> {
   }
   const audio = req.audio.enabled ? await pickAudioConfig() : null;
 
-  const result = simulate(req.config, { record: true, holdSec: WINNER_HOLD_SEC + 1 });
-  const scene = buildScene({ result, look: req.look, fighters: req.fighters, winnerImage: req.winnerImage });
-  const renderer = new BattleRenderer(scene, W, H);
-  const total = scene.timeline.total;
+  const production = buildProduction({
+    content: req.content,
+    look: req.look,
+    fighters: req.fighters,
+    winnerImage: req.winnerImage,
+    W,
+    H,
+  });
+  const total = production.total;
   const frames = Math.ceil(total * req.fps);
 
   const target = new ArrayBufferTarget();
@@ -101,9 +102,7 @@ async function run(req: ExportRequest): Promise<void> {
       error: (err) => (encodeError = err),
     });
     encoder.configure(audio.config);
-    const mixer = new Mixer(scene, {
-      sfxVolume: req.audio.sfxVolume,
-    });
+    const mixer = production.mixer({ sfxVolume: req.audio.sfxVolume });
     const totalSamples = Math.ceil(total * SAMPLE_RATE);
     const chunk = SAMPLE_RATE;
     for (let s = 0; s < totalSamples; s += chunk) {
@@ -146,7 +145,7 @@ async function run(req: ExportRequest): Promise<void> {
   for (let i = 0; i < frames; i++) {
     if (cancelled) return finishCancelled([encoder]);
     if (encodeError) throw encodeError;
-    renderer.render(ctx, i / req.fps);
+    production.render(ctx, i / req.fps);
     const frame = new VideoFrame(canvas, {
       timestamp: Math.round(i * frameDur),
       duration: Math.round(frameDur),

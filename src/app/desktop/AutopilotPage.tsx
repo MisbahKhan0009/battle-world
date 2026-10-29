@@ -5,17 +5,25 @@ import { toast } from 'sonner';
 import { AUDIENCE_ZONES } from '../../autopilot/engagement';
 import type { Autopilot } from '../../autopilot/engine';
 import { dayKey, parseDayKey } from '../../autopilot/planner';
-import type { AutopilotState, ContentFormat, PostSettings, ScheduleSettings } from '../../autopilot/types';
+import {
+  paceFor,
+  type AutopilotState,
+  type ContentFormat,
+  type ModulePace,
+  type PostSettings,
+  type ScheduleSettings,
+} from '../../autopilot/types';
 import { Button } from '../../components/ui/Button';
 import { Segmented, Slider, Toggle } from '../../components/ui/controls';
 import { desktop, isDesktop } from '../../desktop/bridge';
 import { useAutopilot } from '../../desktop/runtime';
 import { cn } from '../../lib/utils';
-import { moduleById } from '../../modules/registry';
+import { MODULES } from '../../modules/registry';
 import { navigate } from '../router';
 import { Card, DesktopLayout, DesktopOnly } from './Layout';
 import {
   FormatChip,
+  GameTag,
   PostDetail,
   STATUS_STYLE,
   fmtTime,
@@ -178,9 +186,10 @@ function UpNext({ ap, state, onOpen }: { ap: Autopilot; state: AutopilotState; o
                       <button type="button" className={rowClass} onClick={() => onOpen(s.id)}>
                         <span className="w-[72px] shrink-0 tabular">{fmtTime(s.at)}</span>
                         <FormatChip format={s.format} />
+                        <GameTag moduleId={s.moduleId} className="w-[96px]" />
                         <span className="min-w-0 flex-1 truncate text-muted">
                           {s.title ??
-                            (many ? channel(s.channelId) : (moduleById(s.moduleId)?.name ?? s.moduleId))}
+                            (many ? channel(s.channelId) : 'Renders a few hours before it goes live')}
                           {s.error && s.status === 'planned' && (
                             <span className="text-danger"> (retrying: {s.error})</span>
                           )}
@@ -225,6 +234,7 @@ function History({ state, onOpen }: { state: AutopilotState; onOpen: OpenPost })
               <button type="button" className={rowClass} onClick={() => onOpen(s.id)}>
                 <span className="w-[150px] shrink-0 text-muted tabular">{whenLabel(s.at)}</span>
                 <FormatChip format={s.format} />
+                <GameTag moduleId={s.moduleId} className="w-[96px]" />
                 <span className="min-w-0 flex-1 truncate">
                   {s.title ?? '(not rendered)'}
                   {s.status !== 'posted' && s.error && (
@@ -266,10 +276,21 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
     setPost(p);
     void ap.update({ post: p });
   };
-  const perDayAvg = draft.shortsPerDay + draft.videosPerWeek / 7;
+  const games = MODULES.filter((m) => m.status === 'ready');
+  const active = games.filter((m) => state.modules[m.id]);
+  const totals = active.reduce(
+    (acc, m) => {
+      const p = paceFor(draft, m.id);
+      return { shorts: acc.shorts + p.shortsPerDay, videos: acc.videos + p.videosPerWeek };
+    },
+    { shorts: 0, videos: 0 },
+  );
+  const perDayAvg = totals.shorts + totals.videos / 7;
   const quotaUnits = Math.round(
     Math.min(draft.dailyCap, Math.ceil(perDayAvg + (draft.varyDaily ? 1 : 0))) * 1600,
   );
+  const setPace = (id: string, patch: Partial<ModulePace>) =>
+    apply({ ...draft, perModule: { ...draft.perModule, [id]: { ...paceFor(draft, id), ...patch } } });
 
   return (
     <Card
@@ -277,22 +298,53 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
       note="Defaults post as often as YouTube's API quota allows while still looking natural."
     >
       <div className="space-y-6">
-        <Slider
-          label="Shorts per day"
-          value={draft.shortsPerDay}
-          min={0}
-          max={10}
-          onChange={(v) => apply({ ...draft, shortsPerDay: v })}
-          format={(v) => (v === 0 ? 'None' : `${v} a day`)}
-        />
-        <Slider
-          label="Long videos per week"
-          value={draft.videosPerWeek}
-          min={0}
-          max={14}
-          onChange={(v) => apply({ ...draft, videosPerWeek: v })}
-          format={(v) => (v === 0 ? 'None' : `${v} a week`)}
-        />
+        <div className="space-y-3">
+          <div className="text-[13px] font-medium">Each game's schedule</div>
+          {games.map((m) => {
+            const on = !!state.modules[m.id];
+            const pace = paceFor(draft, m.id);
+            return (
+              <div
+                key={m.id}
+                className="space-y-4 rounded-xl bg-surface-2/50 p-4 ring-1 ring-line"
+                style={{ boxShadow: `inset 3px 0 0 ${m.accent}` }}
+              >
+                <Toggle
+                  label={m.name}
+                  description={on ? undefined : 'Not posting. Switch on to give this game its own slots.'}
+                  checked={on}
+                  onChange={(v) =>
+                    void ap.update({ modules: { ...state.modules, [m.id]: v } }, { replan: true })
+                  }
+                />
+                {on && (
+                  <>
+                    <Slider
+                      label="Shorts per day"
+                      value={pace.shortsPerDay}
+                      min={0}
+                      max={10}
+                      onChange={(v) => setPace(m.id, { shortsPerDay: v })}
+                      format={(v) => (v === 0 ? 'None' : `${v} a day`)}
+                    />
+                    <Slider
+                      label="Long videos per week"
+                      value={pace.videosPerWeek}
+                      min={0}
+                      max={14}
+                      onChange={(v) => setPace(m.id, { videosPerWeek: v })}
+                      format={(v) => (v === 0 ? 'None' : `${v} a week`)}
+                    />
+                  </>
+                )}
+              </div>
+            );
+          })}
+          <p className="text-xs text-muted">
+            Together: {totals.shorts} Shorts a day and {totals.videos} long videos a week. All games share one
+            timeline, so their posts never overlap, keep the minimum gap, and alternate between games.
+          </p>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <label className="space-y-2 text-[13px] font-medium">
             <span>Post from</span>

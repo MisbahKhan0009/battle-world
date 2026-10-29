@@ -8,7 +8,7 @@ import {
   type Backend,
 } from './engine';
 import { dayKey, planDay, videosOnDay } from './planner';
-import { DEFAULT_SCHEDULE, defaultState, type AutopilotState, type ScheduleSettings } from './types';
+import { DEFAULT_SCHEDULE, defaultState, paceFor, type AutopilotState, type ScheduleSettings } from './types';
 
 const DAY = new Date(2026, 9, 29); // a Thursday
 
@@ -54,8 +54,9 @@ describe('planner', () => {
       videos += plan.filter((p) => p.format === 'video').length;
     }
     expect(counts.size).toBeGreaterThan(1);
-    for (const k of counts.keys()) expect(Math.abs(k - DEFAULT_SCHEDULE.shortsPerDay)).toBeLessThanOrEqual(1);
-    expect(videos).toBe(DEFAULT_SCHEDULE.videosPerWeek * 4);
+    const pace = paceFor(DEFAULT_SCHEDULE, 'flag-battle');
+    for (const k of counts.keys()) expect(Math.abs(k - pace.shortsPerDay)).toBeLessThanOrEqual(1);
+    expect(videos).toBe(pace.videosPerWeek * 4);
   });
 
   test('videos per week spread over distinct days', () => {
@@ -96,8 +97,61 @@ describe('planner', () => {
   });
 
   test('zero frequency plans nothing', () => {
-    const s: ScheduleSettings = { ...DEFAULT_SCHEDULE, shortsPerDay: 0, videosPerWeek: 0 };
-    expect(planDay('UC1', DAY, s, ['flag-battle'])).toEqual([]);
+    const s: ScheduleSettings = {
+      ...DEFAULT_SCHEDULE,
+      perModule: {
+        'flag-battle': { shortsPerDay: 0, videosPerWeek: 0 },
+        'marble-race': { shortsPerDay: 0, videosPerWeek: 0 },
+      },
+    };
+    expect(planDay('UC1', DAY, s, ['flag-battle', 'marble-race'])).toEqual([]);
+  });
+
+  test('each game keeps its own pace on one shared, non-overlapping timeline', () => {
+    const both = ['flag-battle', 'marble-race'];
+    const s: ScheduleSettings = {
+      ...DEFAULT_SCHEDULE,
+      dailyCap: 20,
+      varyDaily: false,
+      perModule: {
+        'flag-battle': { shortsPerDay: 3, videosPerWeek: 2 },
+        'marble-race': { shortsPerDay: 2, videosPerWeek: 3 },
+      },
+    };
+    const per = { 'flag-battle': { short: 0, video: 0 }, 'marble-race': { short: 0, video: 0 } };
+    let backToBack = 0;
+    let pairs = 0;
+    for (let d = 0; d < 28; d++) {
+      const plan = planDay('UCm', new Date(2026, 10, 2 + d), s, both);
+      for (let i = 0; i < plan.length; i++) {
+        per[plan[i].moduleId as keyof typeof per][plan[i].format]++;
+        if (i > 0) {
+          // Never overlapping: every post keeps the minimum gap, whatever game it belongs to.
+          expect(plan[i].at - plan[i - 1].at).toBeGreaterThanOrEqual((s.minGapMin - 5) * 60_000);
+          pairs++;
+          if (plan[i].moduleId === plan[i - 1].moduleId) backToBack++;
+        }
+      }
+    }
+    expect(per['flag-battle']).toEqual({ short: 3 * 28, video: 2 * 4 });
+    expect(per['marble-race']).toEqual({ short: 2 * 28, video: 3 * 4 });
+    // Games alternate most of the time.
+    expect(backToBack / pairs).toBeLessThan(0.35);
+  });
+
+  test('the shared daily cap is split fairly between games', () => {
+    const s: ScheduleSettings = {
+      ...DEFAULT_SCHEDULE,
+      dailyCap: 4,
+      varyDaily: false,
+      perModule: {
+        'flag-battle': { shortsPerDay: 5, videosPerWeek: 0 },
+        'marble-race': { shortsPerDay: 5, videosPerWeek: 0 },
+      },
+    };
+    const plan = planDay('UCc', DAY, s, ['flag-battle', 'marble-race']);
+    expect(plan.length).toBe(4);
+    expect(plan.filter((p) => p.moduleId === 'marble-race').length).toBe(2);
   });
 });
 
@@ -271,7 +325,13 @@ describe('engine', () => {
     await ap.init();
     await ap.tick();
     await ap.update(
-      { schedule: { ...ap.snapshot!.schedule, shortsPerDay: 1, videosPerWeek: 0, varyDaily: false } },
+      {
+        schedule: {
+          ...ap.snapshot!.schedule,
+          perModule: { 'flag-battle': { shortsPerDay: 1, videosPerWeek: 0 } },
+          varyDaily: false,
+        },
+      },
       { replan: true },
     );
     const today = ap.snapshot!.slots.filter((s) => dayKey(new Date(s.at)) === '2026-10-29');

@@ -26,17 +26,25 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
 - `src/audio/` – synthesized sound effects only (no music, by design).
 - `src/export/` – WebCodecs worker + mp4-muxer, with a timer-driven WebM fallback.
 - `src/autopilot/` – `planner.ts` (organic daily plan, deterministic per channel+day, weighted by `engagement.ts`
-  audience-activity curves in the audience's time zone), `engine.ts` (render → upload → thumbnail state machine,
+  audience-activity curves in the audience's time zone; every game has its own pace in `schedule.perModule`, all on
+  one shared non-overlapping timeline with a shared daily cap), `engine.ts` (render → upload → thumbnail state machine,
   retries, quota handling, per-slot event log, `contentLog` history), `types.ts` (defaults). Tests in
   `autopilot.test.ts`.
-- `src/modules/flagBattle/content.ts` – plans a post from a seed plus `contentLog` history so counts, lineups,
-  themes and titles avoid recent repeats; `freshenOutcome` relabels the winning ball (country fighters are
-  physically identical) so winners and final pairs don't repeat. `thumbnail.ts` draws the spoiler-free cover.
-- `src/modules/registry.ts` – content modules. Flag Battle is ready; four placeholders (marble-race, ring-escape,
-  territory-wars, growing-ball) are next. A module needs `status: 'ready'` and a `render(job, onProgress, signal)`.
+- `src/modules/common.ts` – shared no-repeat rules: `chooseLineup` (counts, lineups, groups vs recent posts) and
+  `freshenPair` (relabels the winning ball; country fighters/marbles are physically identical, so winners and final
+  pairs don't repeat). `src/modules/thumbnail.ts` composes the spoiler-free cover for any game.
+- `src/modules/flagBattle/`, `src/modules/marbleRace/` – per-game content planning (`content.ts`) and headless
+  autopilot rendering (`autopilot.ts`, `thumbnail.ts`).
+- `src/engine/race/` – Marble Race: `track.ts` (procedural sections with a clear top band), `sim.ts` (rolling
+  spheres with friction impulses, I = 2/5 m r²), `race.ts` (finish line placed at the section boundary closest to
+  the target time; `planBestRace` keeps the most exciting of a few candidate tracks). Same determinism rules as
+  `src/engine`. Rendering in `src/render/race/`, sound cues in `src/audio/raceCues.ts`.
+- `src/export/production.ts` – builds the renderer + mixer for any game from its config (worker and fallback).
+- `src/modules/registry.ts` – content modules. Flag Battle and Marble Race are ready; three placeholders
+  (ring-escape, territory-wars, growing-ball) are next. A new game also needs a `DEFAULT_PACE` entry. A module needs `status: 'ready'` and a `render(job, onProgress, signal)`.
 - `src/desktop/` – `bridge.ts` (typed Tauri invokes), `runtime.ts` (autopilot singleton + `useAutopilot` hook).
-- `src/app/desktop/` – Setup wizard, Autopilot, Calendar, Modules, Channels, Settings screens; `posts.tsx` is the
-  live post timeline dialog. Hash router in `src/app/router.ts`.
+- `src/app/desktop/` – Setup wizard, Autopilot, Calendar, Modules, Channels, Settings screens, `RacePage.tsx`
+  (Marble Race preview/export); `posts.tsx` is the live post timeline dialog. Hash router in `src/app/router.ts`.
 - `src-tauri/src/` – OAuth loopback + PKCE (`oauth.rs`), tokens in Windows Credential Manager (`tokens.rs`),
   resumable uploads (`youtube.rs`), files/state (`files.rs`), tray (`tray.rs`), app lifecycle + 30 s heartbeat (`lib.rs`).
 

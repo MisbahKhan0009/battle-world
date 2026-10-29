@@ -17,8 +17,9 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { AUDIENCE_ZONES } from '../../autopilot/engagement';
-import type { AutopilotState, PostSettings, ScheduleSettings } from '../../autopilot/types';
-import { DEFAULT_SCHEDULE } from '../../autopilot/types';
+import type { AutopilotState, PostSettings } from '../../autopilot/types';
+import { DEFAULT_SCHEDULE, paceFor, splitPace } from '../../autopilot/types';
+import { MODULES } from '../../modules/registry';
 import { Button } from '../../components/ui/Button';
 import { inputClass } from '../../components/ui/controls';
 import { desktop, isDesktop } from '../../desktop/bridge';
@@ -478,33 +479,43 @@ function ConnectBody({ state, update }: StepCtx) {
   );
 }
 
-const PACES: { id: string; name: string; desc: string; schedule: Partial<ScheduleSettings> }[] = [
+/** Overall paces, split evenly across the games that are switched on. */
+const PACES: { id: string; name: string; desc: string; shorts: number; videos: number }[] = [
   {
     id: 'max',
     name: 'Maximum, still organic',
-    desc: 'Up to 5 Shorts a day and 4 long videos a week. Uses the full default API quota.',
-    schedule: { shortsPerDay: 5, videosPerWeek: 4, dailyCap: 6 },
+    desc: 'About 5 Shorts a day and 4 long videos a week across your games. Uses the full default API quota.',
+    shorts: 5,
+    videos: 4,
   },
   {
     id: 'steady',
     name: 'Steady',
-    desc: '3 Shorts a day and 2 long videos a week.',
-    schedule: { shortsPerDay: 3, videosPerWeek: 2, dailyCap: 6 },
+    desc: '3 Shorts a day and 2 long videos a week across your games.',
+    shorts: 3,
+    videos: 2,
   },
   {
     id: 'light',
     name: 'Light',
     desc: '1 Short a day and 1 long video a week.',
-    schedule: { shortsPerDay: 1, videosPerWeek: 1, dailyCap: 6 },
+    shorts: 1,
+    videos: 1,
   },
 ];
 
+const activeGames = (state: AutopilotState) =>
+  MODULES.filter((m) => m.status === 'ready' && state.modules[m.id]).map((m) => m.id);
+
 function PaceBody({ state, update }: StepCtx) {
-  const current = PACES.find(
-    (p) =>
-      p.schedule.shortsPerDay === state.schedule.shortsPerDay &&
-      p.schedule.videosPerWeek === state.schedule.videosPerWeek,
-  )?.id;
+  const games = activeGames(state);
+  const current = PACES.find((p) => {
+    const split = splitPace(p.shorts, p.videos, games);
+    return games.every((g) => {
+      const pace = paceFor(state.schedule, g);
+      return pace.shortsPerDay === split[g].shortsPerDay && pace.videosPerWeek === split[g].videosPerWeek;
+    });
+  })?.id;
   const setPrivacy = (privacy: PostSettings['privacy']) => void update({ post: { ...state.post, privacy } });
   return (
     <div className="space-y-6">
@@ -517,7 +528,14 @@ function PaceBody({ state, update }: StepCtx) {
             aria-checked={current === p.id}
             onClick={() =>
               void update(
-                { schedule: { ...DEFAULT_SCHEDULE, ...state.schedule, ...p.schedule } },
+                {
+                  schedule: {
+                    ...DEFAULT_SCHEDULE,
+                    ...state.schedule,
+                    dailyCap: 6,
+                    perModule: { ...state.schedule.perModule, ...splitPace(p.shorts, p.videos, games) },
+                  },
+                },
                 { replan: true },
               )
             }

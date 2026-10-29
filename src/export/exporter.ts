@@ -2,10 +2,11 @@
  * Main-thread export controller. Runs the WebCodecs worker when available and falls back to
  * real-time MediaRecorder (WebM) otherwise.
  */
-import type { Look, SimConfig } from '../engine/types';
+import type { Look } from '../engine/types';
 import type { SceneFighter } from '../render/scene';
 import type { AudioSettings } from '../store/app';
 import { exportFonts } from './fonts';
+import type { ExportContent } from './production';
 import type { ExportFighter, ExportMessage, ExportRequest } from './protocol';
 
 export type ExportProgress = {
@@ -23,7 +24,7 @@ export type ExportOutcome = {
 };
 
 export type ExportInput = {
-  config: SimConfig;
+  content: ExportContent;
   look: Look;
   fighters: SceneFighter[];
   winnerImage: ImageBitmap | null;
@@ -70,7 +71,7 @@ async function runWorker(input: ExportInput): Promise<ExportOutcome | 'unsupport
   const winnerImage = await cloneBitmap(input.winnerImage);
   const req: ExportRequest = {
     type: 'start',
-    config: input.config,
+    content: input.content,
     look: input.look,
     fighters,
     winnerImage,

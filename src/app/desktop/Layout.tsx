@@ -58,7 +58,10 @@ export function DesktopLayout({
         </button>
         <ul className="space-y-0.5">
           {NAV.map(({ route: r, label, icon: Icon }) => {
-            const active = route === r || (r === 'autopilot' && route === 'home' && desktop);
+            const active =
+              route === r ||
+              (r === 'autopilot' && route === 'home' && desktop) ||
+              (r === 'modules' && route === 'race');
             return (
               <li key={r}>
                 <button

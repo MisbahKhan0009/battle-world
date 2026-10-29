@@ -4,7 +4,7 @@
  */
 import { useSyncExternalStore } from 'react';
 import { Autopilot, type Activity, type Backend } from '../autopilot/engine';
-import { defaultState, type AutopilotState } from '../autopilot/types';
+import { DEFAULT_PACE, defaultState, type AutopilotState, type ScheduleSettings } from '../autopilot/types';
 import { moduleById, readyModuleIds } from '../modules/registry';
 import { desktop, isDesktop } from './bridge';
 
@@ -16,10 +16,27 @@ function mergeState(raw: string | null, outputDir: string): AutopilotState {
   if (!raw) return base;
   try {
     const p = JSON.parse(raw) as Partial<AutopilotState>;
+    // Before per-game schedules there was one global pace. Move it over, and re-plan the week so
+    // newly added games get their share.
+    const old = p.schedule as
+      | (Partial<ScheduleSettings> & { shortsPerDay?: number; videosPerWeek?: number })
+      | undefined;
+    const { shortsPerDay, videosPerWeek, ...restSchedule } = old ?? {};
+    let perModule = old?.perModule;
+    const migrate = !!old && !perModule;
+    if (!perModule) {
+      perModule = structuredClone(DEFAULT_PACE);
+      // A customized global pace stays with Flag Battle; the defaults are now split between games.
+      if (shortsPerDay !== undefined && !(shortsPerDay === 5 && videosPerWeek === 4))
+        perModule['flag-battle'] = { shortsPerDay, videosPerWeek: videosPerWeek ?? 2 };
+    }
     return {
       ...base,
       ...p,
-      schedule: { ...base.schedule, ...p.schedule },
+      ...(migrate
+        ? { slots: (p.slots ?? []).filter((s) => s.status !== 'planned' || s.manual), plannedDays: {} }
+        : {}),
+      schedule: { ...base.schedule, ...restSchedule, perModule },
       post: { ...base.post, ...p.post },
       google: { ...base.google, ...p.google },
       modules: { ...base.modules, ...p.modules },

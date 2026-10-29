@@ -28,14 +28,14 @@ human-looking schedule, while it sits quietly in the system tray.
 
 | | |
 | --- | --- |
-| 🎬 **Makes the videos** | Up to 64 country flags bounce inside a circle with one rotating exit. Flags that slip out are eliminated; the last flag inside wins. No two posts repeat a winner, a lineup or even a flag count. |
+| 🎬 **Makes the videos** | Two games so far. **Flag Battle**: up to 64 country flags bounce inside a circle with one rotating exit; the last flag inside wins. **Marble Race**: flag marbles roll down a track of ramps, plinko pegs, spinners and bumpers; first across the line wins. No two posts repeat a winner, a lineup or even a flag count. |
 | 🖼️ **Spoiler-free thumbnails** | Every post gets its own cover ("WHO ESCAPES LAST?") made from the start of the battle, so the thumbnail never gives the winner away. |
-| 📅 **Posts on autopilot** | Up to 5 Shorts a day plus long videos, planned a full week ahead and timed for when your audience is most active, at different times every day. Everything is adjustable. |
-| 🗓️ **Calendar and live tracking** | A month calendar of everything posted, scheduled and planned. Click any post to watch it render, upload and go live, step by step. |
+| 📅 **Posts on autopilot** | Each game has its own schedule (about 5 Shorts a day and 4 long videos a week together by default), all on one timeline so posts never overlap, planned a full week ahead and timed for when your audience is most active. Everything is adjustable. |
+| 🗓️ **Calendar and live tracking** | One calendar for every game, color-coded with a filter per game. Click any post to watch it render, upload and go live, step by step. |
 | 🔊 **Sound that fits** | Bumps, exits, eliminations and a winner fanfare, timed to the action. No background music, so no copyright claims. |
 | 🖥️ **Runs in the background** | Lives in the system tray, starts with Windows, renders each post a few hours ahead and lets YouTube publish it on the minute. |
 | 🔒 **Your account stays yours** | Uses your own free Google Cloud project. Your sign-in is stored in Windows Credential Manager, never in plain files. |
-| 🧩 **More games coming** | Flag Battle is the first module. Marble Race, Ring Escape, Territory Wars and Growing Ball are next. |
+| 🧩 **More games coming** | Flag Battle and Marble Race are live. Ring Escape, Territory Wars and Growing Ball are next. |
 
 <br />
 
@@ -133,16 +133,18 @@ You will need **a Google account that owns a YouTube channel**. No credit card i
 - **Post now** renders and uploads one Short or long video immediately, outside the schedule. Great for a first test.
 - **Pause autopilot** stops new posts (also available from the tray icon).
 - **Recent posts** links each upload to YouTube and shows the reason if one failed.
-- **Schedule** (right column) changes take effect at once: posts in the week that have not started yet are
-  re-planned; anything already rendering or uploaded stays as it is.
+- **Schedule** (right column) has a card per game with its own **Shorts per day** and **long videos per week**,
+  and a switch to turn the game on or off. Changes take effect at once: posts in the week that have not started
+  yet are re-planned; anything already rendering or uploaded stays as it is.
 
 ### Calendar
 
 <img src="docs/images/calendar.jpg" alt="The calendar: a month grid of posted, scheduled and planned Shorts and videos, with the selected day's posts on the right" width="100%" />
 
-The **Calendar** shows every post by day: **live** ones in green, **scheduled** on YouTube in blue, **planned** ones
-(dashed) for the days ahead, plus anything that failed or was skipped. Shorts have a green dot, long videos a blue
-one. Click a day to list its posts, and click a post to follow it live.
+The **Calendar** shows every post of every game by day: **live** ones in green, **scheduled** on YouTube in blue,
+**planned** ones (dashed) for the days ahead, plus anything that failed or was skipped. Each post carries its game's
+color (a dot for a Short, a square for a long video), and the **All games / Flag Battle / Marble Race** filter shows
+one game at a time. Click a day to list its posts, and click a post to follow it live.
 
 ### Settings
 
@@ -159,12 +161,22 @@ Closing the window keeps Flag Clash running in the **system tray** (bottom right
 is hidden). Right-click the icon to open the app, start or pause the autopilot, or **Quit**. Flag Clash starts with
 Windows by default so the schedule survives restarts; turn that off in **Settings**.
 
+### Marble Race
+
+<img src="docs/images/marble-race.jpg" alt="Four frames from a Marble Race Short: the countdown with every flag, marbles rolling down ramps and spinners with live standings, the final funnel before the finish line, and the winner card with second and third place" width="100%" />
+
+Flag marbles race down a freshly generated track: zigzag **ramps**, **plinko** peg fields, rotating **spinners**,
+**bumpers** that kick, funnels, and **forks** where the field splits into two lanes. The camera follows the front of
+the race, the standings update live, a **FINAL STRETCH** banner marks the last section, close finishes get a
+**PHOTO FINISH** slow motion, and the winner card shows the podium. Open **Modules, Marble Race, Watch a sample
+race** to play random races with sound and export one by hand.
+
 ### Studio and modules
 
 <table>
 <tr>
 <td width="50%"><img src="docs/images/studio.jpg" alt="The studio: roster, rules and look on the left, live preview on the right" /></td>
-<td width="50%"><img src="docs/images/modules.jpg" alt="Modules: Flag Battle and four upcoming games" /></td>
+<td width="50%"><img src="docs/images/modules.jpg" alt="Modules: Flag Battle and Marble Race switched on, with their schedules, and three upcoming games" /></td>
 </tr>
 <tr>
 <td align="center"><sub>Studio: build and export a battle by hand</sub></td>
@@ -179,7 +191,7 @@ the rules and look, preview it, and **Export** an MP4. Handy shortcuts: <kbd>Spa
 | Module | Status | The game |
 | --- | :-: | --- |
 | **Flag Battle** | ✅ Ready | Flags bounce inside a circle with a rotating exit; last one inside wins. Also has a battle royale mode with HP. |
-| Marble Race | 🔜 Next | Flag marbles race down an obstacle track; first across the line wins. |
+| **Marble Race** | ✅ Ready | Flag marbles roll down ramps, plinko pegs, spinners, bumpers and forks; first across the line wins. |
 | Ring Escape | 🔜 Next | A flag breaks out through nested rotating rings, shattering each one. |
 | Territory Wars | 🔜 Next | Countries conquer a pixel world map tile by tile. |
 | Growing Ball | 🔜 Next | Every bounce makes the flag bigger until it fills the arena. |
@@ -191,8 +203,8 @@ the rules and look, preview it, and **Export** an MP4. Handy shortcuts: <kbd>Spa
 | Setting | Default | Range |
 | --- | :-: | :-: |
 | Planned ahead | **7 days** | rolling, every day |
-| Shorts per day | **5** | 0 to 10 |
-| Long videos per week | **4** | 0 to 14 |
+| Flag Battle: Shorts per day, long videos per week | **3** and **2** | 0 to 10, 0 to 14 |
+| Marble Race: Shorts per day, long videos per week | **2** and **2** | 0 to 10, 0 to 14 |
 | Posting hours | **9:00 to 23:00** | any |
 | Post at peak hours | **On** | on or off |
 | Where most viewers live | **Same as this computer** | 18 regions |
@@ -200,6 +212,10 @@ the rules and look, preview it, and **Export** an MP4. Handy shortcuts: <kbd>Spa
 | Organic variation | **On** | on or off |
 | Daily upload limit | **6** | 1 to 20 |
 
+- **One timeline for every game.** Each game keeps its own pace, and all of them share the posting hours, the
+  minimum gap and the daily upload limit, so posts never overlap. Games alternate through the day, and each game's
+  long videos land on different days of the week. If the games together ask for more than the daily limit, posts
+  are trimmed fairly from the busiest game.
 - **A week ahead.** Every connected channel always has the next 7 days planned, and the plan rolls forward a day at
   a time. Each day's plan stays fixed unless you change the schedule, so what you see in the calendar is what will
   go out.
@@ -388,16 +404,18 @@ src-tauri/            Rust shell (Tauri 2)
   src/lib.rs          window and tray lifecycle, launch at login, single instance, 30 s heartbeat
 src/
   autopilot/          planner.ts (organic schedule), engagement.ts (audience activity curves),
-                      engine.ts (render, upload, thumbnail, retry, history), types.ts
+                      engine.ts (render, upload, thumbnail, retry, history), types.ts (per-game paces)
   desktop/            bridge.ts (typed Tauri calls), runtime.ts (wires the engine to the UI)
-  modules/            module registry; Flag Battle content generator (no-repeat rules) and thumbnails
+  modules/            module registry, shared no-repeat rules and thumbnails (common.ts, thumbnail.ts),
+                      flagBattle/ and marbleRace/ (content planning and autopilot rendering per game)
   app/desktop/        Setup guide, Autopilot, Calendar, Modules, Channels and Settings screens;
                       posts.tsx (the live post timeline)
   app/                Studio and Preview screens
   engine/             deterministic simulation: rng, physics, sim, timeline, tuning
-  render/             the renderer shared by preview and export, effects, layout, themes
+  engine/race/        Marble Race: track generator, rolling-sphere physics, finish placement
+  render/             the renderers shared by preview and export (render/race/ for the race), effects, themes
   audio/              procedural sound effects, streaming mixer, live preview audio
-  export/             WebCodecs + mp4-muxer export worker and fallback
+  export/             WebCodecs + mp4-muxer export worker and fallback; production.ts builds any game
 scripts/setup-windows.ps1   one-time dev setup on Windows (Git, Node, Rust, MSVC, WebView2, npm packages)
 CLAUDE.md             project notes for AI coding assistants
 ```
@@ -411,8 +429,10 @@ CLAUDE.md             project notes for AI coding assistants
 Add an entry to `src/modules/registry.ts` with `status: 'ready'` and a `render(job, onProgress, signal)` function.
 It receives `{ format: 'short' | 'video', seed, recent }`, where `recent` is the channel's content history, and
 returns `{ bytes, ext, meta: { title, description, tags } }` plus, optionally, a JPEG `thumbnail` and a `content`
-record (count, roster, winner…) that later posts use to avoid repeats. The autopilot, calendar, Modules page and
-scheduler pick it up automatically. `src/modules/flagBattle/` is the reference.
+record (count, roster, winner…) that later posts use to avoid repeats. Add its default pace to `DEFAULT_PACE`
+in `src/autopilot/types.ts`. The autopilot, calendar, schedule cards, Modules page and scheduler pick it up
+automatically. `src/modules/marbleRace/` is the most complete reference; reuse `src/modules/common.ts` for fresh
+lineups and winners, and `src/export/production.ts` to plug the game's renderer into the MP4 exporter.
 </details>
 
 <details>
@@ -428,6 +448,16 @@ scheduler pick it up automatically. `src/modules/flagBattle/` is the reference.
 - **Pacing director.** Chaotic battles make plain parameter searches unreliable, so a deterministic in-sim director
   (the "AI director" technique from games) compares progress with a planned curve and nudges speed first, then the
   opening width (damage in battle royale). Tests check 8 to 64 flags land within 3 s of 30, 45 and 58 s targets.
+- **Marble Race physics.** Marbles are solid spheres (I = 2/5 m r²): every contact applies a normal impulse with
+  restitution and a Coulomb friction impulse at the contact point, so marbles really roll (5/7 g sin θ down a ramp,
+  spin equal to v / r), pick up spin and pass it on. Spinners are moving contacts whose surface speed counts,
+  bumpers add a kick, and a marble that sits still for over a second gets a small hop, like the shakers on real
+  marble runs. Tests check replays are bit for bit, no marble ever leaves the track, and every marble reaches the
+  finish on 40 random tracks.
+- **Race length without bending physics.** A probe race runs on a long track, and the finish line goes at the
+  section boundary the leader reaches closest to the target time. Each section keeps a clear band at its top, so
+  nothing above the line depends on what comes after it: the real race produces the same winner at the probed
+  time (tested). A few candidate tracks are raced and the most exciting one (lead changes, close finish) is kept.
 - **Export.** Frame-by-frame rendering on an `OffscreenCanvas` in a worker, H.264 via WebCodecs (VP9/AV1 fallback),
   keyframe every 2 s, sound effects mixed in one-second chunks and encoded as AAC or Opus, muxed with `mp4-muxer`
   with the index at the front for fast YouTube processing.

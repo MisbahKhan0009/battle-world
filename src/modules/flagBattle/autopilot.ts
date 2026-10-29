@@ -37,7 +37,7 @@ export async function renderFlagBattle(
     const winner = plan.fighters[sim.result.winnerIndex];
     const winnerImage = winner ? (await loadFlagSafe(winner.imageSrc, WINNER_RASTER)).bitmap : null;
     const out = await runExport({
-      config: sim.config,
+      content: { kind: 'flag-battle', config: sim.config },
       look: plan.look,
       fighters,
       winnerImage,
