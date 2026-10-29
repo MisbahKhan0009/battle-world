@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "prepare-assets": "node scripts/copy-flags.mjs",
+    "build-map": "node scripts/build-world-grid.mjs",
     "dev": "npm run prepare-assets && vite",
     "build": "npm run prepare-assets && tsc -b && vite build",
     "preview": "vite preview",
