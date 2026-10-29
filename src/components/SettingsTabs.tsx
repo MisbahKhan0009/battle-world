@@ -234,7 +234,8 @@ export function RulesTab() {
   );
 }
 
-const THEME_LABELS: Record<Look['theme'], string> = {
+/** The Studio makes Flag Battles, so it offers Flag Battle's themes (the other games have their own). */
+const THEME_LABELS: Partial<Record<Look['theme'], string>> = {
   night: 'Night Arena',
   neon: 'Neon',
   paper: 'Paper',
@@ -262,7 +263,7 @@ export function LookTab() {
 
       <Section title="Arena theme">
         <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Arena theme">
-          {(Object.keys(THEMES) as Look['theme'][]).map((key) => {
+          {(Object.keys(THEME_LABELS) as Look['theme'][]).map((key) => {
             const t = THEMES[key];
             const active = look.theme === key;
             return (

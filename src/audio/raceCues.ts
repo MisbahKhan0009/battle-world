@@ -1,13 +1,15 @@
 /**
- * Sound cues for a Marble Race, derived deterministically from the recorded race: countdown,
- * glassy clacks when marbles knock together, dry wooden clicks on the track, pegs and spinners,
- * a lower glass knock on bumpers, a chime for the winner and the fanfare. No drum-like thuds.
- * Density is capped so big fields stay pleasant.
+ * Sound cues for a Marble Race, derived deterministically from the recorded race: start-light
+ * beeps, glassy clacks when marbles knock together, dry wooden clicks on the track, pegs and
+ * spinners, a lower glass knock on bumpers, a ratchet into the photo finish, and a tubular bell
+ * for the winner with a bell arpeggio. No drum-like thuds. Density is capped so big fields stay
+ * pleasant.
  */
 import { TRACK_W } from '../engine/race/track';
 import { hashFloat } from '../engine/rng';
 import type { RaceScene } from '../render/race/scene';
 import type { Cue } from './mix';
+import { phrase } from './phrase';
 import type { SoundId } from './synth';
 
 const MIN_GAP = 0.035;
@@ -17,8 +19,9 @@ export function buildRaceCues(scene: RaceScene): Cue[] {
   const { timeline, result, seed } = scene;
   const cues: Cue[] = [];
   if (timeline.intro > 0) {
-    for (const at of [0.2, 0.7, 1.2]) cues.push({ at, sound: 'tick', gain: 0.55, rate: 1, pan: 0 });
-    cues.push({ at: 1.7, sound: 'ding', gain: 0.75, rate: 1.26, pan: 0 });
+    // Start lights: three low beeps, then GO an octave up.
+    for (const at of [0.2, 0.7, 1.2]) cues.push({ at, sound: 'beep', gain: 0.5, rate: 1, pan: 0 });
+    cues.push({ at: 1.7, sound: 'beep', gain: 0.6, rate: 2, pan: 0 });
   }
   const recent: number[] = [];
   let last = -Infinity;
@@ -66,10 +69,15 @@ export function buildRaceCues(scene: RaceScene): Cue[] {
       });
     }
   }
-  // Only the winner gets a chime (no 2nd or 3rd place).
-  cues.push({ at: timeline.vWinner, sound: 'ding', gain: 0.8, rate: 1, pan: 0 });
-  if (timeline.vFinal2 !== null)
-    cues.push({ at: timeline.vFinal2 + 0.05, sound: 'whoosh', gain: 0.7, rate: 1, pan: 0 });
-  cues.push({ at: timeline.vWinner + 0.45, sound: 'fanfare', gain: 0.8, rate: 1, pan: 0 });
+  // Photo finish: a wooden ratchet that speeds up into the slow motion.
+  if (timeline.vFinal2 !== null) {
+    let at = timeline.vFinal2;
+    for (let k = 0; k < 14; k++, at += 0.11 * Math.pow(0.86, k))
+      cues.push({ at, sound: `tock${k % 3}` as SoundId, gain: 0.3 + k * 0.02, rate: 1.1 + k * 0.03, pan: 0 });
+  }
+  // Only the winner gets the bell (no 2nd or 3rd place), then a bell arpeggio and chord.
+  cues.push({ at: timeline.vWinner, sound: 'bell', gain: 0.75, rate: 1, pan: 0 });
+  cues.push(...phrase(timeline.vWinner + 0.5, 'bell', [0, 4, 7, 12], 0.16, 0.5));
+  cues.push(...phrase(timeline.vWinner + 1.2, 'bell', [0, 7, 12], 0, 0.42));
   return cues.sort((a, b) => a.at - b.at);
 }

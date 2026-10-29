@@ -26,12 +26,15 @@ export type SoundId =
   | 'clack1'
   | 'clack2'
   | 'boing'
-  | 'ding'
   | 'tock0'
   | 'tock1'
   | 'tock2'
-  | 'pluck'
-  | 'shatter';
+  | 'shatter'
+  | 'beep'
+  | 'bell'
+  | 'celesta'
+  | 'bloop'
+  | 'riser';
 export type Stereo = { L: Float32Array; R: Float32Array };
 
 const noise = (i: number, seed: number) => hashFloat(seed, i) * 2 - 1;
@@ -278,43 +281,6 @@ function boing(): Float32Array {
   return normalize(out, 0.8);
 }
 
-/** Crossing the finish line: a small bell. */
-function ding(): Float32Array {
-  const len = Math.floor(SR * 0.9);
-  const out = new Float32Array(len);
-  const f = 1567.98; // G6
-  for (let i = 0; i < len; i++) {
-    const t = i / SR;
-    out[i] =
-      (Math.sin(TAU * f * t) +
-        0.45 * Math.sin(TAU * f * 2.76 * t) * Math.exp(-t / 0.08) +
-        0.25 * Math.sin(TAU * f * 5.4 * t) * Math.exp(-t / 0.04)) *
-      Math.min(1, t / 0.002) *
-      Math.exp(-t / 0.28);
-  }
-  return normalize(out, 0.7);
-}
-
-/**
- * Ring Escape bounce: a soft, bright "ting" (E5). Cues pitch it along a pentatonic scale, so
- * bounces sound like a little tune instead of noise.
- */
-function pluck(): Float32Array {
-  const len = Math.floor(SR * 0.55);
-  const out = new Float32Array(len);
-  const f = 659.25;
-  for (let i = 0; i < len; i++) {
-    const t = i / SR;
-    out[i] =
-      (Math.sin(TAU * f * t) +
-        0.35 * Math.sin(TAU * f * 2.01 * t) * Math.exp(-t / 0.09) +
-        0.12 * Math.sin(TAU * f * 4.2 * t) * Math.exp(-t / 0.03)) *
-      Math.min(1, t / 0.002) *
-      Math.exp(-t / 0.2);
-  }
-  return normalize(out, 0.7);
-}
-
 /** A ring breaking: bright glass shards over a short crackle, with no low boom. */
 function shatter(): Float32Array {
   const len = Math.floor(SR * 0.85);
@@ -342,37 +308,132 @@ function shatter(): Float32Array {
   return normalize(out, 0.8);
 }
 
+// ---------------------------------------------------------------- per-game voices
+// Marble Race: start-light beeps and a tubular bell. Ring Escape: a glassy celesta and a riser.
+// Growing Ball: a water-drop bloop. Each game also builds its own victory phrase from its voice.
+
+/** Marble Race start light: a clean, slightly hollow beep (A5). Pitch it up for GO. */
+function beep(): Float32Array {
+  const len = Math.floor(SR * 0.2);
+  const out = new Float32Array(len);
+  const f = 880;
+  let lp = 0;
+  const a = lpCoef(3800);
+  for (let i = 0; i < len; i++) {
+    const t = i / SR;
+    const sq = Math.sin(TAU * f * t) > 0 ? 1 : -1;
+    lp += (sq - lp) * a;
+    const env = Math.min(1, t / 0.004) * (t < 0.15 ? 1 : Math.max(0, 1 - (t - 0.15) / 0.05));
+    out[i] = lp * env;
+  }
+  return normalize(out, 0.4);
+}
+
+/** Marble Race finish: a tubular bell (C5) with inharmonic partials and a long ring. */
+function bell(): Float32Array {
+  const len = Math.floor(SR * 1.6);
+  const out = new Float32Array(len);
+  const f = 523.25;
+  const partials: [number, number, number][] = [
+    [1, 1, 1.1],
+    [2.76, 0.45, 0.5],
+    [5.4, 0.25, 0.22],
+    [8.93, 0.12, 0.1],
+    [0.5, 0.18, 1.4],
+  ];
+  for (let i = 0; i < len; i++) {
+    const t = i / SR;
+    let v = 0;
+    for (const [m, g, d] of partials) v += Math.sin(TAU * f * m * t) * g * Math.exp(-t / d);
+    out[i] = v * Math.min(1, t / 0.002);
+  }
+  return normalize(out, 0.7);
+}
+
+/** Ring Escape bounce: a glassy celesta (C6) from two-operator FM, bright and short. */
+function celesta(): Float32Array {
+  const len = Math.floor(SR * 0.7);
+  const out = new Float32Array(len);
+  const f = 1046.5;
+  for (let i = 0; i < len; i++) {
+    const t = i / SR;
+    const index = 2.2 * Math.exp(-t / 0.05);
+    const mod = Math.sin(TAU * f * 3.5 * t) * index;
+    out[i] =
+      (Math.sin(TAU * f * t + mod) + 0.25 * Math.sin(TAU * f * 2 * t) * Math.exp(-t / 0.12)) *
+      Math.min(1, t / 0.0015) *
+      Math.exp(-t / 0.22);
+  }
+  return normalize(out, 0.65);
+}
+
+/** Growing Ball bounce: a water-drop bloop (G4) whose pitch springs up, then settles. */
+function bloop(): Float32Array {
+  const len = Math.floor(SR * 0.32);
+  const out = new Float32Array(len);
+  let phase = 0;
+  for (let i = 0; i < len; i++) {
+    const t = i / SR;
+    const f = 392 * (1 + 0.55 * Math.exp(-t / 0.018) - 0.08 * (1 - Math.exp(-t / 0.08)));
+    phase += (TAU * f) / SR;
+    out[i] =
+      (Math.sin(phase) + 0.18 * Math.sin(2 * phase) * Math.exp(-t / 0.04)) *
+      Math.min(1, t / 0.003) *
+      Math.exp(-t / 0.09);
+  }
+  return normalize(out, 0.7);
+}
+
+/** Ring Escape's last escape: a rising, airy sweep into the slow motion, with no low end. */
+function riser(): Float32Array {
+  const dur = 1.3;
+  const len = Math.floor(SR * dur);
+  const out = new Float32Array(len);
+  let lo = 0;
+  let lo2 = 0;
+  let phase = 0;
+  for (let i = 0; i < len; i++) {
+    const t = i / SR;
+    const u = t / dur;
+    const cut = 900 + 6000 * u * u;
+    lo += (noise(i, 91) - lo) * lpCoef(cut);
+    lo2 += (lo - lo2) * lpCoef(cut * 0.35);
+    phase += (TAU * (600 + 1400 * u * u)) / SR;
+    const env = Math.min(1, u / 0.6) * (u > 0.92 ? (1 - u) / 0.08 : 1);
+    out[i] = ((lo - lo2) * 0.9 + Math.sin(phase) * 0.12) * env;
+  }
+  return normalize(out, 0.6);
+}
+
+const VOICES: Record<string, () => Float32Array> = {
+  elim,
+  whoosh,
+  fanfare,
+  tick,
+  boom,
+  exit,
+  boing,
+  shatter,
+  beep,
+  bell,
+  celesta,
+  bloop,
+  riser,
+};
+
 const sfxCache = new Map<SoundId, Float32Array>();
 
 export function getSound(id: SoundId): Float32Array {
   let s = sfxCache.get(id);
   if (!s) {
-    s =
-      id === 'elim'
-        ? elim()
-        : id === 'whoosh'
-          ? whoosh()
-          : id === 'fanfare'
-            ? fanfare()
-            : id === 'tick'
-              ? tick()
-              : id === 'boom'
-                ? boom()
-                : id === 'exit'
-                  ? exit()
-                  : id === 'boing'
-                    ? boing()
-                    : id === 'ding'
-                      ? ding()
-                      : id === 'pluck'
-                        ? pluck()
-                        : id === 'shatter'
-                          ? shatter()
-                          : id.startsWith('clack')
-                            ? clack(Number(id.slice(5)))
-                            : id.startsWith('tock')
-                              ? tock(Number(id.slice(4)))
-                              : hit(Number(id.slice(3)));
+    const voice = VOICES[id];
+    s = voice
+      ? voice()
+      : id.startsWith('clack')
+        ? clack(Number(id.slice(5)))
+        : id.startsWith('tock')
+          ? tock(Number(id.slice(4)))
+          : hit(Number(id.slice(3)));
     sfxCache.set(id, s);
   }
   return s;

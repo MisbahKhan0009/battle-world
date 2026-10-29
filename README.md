@@ -34,7 +34,7 @@ human-looking schedule, while it sits quietly in the system tray.
 | 📅 **Posts on autopilot** | Each game on each channel has its own schedule (about 5 Shorts a day and 4 long videos a week per channel by default), all on one timeline per channel so posts never overlap, planned a full week ahead and timed for when your audience is most active. Everything is adjustable. |
 | 📊 **Channel dashboard** | Subscribers and views over time, every upload against your typical result, which game performs best, your best hours to post, and your top videos, in one page. |
 | 🗓️ **Calendar and live tracking** | One calendar for every game and channel, color-coded with filters per game and per channel. Click any post to watch it render, upload and go live, step by step. |
-| 🔊 **Sound that fits** | Bumps, exits, eliminations and a winner fanfare, timed to the action. No background music, so no copyright claims. |
+| 🔊 **Sound that fits** | Every game has its own sound and color world: Flag Battle's punchy hits and brass fanfare in lime, Marble Race's wooden clicks, start-light beeps and bell in cyan or race amber, Ring Escape's glass celesta and shatter in magenta, Growing Ball's water-drop bloops in coral. All timed to the action, no background music, so no copyright claims. |
 | 🖥️ **Runs in the background** | Lives in the system tray, starts with Windows, renders each post a few hours ahead and lets YouTube publish it on the minute. |
 | 🔒 **Your account stays yours** | Uses your own free Google Cloud project. Your sign-in is stored in Windows Credential Manager, never in plain files. |
 | 🧩 **More games coming** | Flag Battle, Marble Race, Ring Escape and Growing Ball are live. Territory Wars, Black Hole (like Hole.io) and Paper Land (like Paper.io) are next, each with a written plan in the app. |
@@ -212,7 +212,7 @@ Windows by default so the schedule survives restarts; turn that off in **Setting
 Flag marbles race down a freshly generated track: zigzag **ramps**, **plinko** peg fields, rotating **spinners**,
 **bumpers** that kick, funnels, and **forks** where the field splits into two lanes. The camera follows the front of
 the race, the standings update live, a **FINAL STRETCH** banner marks the last section, close finishes get a
-**PHOTO FINISH** slow motion, and the video ends on the winner alone. Sounds are glassy clicks between marbles and dry wooden clicks on the track (no drum thuds). Open **Modules, Marble Race, Watch a sample
+**PHOTO FINISH** slow motion, and the video ends on the winner alone. Sounds are glassy clicks between marbles and dry wooden clicks on the track (no drum thuds); the start lights beep, a wooden ratchet runs into a photo finish, and the winner gets a tubular bell. Open **Modules, Marble Race, Watch a sample
 race** to play random races with sound and export one by hand.
 
 ### Ring Escape
@@ -223,8 +223,8 @@ Flag balls drop into the middle of a stack of rainbow rings. Every ring turns at
 the first ball through a gap **shatters** that ring for everyone, and the first flag out of the **last ring** wins.
 The camera follows the balls and widens as the rings get bigger, each flag shows how many rings it broke, and the
 last escape plays in slow motion. Shorts are one game of 4 to 8 flags; **long videos are a knockout**: 12 to 20
-flags play 3 or 4 heats, and the heat winners meet in the final. Bounces play soft "ting" notes that climb a
-pentatonic scale, and rings break with a glassy shatter (no booms or drums). Open **Modules, Ring Escape, Watch a
+flags play 3 or 4 heats, and the heat winners meet in the final. Bounces play glassy celesta notes that climb a
+pentatonic scale, rings break with a glass shatter, and an airy riser leads into the last escape (no booms or drums). Open **Modules, Ring Escape, Watch a
 sample game** to play random games with sound and export one by hand.
 
 ### Growing Ball
@@ -235,8 +235,8 @@ Flag balls bounce around a round arena, and every firm bounce off the wall makes
 shove each other around, big ones get boxed in, and small ones keep finding the wall, so the lead changes hands.
 The meter shows how full the arena is; when it is full, the biggest flag wins. The leader wears a crown, banners
 call every new leader and "ALMOST FULL", and the finish plays in slow motion. Shorts are one game of 3 to 6 flags;
-long videos are a knockout of 9 to 16 flags in 3 or 4 heats and a final. Every growing bounce plays a soft "ting"
-that gets deeper as the ball grows. Open **Modules, Growing Ball, Watch a sample game** to try it.
+long videos are a knockout of 9 to 16 flags in 3 or 4 heats and a final. Every growing bounce plays a water-drop
+"bloop" that gets deeper as the ball grows, and bumping balls go boing. Open **Modules, Growing Ball, Watch a sample game** to try it.
 
 ### Studio and modules
 

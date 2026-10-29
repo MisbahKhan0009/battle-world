@@ -8,6 +8,7 @@ import type { ContentFormat, ContentRecord, VideoMeta } from '../../autopilot/ty
 import type { Country } from '../../data/countries';
 import { Rng } from '../../engine/rng';
 import type { Fighter, Look } from '../../engine/types';
+import { GAME_THEMES } from '../../render/themes';
 import { countryFighter, DEFAULT_LOOK } from '../../store/app';
 import { chooseLineup, fill, keyOf, pick, pickFresh, splitHeats } from '../common';
 
@@ -128,7 +129,7 @@ export function planRingEscape(
   const total = pick(rng, short ? ([44, 48, 52, 56] as const) : ([150, 180, 210, 240] as const));
   const theme = pickFresh(
     rng,
-    ['space', 'neon', 'night', 'space', 'paper'] as const,
+    GAME_THEMES['ring-escape'],
     same.slice(-1).map((r) => r.theme as Look['theme']),
   );
   const fav = pick(rng, fighters).name;
@@ -145,18 +146,18 @@ export function planRingEscape(
     ...DEFAULT_LOOK,
     aspect: short ? '9:16' : '16:9',
     theme,
-    title: 'Escape the rings 🌀',
-    subtitle: job.kids ? 'Pick your flag before it starts 👀' : 'Comment your country 👇',
+    title: 'Escape the rings',
+    subtitle: job.kids ? 'Pick your flag before it starts' : 'Comment your country',
     showKillFeed: true,
     showCounter: true,
     outroCta: pick(
       rng,
       job.kids
-        ? ['Did you pick the winner? 🏆', 'Subscribe for a new escape every day 🔔', 'Watch the next one! 🔁']
+        ? ['Did you pick the winner?', 'Subscribe for a new escape every day', 'Watch the next one!']
         : [
-            'Which countries should play next? Comment below 👇',
-            'Did your country escape? Tell us 👇',
-            'Subscribe for a new escape every day 🔔',
+            'Which countries should play next? Comment below',
+            'Did your country escape? Tell us',
+            'Subscribe for a new escape every day',
           ],
     ),
   };

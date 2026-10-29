@@ -22,7 +22,10 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
 - `src/engine/` – deterministic simulation: fixed 1/120 s steps, seeded `mulberry32` RNG, polynomial `dsin`/`dcos`.
   ESLint bans `Math.random`, `Date` and `performance` here; the same seed must give the same video.
   Default mode is escape (flags leave through a rotating gap in a fixed ring; last one inside wins).
-- `src/render/` – renderer is a pure function of time, shared by preview and export.
+- `src/render/` – renderer is a pure function of time, shared by preview and export. Each game has its own color
+  worlds (`GAME_THEMES` in `themes.ts`) and voices (`src/audio/*Cues.ts`; no sound is shared between games).
+  Overlay type goes through `overlay.ts` (soft-shadow text, accent band banners, the winner name + verb lockup);
+  no outlined text, no eyebrow labels, no emoji on screen.
 - `src/audio/` – synthesized sound effects only (no music, by design).
 - `src/export/` – WebCodecs worker + mp4-muxer, with a timer-driven WebM fallback.
 - `src/autopilot/` – `planner.ts` (organic daily plan, deterministic per channel+day, weighted by `engagement.ts`

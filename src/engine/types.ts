@@ -33,7 +33,18 @@ export type Rules = {
 
 export type Look = {
   aspect: '9:16' | '16:9' | '1:1';
-  theme: 'night' | 'neon' | 'paper' | 'space';
+  theme:
+    | 'night'
+    | 'neon'
+    | 'paper'
+    | 'space'
+    | 'circuit'
+    | 'asphalt'
+    | 'daylight'
+    | 'plum'
+    | 'aurora'
+    | 'ember'
+    | 'peach';
   title: string;
   subtitle: string;
   titleFont: 'display' | 'sans';

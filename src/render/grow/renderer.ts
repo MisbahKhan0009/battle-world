@@ -135,7 +135,7 @@ export class GrowRenderer extends ShowRenderer<GrowScene> {
     ctx.textBaseline = 'middle';
     ctx.lineJoin = 'round';
     this.fit(ctx, text, FONT_DISPLAY, '400', A.size, A.maxW);
-    this.outlined(ctx, text, A.x, A.y, done ? th.accent : th.text, 8);
+    this.text(ctx, text, A.x, A.y, done ? th.accent : th.text);
     // How full the arena is: the game ends when the bar does.
     const w = Math.min(A.maxW, 620);
     const x0 = A.align === 'center' ? A.x - w / 2 : A.x;
@@ -192,13 +192,13 @@ export class GrowRenderer extends ShowRenderer<GrowScene> {
     };
   }
 
-  protected winnerText(): { title: string; line: string; outro: string } {
+  protected winnerText(): { verb: string; line: string; outro: string } {
     const { result } = this.scene;
     const last = result.rounds.length - 1;
     const fin = result.rounds[last];
     const shares = sharesAt(fin, fin.winnerT + 0.05);
     return {
-      title: 'BIGGEST!',
+      verb: 'GROWS BIGGEST',
       line: this.tournament
         ? `Won the final against ${result.show.entrants[last].length - 1} heat winners`
         : `Biggest when the arena filled up (${(shares[fin.winnerIndex] * 100).toFixed(1)}% of it)`,

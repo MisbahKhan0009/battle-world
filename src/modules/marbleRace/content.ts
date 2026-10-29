@@ -8,6 +8,7 @@ import type { ContentFormat, ContentRecord, VideoMeta } from '../../autopilot/ty
 import type { Country } from '../../data/countries';
 import { Rng } from '../../engine/rng';
 import type { Fighter, Look } from '../../engine/types';
+import { GAME_THEMES } from '../../render/themes';
 import { countryFighter, DEFAULT_LOOK } from '../../store/app';
 import { chooseLineup, fill, keyOf, pick, pickFresh } from '../common';
 
@@ -110,7 +111,7 @@ export function planMarbleRace(
   const total = pick(rng, short ? ([42, 48, 52, 56] as const) : ([150, 180, 210, 240] as const));
   const theme = pickFresh(
     rng,
-    ['night', 'neon', 'space', 'night', 'paper'] as const,
+    GAME_THEMES['marble-race'],
     same.slice(-1).map((r) => r.theme as Look['theme']),
   );
   const fav = pick(rng, fighters).name;
@@ -126,18 +127,18 @@ export function planMarbleRace(
     ...DEFAULT_LOOK,
     aspect: short ? '9:16' : '16:9',
     theme,
-    title: 'First to the finish wins 🏁',
-    subtitle: job.kids ? 'Pick your marble before the start 👀' : 'Comment your country 👇',
+    title: 'First to the finish wins',
+    subtitle: job.kids ? 'Pick your marble before the start' : 'Comment your country',
     showKillFeed: true,
     showCounter: true,
     outroCta: pick(
       rng,
       job.kids
-        ? ['Did you pick the winner? 🏆', 'Subscribe for a new race every day 🔔', 'Watch the next race! 🔁']
+        ? ['Did you pick the winner?', 'Subscribe for a new race every day', 'Watch the next race!']
         : [
-            'Which countries should race next? Comment below 👇',
-            'Did your country win? Tell us 👇',
-            'Subscribe for a new race every day 🔔',
+            'Which countries should race next? Comment below',
+            'Did your country win? Tell us',
+            'Subscribe for a new race every day',
           ],
     ),
   };

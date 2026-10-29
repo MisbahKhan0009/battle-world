@@ -3,6 +3,7 @@
  * (baked tokens, background layers) are memoization only. Preview and export both use this
  * class, so the exported video matches the preview frame for frame.
  */
+import { bandBanner, legibleText, winnerLockup } from './overlay';
 import { ARENA_R, ROUNDED_CORNER } from '../engine/physics';
 import { hashFloat } from '../engine/rng';
 import type { ArenaShape } from '../engine/types';
@@ -539,7 +540,7 @@ export class BattleRenderer {
           const size = Math.max(30 * k, Math.min(r * 0.6, 46 * k));
           ctx.font = `${size}px ${FONT_DISPLAY}`;
           y += size * 0.55;
-          this.outlinedText(ctx, scene.fighters[i].name.toUpperCase(), this.x[i], y, th.text, 5 * k);
+          this.text(ctx, scene.fighters[i].name.toUpperCase(), this.x[i], y, th.text);
           y += size * 0.62;
         }
         if (showHp) {
@@ -547,18 +548,15 @@ export class BattleRenderer {
           ctx.font = `${size}px ${FONT_DISPLAY}`;
           y += size * 0.55;
           const hp = Math.max(1, Math.ceil(this.hp[i]));
-          this.outlinedText(ctx, String(hp), this.x[i], y, hpColor(this.hp[i] / result.maxHp[i]), 4 * k);
+          this.text(ctx, String(hp), this.x[i], y, hpColor(this.hp[i] / result.maxHp[i]));
         }
       }
     }
   }
 
-  private outlinedText(ctx: Ctx2D, text: string, x: number, y: number, fill: string, stroke: number): void {
-    ctx.lineWidth = stroke;
-    ctx.strokeStyle = this.theme.dark ? 'rgba(4,6,10,0.85)' : 'rgba(255,255,255,0.9)';
-    ctx.strokeText(text, x, y);
-    ctx.fillStyle = fill;
-    ctx.fillText(text, x, y);
+  /** Overlay text with the shared soft shadow (overlay.ts), readable over any arena. */
+  private text(ctx: Ctx2D, text: string, x: number, y: number, fill: string): void {
+    legibleText(ctx, this.theme, text, x, y, fill);
   }
 
   private drawDamageNumbers(ctx: Ctx2D, t: number, k: number): void {
@@ -583,13 +581,12 @@ export class BattleRenderer {
         ctx.globalAlpha = p < 0.6 ? 1 : 1 - (p - 0.6) / 0.4;
         ctx.font = `${size}px ${FONT_DISPLAY}`;
         const drift = (hashFloat(this.scene.seed, h, side) - 0.5) * 30 * k;
-        this.outlinedText(
+        this.text(
           ctx,
           `-${Math.max(1, Math.round(dmg))}`,
           x + drift,
           y - r - 14 * k - 60 * k * easeOut(p),
           this.theme.danger,
-          6 * k,
         );
         shown++;
       }
@@ -632,12 +629,12 @@ export class BattleRenderer {
         display ? L.title.size : L.title.size * 0.78,
         L.title.maxW,
       );
-      this.outlinedText(ctx, look.title, L.title.x, L.title.y, th.text, 10);
+      this.text(ctx, look.title, L.title.x, L.title.y, th.text);
     }
     if (look.subtitle.trim()) {
       ctx.textAlign = L.subtitle.align;
       this.fitFont(ctx, look.subtitle, FONT_SANS, '500', L.subtitle.size, L.subtitle.maxW);
-      this.outlinedText(ctx, look.subtitle, L.subtitle.x, L.subtitle.y, th.subtext, 7);
+      this.text(ctx, look.subtitle, L.subtitle.x, L.subtitle.y, th.subtext);
     }
   }
 
@@ -652,11 +649,11 @@ export class BattleRenderer {
     ctx.font = `${L.size}px ${FONT_DISPLAY}`;
     const num = String(alive);
     const base = L.y + L.size * 0.36;
-    this.outlinedText(ctx, num, L.x, base, th.text, 8);
+    this.text(ctx, num, L.x, base, th.text);
     const w = ctx.measureText(num).width;
     ctx.font = `${L.size * 0.42}px ${FONT_DISPLAY}`;
     const label = this.escapeMode ? 'INSIDE' : 'LEFT';
-    this.outlinedText(ctx, `/ ${total} ${label}`, L.x + w + L.size * 0.14, base, th.subtext, 6);
+    this.text(ctx, `/ ${total} ${label}`, L.x + w + L.size * 0.14, base, th.subtext);
   }
 
   private drawKillFeed(ctx: Ctx2D, t: number): void {
@@ -807,33 +804,28 @@ export class BattleRenderer {
     const { arena, W } = this.layout;
     const th = this.theme;
     const fade = u > life - 0.4 ? (life - u) / 0.4 : 1;
-    const pop = easeBack(u / 0.4);
-
+    // Dim the arena a little, announce the final two on the accent band, name them below.
     ctx.save();
-    ctx.globalAlpha = fade * 0.35 * Math.min(1, u / 0.2);
+    ctx.globalAlpha = fade * 0.3 * Math.min(1, u / 0.2);
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, W, this.layout.H);
-    ctx.globalAlpha = fade;
-    ctx.translate(arena.cx, arena.cy - arena.size * 0.08);
-    ctx.scale(pop, pop);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.lineJoin = 'round';
-    ctx.font = `${190}px ${FONT_DISPLAY}`;
-    ctx.lineWidth = 16;
-    ctx.strokeStyle = 'rgba(4,6,10,0.9)';
-    ctx.strokeText('FINAL 2', 0, 0);
-    ctx.fillStyle = th.accent;
-    ctx.fillText('FINAL 2', 0, 0);
+    ctx.restore();
+    const y = arena.cy - arena.size * 0.1;
+    bandBanner(ctx, th, { text: 'FINAL 2', u, life, cx: arena.cx, y, maxW: arena.size * 0.9, size: 130 });
     const pair = fighters
       .filter((_, i) => result.elimT[i] > (result.final2T ?? 0))
       .map((f) => f.name.toUpperCase());
     if (pair.length === 2) {
+      const p = easeOut((u - 0.2) / 0.3);
+      ctx.save();
+      ctx.globalAlpha = fade * p;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       const line = `${pair[0]}  VS  ${pair[1]}`;
       this.fitFont(ctx, line, FONT_DISPLAY, '400', 64, arena.size * 0.9);
-      this.outlinedText(ctx, line, 0, 118, th.text, 10);
+      this.text(ctx, line, arena.cx, y + 118 + (1 - p) * 12, th.text);
+      ctx.restore();
     }
-    ctx.restore();
   }
 
   private getWinnerToken(sizePx: number): AnyCanvas {
@@ -871,14 +863,17 @@ export class BattleRenderer {
       ctx.save();
       ctx.translate(W / 2, cy);
       ctx.scale(s, s);
-      // Rotating dashed halo.
+      // Two accent rings: the arena it survived, drawn around the winner.
       ctx.save();
-      ctx.rotate(u * 0.6);
       ctx.strokeStyle = th.accent;
-      ctx.lineWidth = 6;
-      ctx.setLineDash([22, 16]);
+      ctx.lineWidth = 8;
       ctx.beginPath();
-      ctx.arc(0, 0, R + 30, 0, Math.PI * 2);
+      ctx.arc(0, 0, R + 22, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 0.35;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, R + 44 + 6 * Math.sin(u * 3), 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
       const tok = this.getWinnerToken(2 * R * this.px);
@@ -889,23 +884,19 @@ export class BattleRenderer {
 
     const tp = easeOut((u - 0.8) / 0.45);
     if (tp > 0) {
-      ctx.globalAlpha = tp;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.lineJoin = 'round';
-      ctx.font = `${m * 0.085}px ${FONT_DISPLAY}`;
-      if ('letterSpacing' in ctx) ctx.letterSpacing = `${Math.round(m * 0.012)}px`;
-      this.outlinedText(ctx, 'WINNER', W / 2, cy - R - 70 - (1 - tp) * 20, th.accent, 10);
-      if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
-      this.fitFont(ctx, w.name.toUpperCase(), FONT_DISPLAY, '400', m * 0.15, W - 120);
-      this.outlinedText(ctx, w.name.toUpperCase(), W / 2, cy + R + 100 + (1 - tp) * 20, th.text, 12);
       const kills = result.kills[result.winnerIndex];
-      ctx.font = `500 ${m * 0.034}px ${FONT_SANS}`;
-      const stat = this.escapeMode
-        ? `Last of ${fighters.length} flags inside`
-        : `${kills} elimination${kills === 1 ? '' : 's'} out of ${fighters.length - 1} rivals`;
-      this.outlinedText(ctx, stat, W / 2, cy + R + 100 + m * 0.1, th.subtext, 6);
-      ctx.globalAlpha = 1;
+      winnerLockup(ctx, th, {
+        name: w.name.toUpperCase(),
+        verb: this.escapeMode ? 'STAYS INSIDE' : 'WINS',
+        line: this.escapeMode
+          ? `Last of ${fighters.length} flags inside`
+          : `${kills} elimination${kills === 1 ? '' : 's'} out of ${fighters.length - 1} rivals`,
+        x: W / 2,
+        y: cy + R + m * 0.07,
+        maxW: W - 120,
+        m,
+        t: tp,
+      });
     }
     drawConfetti(ctx, u - 0.5, W, H, w.palette, this.scene.seed);
   }
@@ -953,21 +944,20 @@ export class BattleRenderer {
     const hp = 1;
     ctx.globalAlpha = fade * hp;
     this.fitFont(ctx, headline, FONT_DISPLAY, '400', Math.min(W, H) * 0.11, W - 120);
-    this.outlinedText(ctx, headline, W / 2, gy - Math.min(W, H) * 0.09 - (1 - hp) * 30, th.text, 10);
+    this.text(ctx, headline, W / 2, gy - Math.min(W, H) * 0.09 - (1 - hp) * 30, th.text);
 
     if (fightP > 0) {
-      const p = easeBack(fightP);
+      // FIGHT arrives on the accent band, over the lineup.
       ctx.globalAlpha = fade;
-      ctx.save();
-      ctx.translate(W / 2, arena.cy + arena.size * 0.08);
-      ctx.scale(p, p);
-      ctx.font = `${Math.min(W, H) * 0.26}px ${FONT_DISPLAY}`;
-      ctx.lineWidth = 18;
-      ctx.strokeStyle = 'rgba(4,6,10,0.9)';
-      ctx.strokeText('FIGHT', 0, 0);
-      ctx.fillStyle = th.accent;
-      ctx.fillText('FIGHT', 0, 0);
-      ctx.restore();
+      bandBanner(ctx, th, {
+        text: 'FIGHT',
+        u: v - (end - 0.75),
+        life: 1,
+        cx: W / 2,
+        y: arena.cy + arena.size * 0.08,
+        maxW: arena.size * 0.8,
+        size: Math.min(W, H) * 0.17,
+      });
     }
     ctx.restore();
   }
@@ -998,7 +988,7 @@ export class BattleRenderer {
     ctx.lineJoin = 'round';
     const name = `${w.name.toUpperCase()} WINS`;
     this.fitFont(ctx, name, FONT_DISPLAY, '400', m * 0.12, W - 120);
-    this.outlinedText(ctx, name, W / 2, discY + R + m * 0.1, th.text, 10);
+    this.text(ctx, name, W / 2, discY + R + m * 0.1, th.text);
 
     const cta = look.outroCta.trim();
     if (cta) {
@@ -1008,9 +998,7 @@ export class BattleRenderer {
       const y0 = discY + R + m * 0.24;
       const cp = easeOut((u - 0.25) / 0.4);
       ctx.globalAlpha = a * cp;
-      lines.forEach((line, i) =>
-        this.outlinedText(ctx, line, W / 2, y0 + i * lh + (1 - cp) * 16, th.accent, 7),
-      );
+      lines.forEach((line, i) => this.text(ctx, line, W / 2, y0 + i * lh + (1 - cp) * 16, th.accent));
     }
     ctx.globalAlpha = 1;
   }

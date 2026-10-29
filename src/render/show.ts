@@ -4,6 +4,7 @@
  * extends it and draws its own arena, counter and board. Everything is a pure function of
  * (scene, video time), so preview and export match frame for frame.
  */
+import { bandBanner, legibleText, winnerLockup } from './overlay';
 import type { Timeline } from '../engine/timeline';
 import type { Look } from '../engine/types';
 import {
@@ -139,8 +140,8 @@ export abstract class ShowRenderer<S extends ShowScene, O = object> {
   protected abstract drawGameBanners(ctx: Ctx2D, v: number, t: number, y: number): void;
   /** Intro headline and sub line. */
   protected abstract introText(): { head: string; sub: string };
-  /** Winner card: title above the flag, the line under the name, an optional halo. */
-  protected abstract winnerText(): { title: string; line: string; outro: string };
+  /** Winner card: the verb under the name ("ESCAPES FIRST"), one line of what happened, the outro word. */
+  protected abstract winnerText(): { verb: string; line: string; outro: string };
   protected drawWinnerHalo(ctx: Ctx2D, R: number, u: number): void {
     void ctx;
     void R;
@@ -149,12 +150,9 @@ export abstract class ShowRenderer<S extends ShowScene, O = object> {
 
   // ------------------------------------------------------------------ text helpers
 
-  protected outlined(ctx: Ctx2D, text: string, x: number, y: number, fill: string, stroke: number): void {
-    ctx.lineWidth = stroke;
-    ctx.strokeStyle = this.theme.dark ? 'rgba(4,6,10,0.88)' : 'rgba(255,255,255,0.92)';
-    ctx.strokeText(text, x, y);
-    ctx.fillStyle = fill;
-    ctx.fillText(text, x, y);
+  /** Overlay text with the shared soft shadow (overlay.ts), readable over any arena. */
+  protected text(ctx: Ctx2D, text: string, x: number, y: number, fill: string): void {
+    legibleText(ctx, this.theme, text, x, y, fill);
   }
 
   protected fit(ctx: Ctx2D, text: string, family: string, weight: string, size: number, maxW: number): void {
@@ -225,12 +223,12 @@ export abstract class ShowRenderer<S extends ShowScene, O = object> {
         L.title.size,
         L.title.maxW,
       );
-      this.outlined(ctx, look.title, L.title.x, L.title.y, this.theme.text, 10);
+      this.text(ctx, look.title, L.title.x, L.title.y, this.theme.text);
     }
     if (look.subtitle.trim()) {
       ctx.textAlign = L.subtitle.align;
       this.fit(ctx, look.subtitle, FONT_SANS, '500', L.subtitle.size, L.subtitle.maxW);
-      this.outlined(ctx, look.subtitle, L.subtitle.x, L.subtitle.y, this.theme.subtext, 7);
+      this.text(ctx, look.subtitle, L.subtitle.x, L.subtitle.y, this.theme.subtext);
     }
   }
 
@@ -275,25 +273,18 @@ export abstract class ShowRenderer<S extends ShowScene, O = object> {
     }
   }
 
+  /** An announcement band over the arena (see overlay.ts). */
   protected banner(ctx: Ctx2D, text: string, u: number, life: number, y: number): void {
-    if (u < 0 || u > life) return;
     const { L } = this;
-    const fade = u > life - 0.35 ? (life - u) / 0.35 : 1;
-    const pop = easeBack(u / 0.35);
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, fade);
-    ctx.translate(L.cx, y);
-    ctx.scale(pop, pop);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.lineJoin = 'round';
-    this.fit(ctx, text, FONT_DISPLAY, '400', Math.min(L.W, L.H) * 0.13, L.P * 2 * 0.95);
-    ctx.lineWidth = 16;
-    ctx.strokeStyle = 'rgba(4,6,10,0.9)';
-    ctx.strokeText(text, 0, 0);
-    ctx.fillStyle = this.theme.accent;
-    ctx.fillText(text, 0, 0);
-    ctx.restore();
+    bandBanner(ctx, this.theme, {
+      text,
+      u,
+      life,
+      cx: L.cx,
+      y,
+      maxW: L.P * 2 * 0.96,
+      size: Math.min(L.W, L.H) * 0.085,
+    });
   }
 
   private drawBanners(ctx: Ctx2D, v: number, t: number): void {
@@ -353,9 +344,9 @@ export abstract class ShowRenderer<S extends ShowScene, O = object> {
     const { head, sub } = this.introText();
     const m = Math.min(W, H);
     this.fit(ctx, head, FONT_DISPLAY, '400', m * 0.1, W - 120);
-    this.outlined(ctx, head, W / 2, gy - m * 0.15, th.text, 10);
+    this.text(ctx, head, W / 2, gy - m * 0.15, th.text);
     this.fit(ctx, sub, FONT_DISPLAY, '400', m * 0.07, W - 160);
-    this.outlined(ctx, sub, W / 2, gy - m * 0.065, th.accent, 8);
+    this.text(ctx, sub, W / 2, gy - m * 0.065, th.accent);
     const marks: [number, string][] = [
       [0.2, '3'],
       [0.7, '2'],
@@ -369,12 +360,8 @@ export abstract class ShowRenderer<S extends ShowScene, O = object> {
       ctx.save();
       ctx.translate(W / 2, gy + rows * cell + m * 0.16);
       ctx.scale(p, p);
-      ctx.font = `${m * 0.2}px ${FONT_DISPLAY}`;
-      ctx.lineWidth = 16;
-      ctx.strokeStyle = 'rgba(4,6,10,0.9)';
-      ctx.strokeText(label, 0, 0);
-      ctx.fillStyle = label === 'GO!' ? th.accent : th.text;
-      ctx.fillText(label, 0, 0);
+      ctx.font = `${m * 0.15}px ${FONT_DISPLAY}`;
+      this.text(ctx, label, 0, 0, label === 'GO!' ? th.accent : th.text);
       ctx.restore();
       break;
     }
@@ -424,18 +411,16 @@ export abstract class ShowRenderer<S extends ShowScene, O = object> {
     const tp = easeOut((u - 0.8) / 0.45);
     if (tp > 0) {
       const text = this.winnerText();
-      ctx.globalAlpha = tp;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.lineJoin = 'round';
-      ctx.font = `${m * 0.085}px ${FONT_DISPLAY}`;
-      this.outlined(ctx, text.title, W / 2, cy - R - 120 - (1 - tp) * 20, th.accent, 10);
-      this.fit(ctx, w.name.toUpperCase(), FONT_DISPLAY, '400', m * 0.15, W - 120);
-      const nameY = cy + R + 140 + (1 - tp) * 20;
-      this.outlined(ctx, w.name.toUpperCase(), W / 2, nameY, th.text, 12);
-      ctx.font = `500 ${m * 0.034}px ${FONT_SANS}`;
-      this.outlined(ctx, text.line, W / 2, nameY + m * 0.1, th.subtext, 6);
-      ctx.globalAlpha = 1;
+      winnerLockup(ctx, th, {
+        name: w.name.toUpperCase(),
+        verb: text.verb,
+        line: text.line,
+        x: W / 2,
+        y: cy + R + m * 0.07,
+        maxW: W - 120,
+        m,
+        t: tp,
+      });
     }
     if (look.particles) drawConfetti(ctx, u - 0.5, W, H, w.palette, this.scene.seed);
   }
@@ -463,7 +448,7 @@ export abstract class ShowRenderer<S extends ShowScene, O = object> {
     ctx.lineJoin = 'round';
     const name = `${w.name.toUpperCase()} ${this.winnerText().outro}`;
     this.fit(ctx, name, FONT_DISPLAY, '400', m * 0.12, W - 120);
-    this.outlined(ctx, name, W / 2, discY + R + m * 0.1, th.text, 10);
+    this.text(ctx, name, W / 2, discY + R + m * 0.1, th.text);
     const cta = look.outroCta.trim();
     if (cta) {
       ctx.font = `600 ${m * 0.05}px ${FONT_SANS}`;
@@ -482,7 +467,7 @@ export abstract class ShowRenderer<S extends ShowScene, O = object> {
       ctx.globalAlpha = a * cp;
       lines
         .slice(0, 3)
-        .forEach((l, i) => this.outlined(ctx, l, W / 2, discY + R + m * 0.24 + i * m * 0.066, th.accent, 7));
+        .forEach((l, i) => this.text(ctx, l, W / 2, discY + R + m * 0.24 + i * m * 0.066, th.accent));
     }
     ctx.globalAlpha = 1;
   }

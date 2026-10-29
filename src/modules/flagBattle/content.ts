@@ -13,6 +13,7 @@ import type { Country } from '../../data/countries';
 import { Rng } from '../../engine/rng';
 import type { Fighter, Look, Rules } from '../../engine/types';
 import { countryFighter, DEFAULT_LOOK, DEFAULT_RULES } from '../../store/app';
+import { GAME_THEMES } from '../../render/themes';
 import { chooseLineup, fill, freshenPair, keyOf, pick, pickFresh } from '../common';
 
 export type FlagBattlePlan = {
@@ -159,7 +160,7 @@ export function planFlagBattle(
   };
   const theme = pickFresh(
     rng,
-    ['night', 'night', 'neon', 'space', 'paper'] as const,
+    GAME_THEMES['flag-battle'],
     same.slice(-1).map((r) => r.theme as Look['theme']),
   );
   const fav = pick(rng, fighters).name;
@@ -176,20 +177,16 @@ export function planFlagBattle(
     ...DEFAULT_LOOK,
     aspect: short ? '9:16' : '16:9',
     theme,
-    title: mode === 'escape' ? 'Last flag inside wins 🔥' : 'Last flag standing wins ⚔️',
-    subtitle: job.kids ? 'Pick your country before it starts 👀' : 'Comment your country 👇',
+    title: mode === 'escape' ? 'Last flag inside wins' : 'Last flag standing wins',
+    subtitle: job.kids ? 'Pick your country before it starts' : 'Comment your country',
     outroCta: pick(
       rng,
       job.kids
-        ? [
-            'Did you pick the winner? 🏆',
-            'Subscribe for a new battle every day 🔔',
-            'Watch the next battle! 🔁',
-          ]
+        ? ['Did you pick the winner?', 'Subscribe for a new battle every day', 'Watch the next battle!']
         : [
-            'Which flags should battle next? Comment below 👇',
-            'Did your country make it? Tell us 👇',
-            'Subscribe for a new battle every day 🔔',
+            'Which flags should battle next? Comment below',
+            'Did your country make it? Tell us',
+            'Subscribe for a new battle every day',
           ],
     ),
   };

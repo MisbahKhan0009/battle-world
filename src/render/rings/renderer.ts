@@ -189,7 +189,7 @@ export class RingsRenderer extends ShowRenderer<RingsScene, { full?: boolean }> 
     ctx.textBaseline = 'middle';
     ctx.lineJoin = 'round';
     this.fit(ctx, text, FONT_DISPLAY, '400', A.size, A.maxW);
-    this.outlined(ctx, text, A.x, A.y, left <= 1 ? this.theme.accent : this.theme.text, 8);
+    this.text(ctx, text, A.x, A.y, left <= 1 ? this.theme.accent : this.theme.text);
     // Progress pips, one per ring, in the ring's color.
     const pip = Math.min(26, (A.maxW * 0.9) / Math.max(1, N) - 8);
     const total = N * (pip + 8) - 8;
@@ -241,11 +241,11 @@ export class RingsRenderer extends ShowRenderer<RingsScene, { full?: boolean }> 
       : { head: `${n} ${noun}, ${result.rounds[0].rings.length} RINGS`, sub: 'WHO ESCAPES FIRST?' };
   }
 
-  protected winnerText(): { title: string; line: string; outro: string } {
+  protected winnerText(): { verb: string; line: string; outro: string } {
     const { fighters, result } = this.scene;
     const rings = result.rounds[result.rounds.length - 1].rings.length;
     return {
-      title: 'ESCAPED!',
+      verb: 'ESCAPES FIRST',
       line: this.tournament
         ? `Won the final against ${result.show.entrants[result.rounds.length - 1].length - 1} heat winners`
         : `First of ${fighters.length} to break all ${rings} rings`,

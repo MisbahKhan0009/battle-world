@@ -3,6 +3,7 @@
  * renderer, so preview and export match frame for frame. The camera follows the front of the
  * race down the track; flags spin with the marbles' real rotation.
  */
+import { bandBanner, legibleText, winnerLockup } from '../overlay';
 import { SLOWMO_SEC } from '../../engine/timeline';
 import { context2d, createCanvas, FONT_DISPLAY, FONT_SANS, type AnyCanvas, type Ctx2D } from '../canvas';
 import { drawConfetti, easeBack, easeOut } from '../effects';
@@ -70,8 +71,6 @@ function layoutFor(aspect: RaceScene['look']['aspect']): RaceLayout {
   };
 }
 
-const SPINNER = '#3DDCFF';
-
 export class RaceRenderer {
   readonly L: RaceLayout;
   readonly theme: Theme;
@@ -100,12 +99,9 @@ export class RaceRenderer {
 
   // ------------------------------------------------------------------ text helpers
 
-  private outlined(ctx: Ctx2D, text: string, x: number, y: number, fill: string, stroke: number): void {
-    ctx.lineWidth = stroke;
-    ctx.strokeStyle = this.theme.dark ? 'rgba(4,6,10,0.88)' : 'rgba(255,255,255,0.92)';
-    ctx.strokeText(text, x, y);
-    ctx.fillStyle = fill;
-    ctx.fillText(text, x, y);
+  /** Overlay text with the shared soft shadow (overlay.ts), readable over any arena. */
+  private text(ctx: Ctx2D, text: string, x: number, y: number, fill: string): void {
+    legibleText(ctx, this.theme, text, x, y, fill);
   }
 
   private fit(ctx: Ctx2D, text: string, family: string, weight: string, size: number, maxW: number): void {
@@ -192,7 +188,7 @@ export class RaceRenderer {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
       ctx.lineJoin = 'round';
-      this.outlined(ctx, 'FINISH', W / 2, track.finishY - sq - 14, th.accent, 10);
+      this.text(ctx, 'FINISH', W / 2, track.finishY - sq - 14, th.accent);
     }
 
     // Walls and ramps: soft glow under a solid core.
@@ -263,7 +259,7 @@ export class RaceRenderer {
       const th2 = sp.phase + sp.omega * t;
       const c = Math.cos(th2);
       const sn = Math.sin(th2);
-      ctx.strokeStyle = SPINNER;
+      ctx.strokeStyle = th.accent;
       ctx.lineWidth = sp.r * 2;
       ctx.beginPath();
       ctx.moveTo(sp.cx - c * sp.half, sp.cy - sn * sp.half);
@@ -345,12 +341,12 @@ export class RaceRenderer {
         L.title.size,
         L.title.maxW,
       );
-      this.outlined(ctx, look.title, L.title.x, L.title.y, this.theme.text, 10);
+      this.text(ctx, look.title, L.title.x, L.title.y, this.theme.text);
     }
     if (look.subtitle.trim()) {
       ctx.textAlign = L.subtitle.align;
       this.fit(ctx, look.subtitle, FONT_SANS, '500', L.subtitle.size, L.subtitle.maxW);
-      this.outlined(ctx, look.subtitle, L.subtitle.x, L.subtitle.y, this.theme.subtext, 7);
+      this.text(ctx, look.subtitle, L.subtitle.x, L.subtitle.y, this.theme.subtext);
     }
   }
 
@@ -417,7 +413,7 @@ export class RaceRenderer {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.font = `${30}px ${FONT_DISPLAY}`;
-    this.outlined(ctx, `RACE ${Math.round(p * 100)}%`, P.x, P.y, th.text, 6);
+    this.text(ctx, `RACE ${Math.round(p * 100)}%`, P.x, P.y, th.text);
     const y = P.y + 30;
     ctx.fillStyle = th.hudBg;
     ctx.beginPath();
@@ -434,22 +430,15 @@ export class RaceRenderer {
     const { L } = this;
     // Centered over the track, so it never covers the standings.
     const cx = L.trackX + 500 * L.s;
-    const fade = u > life - 0.35 ? (life - u) / 0.35 : 1;
-    const pop = easeBack(u / 0.35);
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, fade);
-    ctx.translate(cx, y);
-    ctx.scale(pop, pop);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.lineJoin = 'round';
-    this.fit(ctx, text, FONT_DISPLAY, '400', Math.min(L.W, L.H) * 0.14, 1000 * L.s * 0.95);
-    ctx.lineWidth = 16;
-    ctx.strokeStyle = 'rgba(4,6,10,0.9)';
-    ctx.strokeText(text, 0, 0);
-    ctx.fillStyle = this.theme.accent;
-    ctx.fillText(text, 0, 0);
-    ctx.restore();
+    bandBanner(ctx, this.theme, {
+      text,
+      u,
+      life,
+      cx,
+      y,
+      maxW: 1000 * L.s * 0.96,
+      size: Math.min(L.W, L.H) * 0.09,
+    });
   }
 
   // ------------------------------------------------------------------ intro, winner, outro
@@ -490,29 +479,30 @@ export class RaceRenderer {
     ctx.lineJoin = 'round';
     const noun = fighters.every((f) => f.isCountry) ? 'COUNTRIES' : 'MARBLES';
     this.fit(ctx, `${n} ${noun} RACE`, FONT_DISPLAY, '400', Math.min(W, H) * 0.11, W - 120);
-    this.outlined(ctx, `${n} ${noun} RACE`, W / 2, gy - Math.min(W, H) * 0.09, th.text, 10);
-    // Countdown.
-    const marks: [number, string][] = [
-      [0.2, '3'],
-      [0.7, '2'],
-      [1.2, '1'],
-      [1.7, 'GO!'],
-    ];
-    for (let k = marks.length - 1; k >= 0; k--) {
-      const [at, label] = marks[k];
-      if (v < at) continue;
-      const p = easeBack((v - at) / 0.22);
-      ctx.save();
-      ctx.translate(W / 2, gy + rows * cell + Math.min(W, H) * 0.16);
-      ctx.scale(p, p);
-      ctx.font = `${Math.min(W, H) * 0.2}px ${FONT_DISPLAY}`;
-      ctx.lineWidth = 16;
-      ctx.strokeStyle = 'rgba(4,6,10,0.9)';
-      ctx.strokeText(label, 0, 0);
-      ctx.fillStyle = label === 'GO!' ? th.accent : th.text;
-      ctx.fillText(label, 0, 0);
-      ctx.restore();
-      break;
+    this.text(ctx, `${n} ${noun} RACE`, W / 2, gy - Math.min(W, H) * 0.09, th.text);
+    // Start lights: three reds come on with the beeps, then all turn to the accent on GO.
+    const m = Math.min(W, H);
+    const lightR = m * 0.045;
+    const ly = gy + rows * cell + m * 0.14;
+    const go = v >= 1.7;
+    const housingW = lightR * 2 * 3 + lightR * 1.2 * 4;
+    ctx.fillStyle = th.hudBg;
+    ctx.beginPath();
+    ctx.roundRect(W / 2 - housingW / 2, ly - lightR * 1.6, housingW, lightR * 3.2, lightR * 1.6);
+    ctx.fill();
+    [0.2, 0.7, 1.2].forEach((at, k) => {
+      const x = W / 2 + (k - 1) * lightR * 3.2;
+      const on = v >= at;
+      ctx.fillStyle = go ? th.accent : on ? th.danger : 'rgba(127,127,127,0.25)';
+      ctx.beginPath();
+      ctx.arc(x, ly, lightR * (on ? 1 : 0.92), 0, Math.PI * 2);
+      ctx.fill();
+    });
+    if (go) {
+      const p = easeOut((v - 1.7) / 0.2);
+      ctx.globalAlpha = fade * p;
+      ctx.font = `${m * 0.12}px ${FONT_DISPLAY}`;
+      this.text(ctx, 'GO', W / 2, ly + lightR * 1.6 + m * 0.09, th.accent);
     }
     ctx.restore();
   }
@@ -550,14 +540,17 @@ export class RaceRenderer {
       ctx.save();
       ctx.translate(W / 2, cy);
       ctx.scale(sc, sc);
+      // A checkered ring, like the finish line, turning slowly.
+      const segs = 36;
       ctx.save();
-      ctx.rotate(u * 0.6);
-      ctx.strokeStyle = th.accent;
-      ctx.lineWidth = 6;
-      ctx.setLineDash([22, 16]);
-      ctx.beginPath();
-      ctx.arc(0, 0, R + 30, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.rotate(u * 0.25);
+      ctx.lineWidth = 16;
+      for (let k = 0; k < segs; k++) {
+        ctx.strokeStyle = k % 2 ? '#0B0D13' : '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(0, 0, R + 26, (k / segs) * Math.PI * 2, ((k + 1) / segs) * Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.restore();
       const tok = this.getWinnerToken(2 * R * this.px);
       const size = 2 * R * TOKEN_SCALE;
@@ -566,25 +559,16 @@ export class RaceRenderer {
     }
     const tp = easeOut((u - 0.8) / 0.45);
     if (tp > 0) {
-      ctx.globalAlpha = tp;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.lineJoin = 'round';
-      ctx.font = `${m * 0.085}px ${FONT_DISPLAY}`;
-      this.outlined(ctx, 'WINNER', W / 2, cy - R - 70 - (1 - tp) * 20, th.accent, 10);
-      this.fit(ctx, w.name.toUpperCase(), FONT_DISPLAY, '400', m * 0.15, W - 120);
-      const nameY = cy + R + 100 + (1 - tp) * 20;
-      this.outlined(ctx, w.name.toUpperCase(), W / 2, nameY, th.text, 12);
-      ctx.font = `500 ${m * 0.034}px ${FONT_SANS}`;
-      this.outlined(
-        ctx,
-        `First of ${fighters.length} across the line in ${result.winnerT.toFixed(1)} s`,
-        W / 2,
-        nameY + m * 0.1,
-        th.subtext,
-        6,
-      );
-      ctx.globalAlpha = 1;
+      winnerLockup(ctx, th, {
+        name: w.name.toUpperCase(),
+        verb: 'WINS THE RACE',
+        line: `First of ${fighters.length} across the line in ${result.winnerT.toFixed(1)} s`,
+        x: W / 2,
+        y: cy + R + m * 0.07,
+        maxW: W - 120,
+        m,
+        t: tp,
+      });
     }
     if (look.particles) drawConfetti(ctx, u - 0.5, W, H, w.palette, this.scene.seed);
   }
@@ -612,7 +596,7 @@ export class RaceRenderer {
     ctx.lineJoin = 'round';
     const name = `${w.name.toUpperCase()} WINS`;
     this.fit(ctx, name, FONT_DISPLAY, '400', m * 0.12, W - 120);
-    this.outlined(ctx, name, W / 2, discY + R + m * 0.1, th.text, 10);
+    this.text(ctx, name, W / 2, discY + R + m * 0.1, th.text);
     const cta = look.outroCta.trim();
     if (cta) {
       ctx.font = `600 ${m * 0.05}px ${FONT_SANS}`;
@@ -631,7 +615,7 @@ export class RaceRenderer {
       ctx.globalAlpha = a * cp;
       lines
         .slice(0, 3)
-        .forEach((l, i) => this.outlined(ctx, l, W / 2, discY + R + m * 0.24 + i * m * 0.066, th.accent, 7));
+        .forEach((l, i) => this.text(ctx, l, W / 2, discY + R + m * 0.24 + i * m * 0.066, th.accent));
     }
     ctx.globalAlpha = 1;
   }
