@@ -58,26 +58,4 @@ export const PLANS: Record<string, GamePlan> = {
       'Renderer with falling animations and a size leaderboard; planner, autopilot renderer, preview.',
     ],
   },
-  'paper-land': {
-    pitch: 'Like Paper.io: flags paint trails to claim land, and cutting a trail knocks them out.',
-    howItPlays: [
-      'Every country starts with a small square of land on a big board.',
-      'Moving outside its land a flag leaves a trail; returning home closes the loop and fills everything inside with its color.',
-      'Crossing another flag’s trail eliminates that flag. The most land (or the last flag left) wins, with a live share-of-board leaderboard.',
-    ],
-    simulation: [
-      'Grid-based and deterministic: movement at fixed ticks, flood fill to claim enclosed areas, trail-cut checks every tick.',
-      'Steering AI per flag (go out, loop back, take risks when far ahead or behind), seeded; every flag uses the same rules, so winners can be relabelled for freshness.',
-      'Round length fitted by board size and speed from probe runs.',
-    ],
-    video: [
-      'Shorts of 40 to 58 s; long videos of 3 minutes on a bigger board with more flags.',
-      'Thumbnail: the empty board with starting squares and “WHO CLAIMS THE MOST LAND?”.',
-    ],
-    steps: [
-      'Board, movement and flood-fill claiming with tests (claimed area always matches the grid).',
-      'AI and elimination rules; probe-based length fitting.',
-      'Renderer (flag-textured land, glowing trails), planner, autopilot renderer, preview.',
-    ],
-  },
 };

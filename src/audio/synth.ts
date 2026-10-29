@@ -34,7 +34,9 @@ export type SoundId =
   | 'bell'
   | 'celesta'
   | 'bloop'
-  | 'riser';
+  | 'riser'
+  | 'marimba'
+  | 'snip';
 export type Stereo = { L: Float32Array; R: Float32Array };
 
 const noise = (i: number, seed: number) => hashFloat(seed, i) * 2 - 1;
@@ -310,7 +312,8 @@ function shatter(): Float32Array {
 
 // ---------------------------------------------------------------- per-game voices
 // Marble Race: start-light beeps and a tubular bell. Ring Escape: a glassy celesta and a riser.
-// Growing Ball: a water-drop bloop. Each game also builds its own victory phrase from its voice.
+// Growing Ball: a water-drop bloop. Paper Land: a wooden marimba and a scissor snip. Each game also
+// builds its own victory phrase from its voice.
 
 /** Marble Race start light: a clean, slightly hollow beep (A5). Pitch it up for GO. */
 function beep(): Float32Array {
@@ -405,6 +408,53 @@ function riser(): Float32Array {
   return normalize(out, 0.6);
 }
 
+/** Paper Land claim: a wooden marimba bar (C5) with its tuned fourth-harmonic overtone and a soft mallet. */
+function marimba(): Float32Array {
+  const len = Math.floor(SR * 0.9);
+  const out = new Float32Array(len);
+  const f = 523.25;
+  let lp = 0;
+  const a = lpCoef(2400);
+  for (let i = 0; i < len; i++) {
+    const t = i / SR;
+    lp += (noise(i, 133) - lp) * a;
+    const mallet = i < 240 ? lp * (1 - i / 240) * 0.5 : 0;
+    out[i] =
+      (Math.sin(TAU * f * t) * Math.exp(-t / 0.32) +
+        0.32 * Math.sin(TAU * f * 3.99 * t) * Math.exp(-t / 0.06) +
+        0.1 * Math.sin(TAU * f * 9.8 * t) * Math.exp(-t / 0.018)) *
+        Math.min(1, t / 0.002) +
+      mallet;
+  }
+  return normalize(out, 0.75);
+}
+
+/** Paper Land knock-out: scissors snipping through paper, two quick metal clicks over a tear. */
+function snip(): Float32Array {
+  const len = Math.floor(SR * 0.32);
+  const out = new Float32Array(len);
+  let hpPrev = 0;
+  let hpOut = 0;
+  let bp = 0;
+  const clicks = [0, 0.075];
+  for (let i = 0; i < len; i++) {
+    const t = i / SR;
+    let metal = 0;
+    for (const at of clicks) {
+      if (t < at) continue;
+      const tt = t - at;
+      metal += (Math.sin(TAU * 4200 * tt) + 0.6 * Math.sin(TAU * 6900 * tt)) * Math.exp(-tt / 0.012);
+    }
+    const n = noise(i, 151);
+    hpOut = 0.9 * (hpOut + n - hpPrev);
+    hpPrev = n;
+    bp += (hpOut - bp) * lpCoef(5200);
+    const tear = bp * Math.exp(-t / 0.07) * (t < 0.11 ? Math.min(1, t / 0.02) : 1) * 1.4;
+    out[i] = metal * 0.5 + tear;
+  }
+  return normalize(out, 0.7);
+}
+
 const VOICES: Record<string, () => Float32Array> = {
   elim,
   whoosh,
@@ -419,6 +469,8 @@ const VOICES: Record<string, () => Float32Array> = {
   celesta,
   bloop,
   riser,
+  marimba,
+  snip,
 };
 
 const sfxCache = new Map<SoundId, Float32Array>();

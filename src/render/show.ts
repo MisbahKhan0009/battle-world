@@ -171,6 +171,25 @@ export abstract class ShowRenderer<S extends ShowScene, O = object> {
     return s.trimEnd() + '…';
   }
 
+  /** A crown over the leader. */
+  protected crown(ctx: Ctx2D, x: number, y: number, w: number): void {
+    const h = w * 0.62;
+    ctx.fillStyle = this.theme.accent;
+    ctx.strokeStyle = 'rgba(4,6,10,0.85)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2, y);
+    ctx.lineTo(x - w / 2, y - h * 0.55);
+    ctx.lineTo(x - w / 4, y - h * 0.25);
+    ctx.lineTo(x, y - h);
+    ctx.lineTo(x + w / 4, y - h * 0.25);
+    ctx.lineTo(x + w / 2, y - h * 0.55);
+    ctx.lineTo(x + w / 2, y);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fill();
+  }
+
   // ------------------------------------------------------------------ background, title, board
 
   protected background(ctx: Ctx2D): void {

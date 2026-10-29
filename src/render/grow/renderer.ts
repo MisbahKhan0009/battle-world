@@ -96,24 +96,6 @@ export class GrowRenderer extends ShowRenderer<GrowScene> {
     }
   }
 
-  private crown(ctx: Ctx2D, x: number, y: number, w: number): void {
-    const h = w * 0.62;
-    ctx.fillStyle = this.theme.accent;
-    ctx.strokeStyle = 'rgba(4,6,10,0.85)';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(x - w / 2, y);
-    ctx.lineTo(x - w / 2, y - h * 0.55);
-    ctx.lineTo(x - w / 4, y - h * 0.25);
-    ctx.lineTo(x, y - h);
-    ctx.lineTo(x + w / 4, y - h * 0.25);
-    ctx.lineTo(x + w / 2, y - h * 0.55);
-    ctx.lineTo(x + w / 2, y);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.fill();
-  }
-
   protected drawCounter(ctx: Ctx2D, t: number): void {
     const { scene, theme: th } = this;
     const { k, local, round } = roundOf(scene, t);

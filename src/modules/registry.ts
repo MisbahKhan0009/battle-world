@@ -25,7 +25,7 @@ export type ContentModule = {
   /** Route of the module's manual editor, if it has one. */
   studioRoute?: 'studio';
   /** Route of the module's preview page, if it has one. */
-  previewRoute?: 'race' | 'rings' | 'grow';
+  previewRoute?: 'race' | 'rings' | 'grow' | 'paper';
   render?: (job: RenderJob, onProgress: (p: number) => void, signal: AbortSignal) => Promise<RenderResult>;
 };
 
@@ -111,10 +111,13 @@ export const MODULES: ContentModule[] = [
     name: 'Paper Land',
     tagline: 'Claim land, cut the trails',
     description:
-      'Like Paper.io: flags paint trails to claim land, and crossing a rival’s trail knocks it out. The most land wins.',
-    status: 'coming-soon',
+      'Like Paper.io: flags paint trails to claim land, and crossing a rival’s trail knocks it out. When the clock runs out, the most land wins. Long videos are a knockout.',
+    status: 'ready',
     formats: ['short', 'video'],
     accent: '#3DFFB0',
+    previewRoute: 'paper',
+    render: (job, onProgress, signal) =>
+      import('./paperLand/autopilot').then((m) => m.renderPaperLand(job, onProgress, signal)),
   },
 ];
 

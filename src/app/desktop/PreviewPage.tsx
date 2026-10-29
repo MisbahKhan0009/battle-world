@@ -5,6 +5,7 @@ import { Mixer, type Cue } from '../../audio/mix';
 import { buildRaceCues } from '../../audio/raceCues';
 import { buildRingsCues } from '../../audio/ringCues';
 import { buildGrowCues } from '../../audio/growCues';
+import { buildPaperCues } from '../../audio/paperCues';
 import { SAMPLE_RATE } from '../../audio/synth';
 import type { ContentFormat, VideoMeta } from '../../autopilot/types';
 import { Button } from '../../components/ui/Button';
@@ -20,9 +21,11 @@ import { loadFlagSafe, WINNER_RASTER } from '../../lib/flags';
 import { RaceClient } from '../../lib/raceClient';
 import { RingsClient } from '../../lib/ringsClient';
 import { GrowClient } from '../../lib/growClient';
+import { PaperClient } from '../../lib/paperClient';
 import { planMarbleRace } from '../../modules/marbleRace/content';
 import { planRingEscape } from '../../modules/ringEscape/content';
 import { planGrowingBall } from '../../modules/growingBall/content';
+import { planPaperLand } from '../../modules/paperLand/content';
 import type { Fighter } from '../../engine/types';
 import type { Ctx2D } from '../../render/canvas';
 import { DESIGN_SIZE } from '../../render/layout';
@@ -31,6 +34,8 @@ import { buildRaceScene } from '../../render/race/scene';
 import { RingsRenderer } from '../../render/rings/renderer';
 import { GrowRenderer } from '../../render/grow/renderer';
 import { buildGrowScene } from '../../render/grow/scene';
+import { PaperRenderer } from '../../render/paper/renderer';
+import { buildPaperScene } from '../../render/paper/scene';
 import { buildRingsScene } from '../../render/rings/scene';
 import type { SceneFighter } from '../../render/scene';
 import { DesktopLayout } from './Layout';
@@ -176,8 +181,49 @@ const GROWING_BALL: PreviewGame = {
   },
 };
 
+const PAPER_LAND: PreviewGame = {
+  id: 'paper-land',
+  title: 'Paper Land',
+  newLabel: 'New game',
+  busyText: 'Playing the game…',
+  load: async (format, seed) => {
+    const plan = planPaperLand({ format, seed }, await loadCountries(), []);
+    const client = new PaperClient();
+    try {
+      const { config, result } = await client.run({
+        seed: plan.gameSeed,
+        ids: plan.fighters.map((f) => f.id),
+        heats: plan.heats,
+        targetSec: plan.targetSec,
+        maxSec: plan.maxSec,
+      });
+      const { scene: fighters, winnerImage } = await art(plan.fighters, result.winnerIndex);
+      const scene = buildPaperScene({ result, look: plan.look, fighters, winnerImage });
+      const sizes = config.rounds.map((r) => `${r.size}×${r.size}`);
+      return {
+        meta: plan.meta,
+        look: plan.look,
+        content: { kind: 'paper-land', config },
+        fighters,
+        winnerImage,
+        total: scene.timeline.total,
+        renderer: (W, H) => new PaperRenderer(scene, W, H),
+        cues: () => buildPaperCues(scene),
+        summary:
+          (plan.heats
+            ? `${fighters.length} flags in ${plan.heats.length} heats and a final on a ${sizes[sizes.length - 1]} board.`
+            : `${fighters.length} flags on a ${sizes[0]} board.`) +
+          ' Every game is new: the lineup, flag count, board and winner change each time, the same way the autopilot makes them.',
+      };
+    } finally {
+      client.dispose();
+    }
+  },
+};
+
 export const RacePage = () => <GamePreview game={MARBLE_RACE} />;
 export const GrowPage = () => <GamePreview game={GROWING_BALL} />;
+export const PaperPage = () => <GamePreview game={PAPER_LAND} />;
 export const RingsPage = () => <GamePreview game={RING_ESCAPE} />;
 
 const fmt = (v: number) => `${Math.floor(v / 60)}:${String(Math.floor(v % 60)).padStart(2, '0')}`;

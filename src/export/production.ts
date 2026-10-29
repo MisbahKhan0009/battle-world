@@ -5,7 +5,9 @@
 import { buildRaceCues } from '../audio/raceCues';
 import { buildRingsCues } from '../audio/ringCues';
 import { buildGrowCues } from '../audio/growCues';
+import { buildPaperCues } from '../audio/paperCues';
 import { runShow as runGrowShow, type GrowShow } from '../engine/grow/show';
+import { runShow as runPaperShow, type PaperShow } from '../engine/paper/show';
 import { Mixer, type MixSettings } from '../audio/mix';
 import { MusicMix, type MusicBed } from '../audio/music';
 import type { Stereo } from '../audio/synth';
@@ -21,6 +23,8 @@ import { RaceRenderer } from '../render/race/renderer';
 import { RingsRenderer } from '../render/rings/renderer';
 import { GrowRenderer } from '../render/grow/renderer';
 import { buildGrowScene } from '../render/grow/scene';
+import { PaperRenderer } from '../render/paper/renderer';
+import { buildPaperScene } from '../render/paper/scene';
 import { buildRingsScene } from '../render/rings/scene';
 import { BattleRenderer } from '../render/renderer';
 import { buildScene, type SceneFighter } from '../render/scene';
@@ -29,7 +33,8 @@ export type ExportContent =
   | { kind: 'flag-battle'; config: SimConfig }
   | { kind: 'marble-race'; config: RaceConfig }
   | { kind: 'ring-escape'; config: RingsShow }
-  | { kind: 'growing-ball'; config: GrowShow };
+  | { kind: 'growing-ball'; config: GrowShow }
+  | { kind: 'paper-land'; config: PaperShow };
 
 /** Anything that renders the soundtrack in chunks: the game sounds, or a music track. */
 export type Soundtrack = { render(start: number, frames: number): Stereo };
@@ -78,6 +83,16 @@ function buildGameProduction(args: ProductionArgs): Production {
       total: scene.timeline.total,
       render: (ctx, v) => renderer.render(ctx, v),
       mixer: (settings) => new Mixer(null, settings, buildGrowCues(scene)),
+    };
+  }
+  if (content.kind === 'paper-land') {
+    const result = runPaperShow(content.config, { record: true });
+    const scene = buildPaperScene({ result, look, fighters, winnerImage });
+    const renderer = new PaperRenderer(scene, W, H);
+    return {
+      total: scene.timeline.total,
+      render: (ctx, v) => renderer.render(ctx, v),
+      mixer: (settings) => new Mixer(null, settings, buildPaperCues(scene)),
     };
   }
   if (content.kind === 'ring-escape') {

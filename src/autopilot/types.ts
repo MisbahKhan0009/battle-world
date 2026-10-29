@@ -227,6 +227,7 @@ export const DEFAULT_PACE: Record<string, ModulePace> = {
   'marble-race': { shortsPerDay: 2, videosPerWeek: 2 },
   'ring-escape': { shortsPerDay: 3, videosPerWeek: 2 },
   'growing-ball': { shortsPerDay: 2, videosPerWeek: 2 },
+  'paper-land': { shortsPerDay: 2, videosPerWeek: 2 },
 };
 
 /** Splits an overall pace across games (remainders go to the first games). */

@@ -42,7 +42,8 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
 - `src/modules/common.ts` – shared no-repeat rules: `chooseLineup` (counts, lineups, groups vs recent posts) and
   `freshenPair` (relabels the winning ball; country fighters/marbles are physically identical, so winners and final
   pairs don't repeat). `src/modules/thumbnail.ts` composes the spoiler-free cover for any game.
-- `src/modules/flagBattle/`, `src/modules/marbleRace/`, `src/modules/ringEscape/`, `src/modules/growingBall/` – per-game content planning (`content.ts`) and headless
+- `src/modules/flagBattle/`, `src/modules/marbleRace/`, `src/modules/ringEscape/`, `src/modules/growingBall/`,
+  `src/modules/paperLand/` – per-game content planning (`content.ts`) and headless
   autopilot rendering (`autopilot.ts`, `thumbnail.ts`).
 - `src/engine/race/` – Marble Race: `track.ts` (procedural sections with a clear top band), `sim.ts` (rolling
   spheres with friction impulses, I = 2/5 m r²), `race.ts` (finish line placed at the section boundary closest to
@@ -55,18 +56,23 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
 - `src/engine/grow/` – Growing Ball: `sim.ts` (firm wall bounces add area; springy wall so balls never heap up;
   game ends at 55% fill, biggest wins; no stealing, which made leads snowball), `show.ts` (growth rate chosen by
   playing a range in full; knockout like Ring Escape). Rendering in `src/render/grow/`, cues in
-  `src/audio/growCues.ts`. Both round-based games extend `src/render/show.ts` (title, banners, intro, winner, outro).
+  `src/audio/growCues.ts`. The round-based games extend `src/render/show.ts` (title, banners, intro, winner, outro).
+- `src/engine/paper/` – Paper Land (Paper.io): `sim.ts` (grid board, 10 moves/s, trails, flood-fill claims from the
+  board edge, cuts wipe the victim's land, seeded steering AI that only hunts late in the clock), `show.ts` (runs on a
+  clock of the target length; picks the liveliest of a few starts; knockout like Ring Escape). Land is recorded only
+  when it changes (`rec.grids` + `gridTicks`). Rendering in `src/render/paper/` (land drawn once per board change into
+  an offscreen layer, tiled with the flag), cues in `src/audio/paperCues.ts`.
 - `src/dashboard/` – channel dashboard data: read-only YouTube calls via the `youtube_api_get` command
   (channels, playlistItems, videos), pure insight math (`insights.ts`, tested), and channel snapshots saved to
   `state.stats` every 3 hours (the growth charts). UI in `src/app/desktop/DashboardPage.tsx` + `charts.tsx`.
 - `src/modules/plans.ts` – written plans for every coming-soon game (shown on the Modules page; a test requires one).
 - Videos default to made-for-kids (`post.madeForKids`); planners get `job.kids` and must not ask for comments then.
 - `src/export/production.ts` – builds the renderer + mixer for any game from its config (worker and fallback).
-- `src/modules/registry.ts` – content modules. Flag Battle, Marble Race, Ring Escape and Growing Ball are ready;
-  territory-wars, black-hole and paper-land are next. A new game also needs a `DEFAULT_PACE` entry. A module needs `status: 'ready'` and a `render(job, onProgress, signal)`.
+- `src/modules/registry.ts` – content modules. Flag Battle, Marble Race, Ring Escape, Growing Ball and Paper Land
+  are ready; territory-wars and black-hole are next. A new game also needs a `DEFAULT_PACE` entry. A module needs `status: 'ready'` and a `render(job, onProgress, signal)`.
 - `src/desktop/` – `bridge.ts` (typed Tauri invokes), `runtime.ts` (autopilot singleton + `useAutopilot` hook).
 - `src/app/desktop/` – Setup wizard, Autopilot, Calendar, Modules, Channels (per-channel games, limits, quota
-  banner), Settings screens, `PreviewPage.tsx` (Marble Race, Ring Escape and Growing Ball preview/export); `posts.tsx` is the live post timeline dialog. Hash router in `src/app/router.ts`.
+  banner), Settings screens, `PreviewPage.tsx` (Marble Race, Ring Escape, Growing Ball and Paper Land preview/export); `posts.tsx` is the live post timeline dialog. Hash router in `src/app/router.ts`.
 - `src-tauri/src/` – OAuth loopback + PKCE (`oauth.rs`), tokens in Windows Credential Manager (`tokens.rs`),
   resumable uploads (`youtube.rs`), files/state (`files.rs`), tray (`tray.rs`), app lifecycle + 30 s heartbeat (`lib.rs`).
 

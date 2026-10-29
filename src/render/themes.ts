@@ -189,6 +189,37 @@ export const THEMES: Record<Look['theme'], Theme> = {
     danger: '#C2410C',
     dark: false,
   },
+  // Paper Land: mint on deep jade, and deep green on kraft paper.
+  jade: {
+    bgInner: '#0F2A24',
+    bgOuter: '#04100D',
+    glow: 'rgba(61,255,176,0.10)',
+    grid: 'rgba(61,255,176,0.07)',
+    floorInner: '#123029',
+    floorOuter: '#0A1F1A',
+    border: '#3DFFB0',
+    text: '#EEFFF7',
+    subtext: '#8FBFAE',
+    hudBg: 'rgba(3,14,11,0.8)',
+    accent: '#3DFFB0',
+    danger: '#FF5A5F',
+    dark: true,
+  },
+  kraft: {
+    bgInner: '#E9DCC0',
+    bgOuter: '#CDB78E',
+    glow: 'rgba(255,255,255,0.4)',
+    grid: 'rgba(60,40,20,0.08)',
+    floorInner: '#F7F0E1',
+    floorOuter: '#EADFC6',
+    border: '#3A2A18',
+    text: '#2A1F12',
+    subtext: '#6E5A40',
+    hudBg: 'rgba(247,240,225,0.92)',
+    accent: '#0E8A5F',
+    danger: '#C2410C',
+    dark: false,
+  },
 };
 
 /** The color worlds each game draws from (first is the game's signature look). */
@@ -197,6 +228,7 @@ export const GAME_THEMES: Record<string, Look['theme'][]> = {
   'marble-race': ['circuit', 'asphalt', 'daylight'],
   'ring-escape': ['plum', 'aurora'],
   'growing-ball': ['ember', 'peach'],
+  'paper-land': ['jade', 'kraft'],
 };
 
 export const HP_HIGH = [74, 222, 128] as const;

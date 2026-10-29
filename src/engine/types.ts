@@ -44,7 +44,9 @@ export type Look = {
     | 'plum'
     | 'aurora'
     | 'ember'
-    | 'peach';
+    | 'peach'
+    | 'jade'
+    | 'kraft';
   title: string;
   subtitle: string;
   titleFont: 'display' | 'sans';
