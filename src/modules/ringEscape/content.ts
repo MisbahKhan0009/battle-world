@@ -9,7 +9,7 @@ import type { Country } from '../../data/countries';
 import { Rng } from '../../engine/rng';
 import type { Fighter, Look } from '../../engine/types';
 import { countryFighter, DEFAULT_LOOK } from '../../store/app';
-import { chooseLineup, fill, keyOf, pick, pickFresh } from '../common';
+import { chooseLineup, fill, keyOf, pick, pickFresh, splitHeats } from '../common';
 
 export const MODULE_ID = 'ring-escape';
 
@@ -98,13 +98,6 @@ export function buildRingsMeta(
     ...(format === 'short' ? ['shorts'] : ['tournament']),
   ];
   return { title, description, tags, template };
-}
-
-/** Splits fighter indices into heats of near-equal size. */
-export function splitHeats(n: number, heats: number): number[][] {
-  const out: number[][] = Array.from({ length: heats }, () => []);
-  for (let i = 0; i < n; i++) out[Math.floor((i * heats) / n)].push(i);
-  return out;
 }
 
 export function planRingEscape(

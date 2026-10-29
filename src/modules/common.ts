@@ -169,3 +169,10 @@ export function freshenPair(
   }
   return { winner: keyOf(fighters[w]), runnerUp: r >= 0 ? keyOf(fighters[r]) : undefined };
 }
+
+/** Splits fighter indices into heats of near-equal size. */
+export function splitHeats(n: number, heats: number): number[][] {
+  const out: number[][] = Array.from({ length: heats }, () => []);
+  for (let i = 0; i < n; i++) out[Math.floor((i * heats) / n)].push(i);
+  return out;
+}

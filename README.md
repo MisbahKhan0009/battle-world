@@ -28,7 +28,7 @@ human-looking schedule, while it sits quietly in the system tray.
 
 | | |
 | --- | --- |
-| 🎬 **Makes the videos** | Three games so far. **Flag Battle**: up to 64 country flags bounce inside a circle with one rotating exit; the last flag inside wins. **Marble Race**: flag marbles roll down a track of ramps, plinko pegs, spinners and bumpers; first across the line wins. **Ring Escape**: flag balls bounce inside spinning rings and shatter each one they slip through; first out of the last ring wins. No two posts repeat a winner, a lineup or even a flag count. |
+| 🎬 **Makes the videos** | Four games so far. **Flag Battle**: up to 64 country flags bounce inside a circle with one rotating exit; the last flag inside wins. **Marble Race**: flag marbles roll down a track of ramps, plinko pegs, spinners and bumpers; first across the line wins. **Ring Escape**: flag balls bounce inside spinning rings and shatter each one they slip through; first out of the last ring wins. **Growing Ball**: every bounce off the wall makes a flag bigger; when the arena is full, the biggest wins. No two posts repeat a winner, a lineup or even a flag count. |
 | 📺 **Several channels** | Connect as many YouTube channels as you like. Each channel posts its own games (two per channel works best) with its own pace and daily limit, and you can pause any of them. |
 | 🖼️ **Spoiler-free thumbnails** | Every post gets its own cover ("WHO ESCAPES LAST?") made from the start of the battle, so the thumbnail never gives the winner away. |
 | 📅 **Posts on autopilot** | Each game on each channel has its own schedule (about 5 Shorts a day and 4 long videos a week per channel by default), all on one timeline per channel so posts never overlap, planned a full week ahead and timed for when your audience is most active. Everything is adjustable. |
@@ -37,7 +37,7 @@ human-looking schedule, while it sits quietly in the system tray.
 | 🔊 **Sound that fits** | Bumps, exits, eliminations and a winner fanfare, timed to the action. No background music, so no copyright claims. |
 | 🖥️ **Runs in the background** | Lives in the system tray, starts with Windows, renders each post a few hours ahead and lets YouTube publish it on the minute. |
 | 🔒 **Your account stays yours** | Uses your own free Google Cloud project. Your sign-in is stored in Windows Credential Manager, never in plain files. |
-| 🧩 **More games coming** | Flag Battle, Marble Race and Ring Escape are live. Territory Wars, Growing Ball, Black Hole (like Hole.io) and Paper Land (like Paper.io) are next, each with a written plan in the app. |
+| 🧩 **More games coming** | Flag Battle, Marble Race, Ring Escape and Growing Ball are live. Territory Wars, Black Hole (like Hole.io) and Paper Land (like Paper.io) are next, each with a written plan in the app. |
 
 <br />
 
@@ -169,7 +169,8 @@ extra to set up. **Refresh** reloads it; **YouTube Studio** opens your channel t
 
 - **Games on this channel:** click a game to add or remove it. Two games per channel works best, so each channel has
   a clear identity for viewers and for YouTube. A new channel automatically gets games no other channel uses yet
-  (your first channel starts with Flag Battle and Marble Race, the second with Ring Escape).
+  (your first channel starts with Flag Battle and Marble Race, the second with Ring Escape and Growing Ball). When
+  an update adds a new game, it goes to a channel that still has room for one, once; after that it is yours to move.
 - **Autopilot posts here:** pause or resume one channel without touching the others.
 - **Daily upload limit** for that channel, and **Edit schedule** to set each game's pace on the Autopilot page.
 - **Disconnect** (the plug icon) stops posting there and removes its access.
@@ -225,6 +226,17 @@ flags play 3 or 4 heats, and the heat winners meet in the final. Bounces play so
 pentatonic scale, and rings break with a glassy shatter (no booms or drums). Open **Modules, Ring Escape, Watch a
 sample game** to play random games with sound and export one by hand.
 
+### Growing Ball
+
+<img src="docs/images/growing-ball.jpg" alt="Four frames from a Growing Ball Short: the countdown with every flag, small flag balls bouncing in the arena with the leader's crown, bigger balls filling the arena with the fill meter, and the winner card" width="100%" />
+
+Flag balls bounce around a round arena, and every firm bounce off the wall makes a ball a little bigger. Balls
+shove each other around, big ones get boxed in, and small ones keep finding the wall, so the lead changes hands.
+The meter shows how full the arena is; when it is full, the biggest flag wins. The leader wears a crown, banners
+call every new leader and "ALMOST FULL", and the finish plays in slow motion. Shorts are one game of 3 to 6 flags;
+long videos are a knockout of 9 to 16 flags in 3 or 4 heats and a final. Every growing bounce plays a soft "ting"
+that gets deeper as the ball grows. Open **Modules, Growing Ball, Watch a sample game** to try it.
+
 ### Studio and modules
 
 <table>
@@ -247,8 +259,8 @@ the rules and look, preview it, and **Export** an MP4. Handy shortcuts: <kbd>Spa
 | **Flag Battle** | ✅ Ready | Flags bounce inside a circle with a rotating exit; last one inside wins. Also has a battle royale mode with HP. |
 | **Marble Race** | ✅ Ready | Flag marbles roll down ramps, plinko pegs, spinners, bumpers and forks; first across the line wins. |
 | **Ring Escape** | ✅ Ready | Flag balls bounce inside spinning rings and shatter each one they get through; first out wins. Long videos are a knockout. |
+| **Growing Ball** | ✅ Ready | Every bounce off the wall makes a flag bigger; when the arena is full, the biggest wins. Long videos are a knockout. |
 | Territory Wars | 🔜 Next | Countries conquer a pixel world map tile by tile. |
-| Growing Ball | 🔜 Next | Every bounce makes the flag bigger until it fills the arena. |
 | Black Hole | 🔜 Next | Like Hole.io: country holes swallow a city, then each other. The biggest hole wins. |
 | Paper Land | 🔜 Next | Like Paper.io: flags paint trails to claim land; crossing a trail knocks a flag out. |
 
@@ -263,7 +275,6 @@ Every upcoming game has a plan (how it plays, the simulation, the video formats 
 | Game | How it plays | Simulation | Videos |
 | --- | --- | --- | --- |
 | **Territory Wars** | Countries start on their real land on a pixel world map and push borders until one rules the globe. | Deterministic cellular automaton with seeded border contests; identical armies per tile. | Long time-lapse videos of 3 to 4 min; Shorts show the final 50 s. |
-| **Growing Ball** | Every wall bounce grows the flag; first to fill half the arena wins, with notes that deepen as balls grow. | Circle collisions with growth after each wall hit and overlap resolution; growth rate fitted from probes. | Shorts 30 to 55 s; long videos as one-on-one brackets. |
 | **Black Hole** | Country holes roam a city swallowing anything smaller; bigger holes eat smaller ones; biggest wins. | Seeded steering AI per hole; objects tip in when mostly over a big enough hole; identical rules for every hole. | Shorts 40 to 58 s on the leader; long videos of 2 to 3 min. |
 | **Paper Land** | Flags leave trails outside their land and close loops to claim area; crossing a trail eliminates a flag. | Grid ticks with flood-fill claiming and trail-cut checks; seeded AI with identical rules. | Shorts 40 to 58 s; long videos of 3 min on a bigger board. |
 
@@ -282,6 +293,7 @@ thumbnails; their own schedule on the shared timeline.
 | Flag Battle: Shorts per day, long videos per week | **3** and **2** | 0 to 10, 0 to 14 |
 | Marble Race: Shorts per day, long videos per week | **2** and **2** | 0 to 10, 0 to 14 |
 | Ring Escape: Shorts per day, long videos per week | **3** and **2** | 0 to 10, 0 to 14 |
+| Growing Ball: Shorts per day, long videos per week | **2** and **2** | 0 to 10, 0 to 14 |
 | Games per channel | **2** (new channels get unused games) | any |
 | Posting hours | **9:00 to 23:00** | any |
 | Post at peak hours | **On** | on or off |
@@ -493,7 +505,7 @@ src/
                       engine.ts (render, upload, thumbnail, retry, history), types.ts (per-game paces)
   desktop/            bridge.ts (typed Tauri calls), runtime.ts (wires the engine to the UI)
   modules/            module registry, shared no-repeat rules and thumbnails (common.ts, thumbnail.ts),
-                      flagBattle/, marbleRace/ and ringEscape/ (content planning and autopilot rendering per game)
+                      flagBattle/, marbleRace/, ringEscape/, growingBall/ (content planning and autopilot rendering per game)
   dashboard/          channel data (youtube.ts), insights math (insights.ts), snapshots and cache (store.ts)
   app/desktop/        Setup guide, Dashboard, Autopilot, Calendar, Modules, Channels and Settings screens;
                       posts.tsx (the live post timeline)
@@ -501,7 +513,9 @@ src/
   engine/             deterministic simulation: rng, physics, sim, timeline, tuning
   engine/race/        Marble Race: track generator, rolling-sphere physics, finish placement
   engine/rings/       Ring Escape: ring generator, bounce physics, ring-count fitting and knockout heats
-  render/             the renderers shared by preview and export (render/race/, render/rings/), effects, themes
+  engine/grow/        Growing Ball: growing-ball physics, growth-rate fitting and knockout heats
+  render/             the renderers shared by preview and export (render/race/, render/rings/, render/grow/),
+                      show.ts (the shared frame for the round-based games), effects, themes
   audio/              procedural sound effects, streaming mixer, live preview audio
   export/             WebCodecs + mp4-muxer export worker and fallback; production.ts builds any game
 scripts/setup-windows.ps1   one-time dev setup on Windows (Git, Node, Rust, MSVC, WebView2, npm packages)
@@ -554,6 +568,13 @@ lineups and winners, and `src/export/production.ts` to plug the game's renderer 
   are in can be touched, so a probe game with many rings tells exactly when each ring would break: the game keeps
   the ring count whose last break lands closest to the target length (tested to match the real game bit for bit).
   Tests also check balls only ever leave a ring through its gap.
+- **Growing Ball physics.** Balls bounce under gravity; ball-to-ball contacts are impulses with mass proportional to
+  area, so big balls shove small ones. A firm wall bounce adds a fixed slice of area, and the wall is springy (it
+  throws anything touching it back at a minimum speed), so balls never settle in a heap. Big balls get boxed in
+  while small ones keep finding the wall, which keeps races close: on average the top two finish within a few
+  percent and the lead changes several times. The game ends when the balls fill 55% of the arena; length is fitted
+  by playing a range of growth rates in full and keeping the closest, liveliest game. Tests check balls stay inside
+  the arena, never overlap, and the biggest wins.
 - **Export.** Frame-by-frame rendering on an `OffscreenCanvas` in a worker, H.264 via WebCodecs (VP9/AV1 fallback),
   keyframe every 2 s, sound effects mixed in one-second chunks and encoded as AAC or Opus, muxed with `mp4-muxer`
   with the index at the front for fast YouTube processing.

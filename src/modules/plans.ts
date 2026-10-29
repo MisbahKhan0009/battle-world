@@ -36,28 +36,6 @@ export const PLANS: Record<string, GamePlan> = {
       'Planner, autopilot renderer and preview page.',
     ],
   },
-  'growing-ball': {
-    pitch: 'Every bounce makes the flag bigger until it fills the arena.',
-    howItPlays: [
-      'A few flags bounce inside a circle; every wall hit grows the ball a little.',
-      'Balls push each other; the first to fill half the arena (or the last that can still move) wins.',
-      'Each bounce plays a soft note that gets deeper as the ball grows: very satisfying to watch.',
-    ],
-    simulation: [
-      'Circle-in-circle and circle-circle collisions at fixed steps; growth applied after each wall contact, with overlap resolved so balls never intersect.',
-      'Area is conserved per tick so growth is smooth; balls are identical apart from their flag.',
-      'Length fitted by the growth rate chosen from probe runs.',
-    ],
-    video: [
-      'Shorts of 30 to 55 s; long videos as a bracket of one-on-one matches.',
-      'Thumbnail: the small balls at the start with “WHO GROWS BIGGEST?”.',
-    ],
-    steps: [
-      'Growth physics with tests (no overlap, area bookkeeping).',
-      'Renderer and sound design (pitch tied to size).',
-      'Planner, autopilot renderer and preview page.',
-    ],
-  },
   'black-hole': {
     pitch: 'Like Hole.io: country holes roam a city and swallow everything, then each other.',
     howItPlays: [

@@ -4,7 +4,14 @@
  */
 import { useSyncExternalStore } from 'react';
 import { Autopilot, type Activity, type Backend } from '../autopilot/engine';
-import { DEFAULT_PACE, defaultState, type AutopilotState, type ScheduleSettings } from '../autopilot/types';
+import {
+  assignNewGames,
+  DEFAULT_PACE,
+  defaultState,
+  LEGACY_GAMES,
+  type AutopilotState,
+  type ScheduleSettings,
+} from '../autopilot/types';
 import { moduleById, readyModuleIds } from '../modules/registry';
 import { desktop, isDesktop } from './bridge';
 
@@ -12,7 +19,7 @@ let instance: Autopilot | null = null;
 let starting: Promise<Autopilot> | null = null;
 
 function mergeState(raw: string | null, outputDir: string): AutopilotState {
-  const base = defaultState(outputDir);
+  const base = { ...defaultState(outputDir), knownGames: readyModuleIds() };
   if (!raw) return base;
   try {
     const p = JSON.parse(raw) as Partial<AutopilotState>;
@@ -34,7 +41,7 @@ function mergeState(raw: string | null, outputDir: string): AutopilotState {
     // existing channel those games with the paces and limit it had.
     const legacyModules: Record<string, boolean> = { 'flag-battle': true, 'marble-race': true, ...p.modules };
     const needGames = (p.channels ?? []).some((c) => !c.games);
-    const channels = (p.channels ?? []).map((c) =>
+    let channels = (p.channels ?? []).map((c) =>
       c.games
         ? c
         : {
@@ -47,7 +54,10 @@ function mergeState(raw: string | null, outputDir: string): AutopilotState {
             dailyCap: old?.dailyCap ?? base.schedule.dailyCap,
           },
     );
-    const replan = migrate || needGames;
+    // A game released since the last start goes to a channel that still has room for one.
+    const assigned = assignNewGames(channels, readyModuleIds(), p.knownGames ?? LEGACY_GAMES);
+    if (assigned) channels = assigned;
+    const replan = migrate || needGames || !!assigned;
     return {
       ...base,
       ...p,
@@ -59,6 +69,7 @@ function mergeState(raw: string | null, outputDir: string): AutopilotState {
       // Made for kids became the default; apply it once to existing installs too.
       post: { ...base.post, ...p.post, ...(p.kidsDefaulted ? {} : { madeForKids: true }) },
       kidsDefaulted: true,
+      knownGames: readyModuleIds(),
       stats: p.stats ?? {},
       google: { ...base.google, ...p.google },
       modules: { ...base.modules, ...p.modules },

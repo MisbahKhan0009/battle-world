@@ -22,6 +22,6 @@ export function renderRingsThumbnail(args: {
     theme: scene.look.theme,
     hook: args.hook,
     sub: args.sub,
-    draw: (ctx, W, H) => new RingsRenderer(scene, W, H).render(ctx, v, { full: true }),
+    draw: (ctx, W, H) => new RingsRenderer(scene, W, H).render(ctx, v, { full: true, thumbnail: true }),
   });
 }

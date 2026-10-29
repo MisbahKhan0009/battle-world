@@ -9,6 +9,7 @@ import {
 } from './engine';
 import { dayKey, planDay, videosOnDay } from './planner';
 import {
+  assignNewGames,
   connectedChannel,
   DEFAULT_SCHEDULE,
   defaultState,
@@ -455,5 +456,19 @@ describe('channels', () => {
     expect(again.dailyCap).toBe(3);
     expect(again.enabled).toBe(false);
     expect(again.title).toBe('Renamed');
+  });
+
+  test('a newly released game goes to a channel with room, once', () => {
+    const ready = ['flag-battle', 'marble-race', 'ring-escape', 'growing-ball'];
+    const known = ['flag-battle', 'marble-race', 'ring-escape'];
+    const one = connectedChannel(info('UC1'), [], ready.slice(0, 3));
+    const two = connectedChannel(info('UC2'), [one], ready.slice(0, 3));
+    const out = assignNewGames([one, two], ready, known)!;
+    expect(Object.keys(out[0].games)).toEqual(['flag-battle', 'marble-race']);
+    expect(Object.keys(out[1].games)).toEqual(['ring-escape', 'growing-ball']);
+    // Already known (the user may have removed it on purpose): nothing changes.
+    expect(assignNewGames([one, two], ready, ready)).toBeNull();
+    // Every channel full: it waits for the next channel.
+    expect(assignNewGames([one], ready, known)).toBeNull();
   });
 });

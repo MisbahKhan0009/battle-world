@@ -22,7 +22,7 @@ export type ContentModule = {
   /** Route of the module's manual editor, if it has one. */
   studioRoute?: 'studio';
   /** Route of the module's preview page, if it has one. */
-  previewRoute?: 'race' | 'rings';
+  previewRoute?: 'race' | 'rings' | 'grow';
   render?: (job: RenderJob, onProgress: (p: number) => void, signal: AbortSignal) => Promise<RenderResult>;
 };
 
@@ -85,10 +85,13 @@ export const MODULES: ContentModule[] = [
     name: 'Growing Ball',
     tagline: 'Every bounce makes it bigger',
     description:
-      'Each bounce grows the flag a little. Countries race to fill the arena first, with a satisfying sound on every hit.',
-    status: 'coming-soon',
-    formats: ['short'],
+      'Every bounce off the wall grows the flag. Big balls get boxed in while small ones keep bouncing; when the arena is full, the biggest flag wins. Long videos are a knockout.',
+    status: 'ready',
+    formats: ['short', 'video'],
     accent: '#FF4D5E',
+    previewRoute: 'grow',
+    render: (job, onProgress, signal) =>
+      import('./growingBall/autopilot').then((m) => m.renderGrowingBall(job, onProgress, signal)),
   },
   {
     id: 'black-hole',

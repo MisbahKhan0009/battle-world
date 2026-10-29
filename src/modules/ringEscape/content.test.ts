@@ -2,7 +2,8 @@ import { describe, expect, test } from 'vitest';
 import countries from '../../data/countries.json';
 import type { Country } from '../../data/countries';
 import type { ContentRecord } from '../../autopilot/types';
-import { planRingEscape, ringsRecord, splitHeats } from './content';
+import { splitHeats } from '../common';
+import { planRingEscape, ringsRecord } from './content';
 
 const all = countries as Country[];
 

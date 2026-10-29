@@ -22,6 +22,7 @@ const DashboardPage = lazy(() =>
 );
 const RacePage = lazy(() => import('./desktop/PreviewPage').then((m) => ({ default: m.RacePage })));
 const RingsPage = lazy(() => import('./desktop/PreviewPage').then((m) => ({ default: m.RingsPage })));
+const GrowPage = lazy(() => import('./desktop/PreviewPage').then((m) => ({ default: m.GrowPage })));
 const ModulesPage = lazy(() => import('./desktop/ModulesPage').then((m) => ({ default: m.ModulesPage })));
 const ChannelsPage = lazy(() => import('./desktop/ChannelsPage').then((m) => ({ default: m.ChannelsPage })));
 const SetupWizard = lazy(() => import('./desktop/SetupWizard').then((m) => ({ default: m.SetupWizard })));
@@ -130,6 +131,7 @@ export function App() {
             {route === 'calendar' && <CalendarPage />}
             {route === 'race' && <RacePage />}
             {route === 'rings' && <RingsPage />}
+            {route === 'grow' && <GrowPage />}
             {route === 'dashboard' && <DashboardPage />}
             {route === 'modules' && <ModulesPage />}
             {route === 'channels' && <ChannelsPage />}

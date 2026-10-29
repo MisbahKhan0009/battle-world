@@ -29,13 +29,14 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
   audience-activity curves in the audience's time zone; each channel posts its own games (`Channel.games`, about 2
   per channel, each with its own pace) on one non-overlapping timeline with the channel's `dailyCap`; the engine
   plans with `channelGames` + `channelSchedule`; `schedule` holds the shared timing; `state.modules` and
-  `schedule.perModule` are legacy, migrated in `runtime.ts`), `engine.ts` (render → upload → thumbnail state machine,
+  `schedule.perModule` are legacy, migrated in `runtime.ts`; a newly released game goes once to a channel with room
+  via `assignNewGames` + `state.knownGames`), `engine.ts` (render → upload → thumbnail state machine,
   retries, quota handling, per-slot event log, `contentLog` history), `types.ts` (defaults). Tests in
   `autopilot.test.ts`.
 - `src/modules/common.ts` – shared no-repeat rules: `chooseLineup` (counts, lineups, groups vs recent posts) and
   `freshenPair` (relabels the winning ball; country fighters/marbles are physically identical, so winners and final
   pairs don't repeat). `src/modules/thumbnail.ts` composes the spoiler-free cover for any game.
-- `src/modules/flagBattle/`, `src/modules/marbleRace/`, `src/modules/ringEscape/` – per-game content planning (`content.ts`) and headless
+- `src/modules/flagBattle/`, `src/modules/marbleRace/`, `src/modules/ringEscape/`, `src/modules/growingBall/` – per-game content planning (`content.ts`) and headless
   autopilot rendering (`autopilot.ts`, `thumbnail.ts`).
 - `src/engine/race/` – Marble Race: `track.ts` (procedural sections with a clear top band), `sim.ts` (rolling
   spheres with friction impulses, I = 2/5 m r²), `race.ts` (finish line placed at the section boundary closest to
@@ -45,17 +46,21 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
   ring for everyone; ring k depends only on seed and k, so probe runs give exact break times), `show.ts` (ring count
   fitted from a probe; Shorts are one game, long videos a knockout of heats + final on one sim clock). Rendering in
   `src/render/rings/`, cues in `src/audio/ringCues.ts`, preview page shared with the race in `PreviewPage.tsx`.
+- `src/engine/grow/` – Growing Ball: `sim.ts` (firm wall bounces add area; springy wall so balls never heap up;
+  game ends at 55% fill, biggest wins; no stealing, which made leads snowball), `show.ts` (growth rate chosen by
+  playing a range in full; knockout like Ring Escape). Rendering in `src/render/grow/`, cues in
+  `src/audio/growCues.ts`. Both round-based games extend `src/render/show.ts` (title, banners, intro, winner, outro).
 - `src/dashboard/` – channel dashboard data: read-only YouTube calls via the `youtube_api_get` command
   (channels, playlistItems, videos), pure insight math (`insights.ts`, tested), and channel snapshots saved to
   `state.stats` every 3 hours (the growth charts). UI in `src/app/desktop/DashboardPage.tsx` + `charts.tsx`.
 - `src/modules/plans.ts` – written plans for every coming-soon game (shown on the Modules page; a test requires one).
 - Videos default to made-for-kids (`post.madeForKids`); planners get `job.kids` and must not ask for comments then.
 - `src/export/production.ts` – builds the renderer + mixer for any game from its config (worker and fallback).
-- `src/modules/registry.ts` – content modules. Flag Battle, Marble Race and Ring Escape are ready; territory-wars,
-  growing-ball, black-hole and paper-land are next. A new game also needs a `DEFAULT_PACE` entry. A module needs `status: 'ready'` and a `render(job, onProgress, signal)`.
+- `src/modules/registry.ts` – content modules. Flag Battle, Marble Race, Ring Escape and Growing Ball are ready;
+  territory-wars, black-hole and paper-land are next. A new game also needs a `DEFAULT_PACE` entry. A module needs `status: 'ready'` and a `render(job, onProgress, signal)`.
 - `src/desktop/` – `bridge.ts` (typed Tauri invokes), `runtime.ts` (autopilot singleton + `useAutopilot` hook).
 - `src/app/desktop/` – Setup wizard, Autopilot, Calendar, Modules, Channels (per-channel games, limits, quota
-  banner), Settings screens, `PreviewPage.tsx` (Marble Race and Ring Escape preview/export); `posts.tsx` is the live post timeline dialog. Hash router in `src/app/router.ts`.
+  banner), Settings screens, `PreviewPage.tsx` (Marble Race, Ring Escape and Growing Ball preview/export); `posts.tsx` is the live post timeline dialog. Hash router in `src/app/router.ts`.
 - `src-tauri/src/` – OAuth loopback + PKCE (`oauth.rs`), tokens in Windows Credential Manager (`tokens.rs`),
   resumable uploads (`youtube.rs`), files/state (`files.rs`), tray (`tray.rs`), app lifecycle + 30 s heartbeat (`lib.rs`).
 

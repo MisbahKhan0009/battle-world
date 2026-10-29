@@ -155,6 +155,29 @@ export function gamesForNewChannel(existing: Channel[], ready: string[]): Record
   );
 }
 
+/** Games that were ready before new games were handed out automatically (app 1.0.12). */
+export const LEGACY_GAMES = ['flag-battle', 'marble-race', 'ring-escape'];
+
+/**
+ * Hands each newly released game (ready, not in `known`, on no channel) to the first channel
+ * that still has room for one (fewer than GAMES_PER_CHANNEL games). Games nobody has room for
+ * wait for the next channel to be connected.
+ */
+export function assignNewGames(channels: Channel[], ready: string[], known: string[]): Channel[] | null {
+  const taken = new Set(channels.flatMap((c) => Object.keys(c.games ?? {})));
+  const fresh = ready.filter((id) => !known.includes(id) && !taken.has(id));
+  if (!fresh.length) return null;
+  let changed = false;
+  const out = channels.map((c) => ({ ...c, games: { ...(c.games ?? {}) } }));
+  for (const id of fresh) {
+    const ch = out.find((c) => Object.keys(c.games).length < GAMES_PER_CHANNEL);
+    if (!ch) break;
+    ch.games[id] = { ...(DEFAULT_PACE[id] ?? { shortsPerDay: 2, videosPerWeek: 2 }) };
+    changed = true;
+  }
+  return changed ? out : null;
+}
+
 export type AutopilotState = {
   version: 1;
   running: boolean;
@@ -180,6 +203,8 @@ export type AutopilotState = {
   stats: Record<string, StatPoint[]>;
   /** The "made for kids" default has been applied to this install. */
   kidsDefaulted: boolean;
+  /** Ready games this install has already handed out to channels (new games get assigned once). */
+  knownGames?: string[];
 };
 
 export type StatPoint = { t: number; subs: number; views: number; videos: number };
@@ -189,6 +214,7 @@ export const DEFAULT_PACE: Record<string, ModulePace> = {
   'flag-battle': { shortsPerDay: 3, videosPerWeek: 2 },
   'marble-race': { shortsPerDay: 2, videosPerWeek: 2 },
   'ring-escape': { shortsPerDay: 3, videosPerWeek: 2 },
+  'growing-ball': { shortsPerDay: 2, videosPerWeek: 2 },
 };
 
 /** Splits an overall pace across games (remainders go to the first games). */

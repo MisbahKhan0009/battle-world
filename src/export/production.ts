@@ -4,6 +4,8 @@
  */
 import { buildRaceCues } from '../audio/raceCues';
 import { buildRingsCues } from '../audio/ringCues';
+import { buildGrowCues } from '../audio/growCues';
+import { runShow as runGrowShow, type GrowShow } from '../engine/grow/show';
 import { Mixer, type MixSettings } from '../audio/mix';
 import { runRace } from '../engine/race/race';
 import type { RaceConfig } from '../engine/race/types';
@@ -15,6 +17,8 @@ import type { Ctx2D, ImageSource } from '../render/canvas';
 import { buildRaceScene } from '../render/race/scene';
 import { RaceRenderer } from '../render/race/renderer';
 import { RingsRenderer } from '../render/rings/renderer';
+import { GrowRenderer } from '../render/grow/renderer';
+import { buildGrowScene } from '../render/grow/scene';
 import { buildRingsScene } from '../render/rings/scene';
 import { BattleRenderer } from '../render/renderer';
 import { buildScene, type SceneFighter } from '../render/scene';
@@ -22,7 +26,8 @@ import { buildScene, type SceneFighter } from '../render/scene';
 export type ExportContent =
   | { kind: 'flag-battle'; config: SimConfig }
   | { kind: 'marble-race'; config: RaceConfig }
-  | { kind: 'ring-escape'; config: RingsShow };
+  | { kind: 'ring-escape'; config: RingsShow }
+  | { kind: 'growing-ball'; config: GrowShow };
 
 export type Production = {
   total: number;
@@ -47,6 +52,16 @@ export function buildProduction(args: {
       total: scene.timeline.total,
       render: (ctx, v) => renderer.render(ctx, v),
       mixer: (settings) => new Mixer(null, settings, buildRaceCues(scene)),
+    };
+  }
+  if (content.kind === 'growing-ball') {
+    const result = runGrowShow(content.config, { record: true });
+    const scene = buildGrowScene({ result, look, fighters, winnerImage });
+    const renderer = new GrowRenderer(scene, W, H);
+    return {
+      total: scene.timeline.total,
+      render: (ctx, v) => renderer.render(ctx, v),
+      mixer: (settings) => new Mixer(null, settings, buildGrowCues(scene)),
     };
   }
   if (content.kind === 'ring-escape') {

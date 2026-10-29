@@ -62,7 +62,7 @@ export function DesktopLayout({
             const active =
               route === r ||
               (r === 'autopilot' && route === 'home' && desktop) ||
-              (r === 'modules' && (route === 'race' || route === 'rings'));
+              (r === 'modules' && (route === 'race' || route === 'rings' || route === 'grow'));
             return (
               <li key={r}>
                 <button
