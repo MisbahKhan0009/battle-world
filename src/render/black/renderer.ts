@@ -19,8 +19,8 @@ const TAU = Math.PI * 2;
 /** Seconds an object takes to fall in, and a swallowed hole to slide into the bigger one. */
 const FALL = 0.5;
 const GULP = 0.7;
-/** The flag rim around a hole, as a share of its radius. */
-const RIM = 0.16;
+/** The flag rim around a hole, as a share of its radius (wide enough to tell the flags apart). */
+const RIM = 0.3;
 
 const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 const smooth = (u: number) => {
