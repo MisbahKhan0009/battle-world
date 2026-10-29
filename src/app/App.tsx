@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import { PresetsDialog } from '../components/PresetsDialog';
 import { webCodecsAvailable } from '../export/exporter';
 import { isDesktop } from '../desktop/bridge';
+import { useAutopilot } from '../desktop/runtime';
 import { useBattleRunner } from '../hooks/useBattleRunner';
 import { useApp } from '../store/app';
 import { useUi } from '../store/ui';
@@ -17,6 +18,7 @@ const AutopilotPage = lazy(() =>
 );
 const ModulesPage = lazy(() => import('./desktop/ModulesPage').then((m) => ({ default: m.ModulesPage })));
 const ChannelsPage = lazy(() => import('./desktop/ChannelsPage').then((m) => ({ default: m.ChannelsPage })));
+const SetupWizard = lazy(() => import('./desktop/SetupWizard').then((m) => ({ default: m.SetupWizard })));
 const SettingsPage = lazy(() => import('./desktop/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const ExportDialog = lazy(() =>
   import('../components/ExportDialog').then((m) => ({ default: m.ExportDialog })),
@@ -90,8 +92,14 @@ function GlobalShortcuts() {
 export function App() {
   useBattleRunner();
   const raw = useRoute();
-  // The desktop app opens on the autopilot dashboard instead of the web landing page.
-  const route = raw === 'home' && isDesktop() ? 'autopilot' : raw;
+  const { state: autopilot } = useAutopilot();
+  // The desktop app opens on the setup wizard until a channel is connected, then on the dashboard.
+  const route =
+    raw === 'home' && isDesktop()
+      ? autopilot && !autopilot.setupDone && !autopilot.channels.length
+        ? 'setup'
+        : 'autopilot'
+      : raw;
 
   useEffect(() => {
     if (isDesktop()) void import('../desktop/runtime').then((m) => m.startAutopilot());
@@ -116,6 +124,7 @@ export function App() {
             {route === 'modules' && <ModulesPage />}
             {route === 'channels' && <ChannelsPage />}
             {route === 'settings' && <SettingsPage />}
+            {route === 'setup' && <SetupWizard />}
           </Suspense>
         )}
       </div>

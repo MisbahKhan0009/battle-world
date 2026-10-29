@@ -4,39 +4,20 @@ import { Button } from '../../components/ui/Button';
 import { Field, Slider, Toggle, inputClass } from '../../components/ui/controls';
 import { desktop, isDesktop } from '../../desktop/bridge';
 import { useAutopilot } from '../../desktop/runtime';
+import { navigate } from '../router';
 import { Card, DesktopLayout, DesktopOnly } from './Layout';
-
-const STEPS: { text: string; link?: { href: string; label: string } }[] = [
-  {
-    text: 'Create a project in Google Cloud Console.',
-    link: { href: 'https://console.cloud.google.com/projectcreate', label: 'New project' },
-  },
-  {
-    text: 'Enable "YouTube Data API v3" for the project.',
-    link: {
-      href: 'https://console.cloud.google.com/apis/library/youtube.googleapis.com',
-      label: 'API library',
-    },
-  },
-  {
-    text: 'Set up the OAuth consent screen: External, then add your own Google account under Test users.',
-    link: { href: 'https://console.cloud.google.com/apis/credentials/consent', label: 'Consent screen' },
-  },
-  {
-    text: 'Create credentials: OAuth client ID, application type "Desktop app". Copy the client ID and secret here.',
-    link: { href: 'https://console.cloud.google.com/apis/credentials', label: 'Credentials' },
-  },
-  {
-    text: 'To publish videos publicly, request the YouTube API audit for the project. Until then YouTube keeps API uploads private.',
-    link: { href: 'https://support.google.com/youtube/contact/yt_api_form', label: 'Audit form' },
-  },
-];
 
 export function SettingsPage() {
   const { ap, state } = useAutopilot();
   const [showSecret, setShowSecret] = useState(false);
   const [google, setGoogle] = useState({ clientId: '', clientSecret: '' });
   const [outputDir, setOutputDir] = useState('');
+  const [version, setVersion] = useState('');
+
+  useEffect(() => {
+    if (isDesktop())
+      void import('@tauri-apps/api/app').then((m) => m.getVersion().then(setVersion)).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (state) {
@@ -61,8 +42,6 @@ export function SettingsPage() {
       </DesktopLayout>
     );
   }
-
-  const open = (href: string) => void desktop.openUrl(href);
 
   return (
     <DesktopLayout title="Settings">
@@ -107,32 +86,12 @@ export function SettingsPage() {
                 </Button>
               </div>
             </Field>
-            <details className="rounded-xl bg-surface-2/60 p-4 ring-1 ring-line">
-              <summary className="cursor-pointer text-sm font-medium">
-                How to get these (about five minutes)
-              </summary>
-              <ol className="mt-4 space-y-3">
-                {STEPS.map((s, i) => (
-                  <li key={s.text} className="flex gap-3 text-[13px]">
-                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-surface-3 text-xs tabular">
-                      {i + 1}
-                    </span>
-                    <span className="flex-1 text-muted">
-                      {s.text}{' '}
-                      {s.link && (
-                        <button
-                          type="button"
-                          className="text-accent underline underline-offset-2"
-                          onClick={() => open(s.link!.href)}
-                        >
-                          {s.link.label}
-                        </button>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </details>
+            <div className="flex flex-wrap items-center gap-3 rounded-xl bg-surface-2/60 p-4 ring-1 ring-line">
+              <p className="min-w-0 flex-1 text-[13px] text-muted">
+                New to this? The setup guide shows every click in Google Cloud, with links and values to copy.
+              </p>
+              <Button onClick={() => navigate('setup')}>Open the setup guide</Button>
+            </div>
           </div>
         </Card>
 
@@ -162,6 +121,13 @@ export function SettingsPage() {
               format={(v) => (v === 0 ? 'Delete right away' : `${v} day${v === 1 ? '' : 's'}`)}
             />
           </div>
+        </Card>
+
+        <Card title="About">
+          <p className="text-sm text-muted">
+            Flag Clash {version ? `version ${version}` : ''}. New versions appear on the repository's Releases
+            page; run the new installer to update. Your channels and schedule are kept.
+          </p>
         </Card>
 
         <Card title="Background">

@@ -1,204 +1,343 @@
+<div align="center">
+
+<img src="docs/images/logo.png" width="96" height="96" alt="Flag Clash logo" />
+
 # Flag Clash
 
-Viral game videos for YouTube, made and posted for you. Flag Clash is a Windows app that renders physics
-game videos (Shorts and long videos) on your computer and posts them to your YouTube channel on an organic
-schedule while it sits in the system tray. You can also build and export videos by hand in its studio.
+**Viral flag-battle videos for YouTube, made and posted for you.**
 
-Videos carry sound effects only (no background music).
+Flag Clash renders physics game videos on your Windows PC and posts them to your YouTube channel on a natural,
+human-looking schedule, while it sits quietly in the system tray.
 
-## Modules
+[![Windows app](https://github.com/MisbahKhan0009/battle-world/actions/workflows/desktop.yml/badge.svg)](https://github.com/MisbahKhan0009/battle-world/actions/workflows/desktop.yml)
+![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white)
+![Shorts and long videos](https://img.shields.io/badge/YouTube-Shorts%20%2B%20videos-FF0000?logo=youtube&logoColor=white)
+![Built with Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
 
-Each module is a game that renders complete videos from a seed. The autopilot picks from the ones you switch on.
+[**Download**](#-download-and-install) &nbsp;&nbsp; [**Set up your channel**](#-set-up-your-channel-5-minutes) &nbsp;&nbsp; [**Daily use**](#%EF%B8%8F-using-flag-clash) &nbsp;&nbsp; [**Help**](#%EF%B8%8F-troubleshooting)
 
-| Module | Status | What it is |
-| ------ | ------ | ---------- |
-| **Flag Battle** | Ready | Flags bounce inside a circle with one rotating exit (last one inside wins), or battle royale with HP. |
-| Marble Race | Placeholder | Flag marbles race down an obstacle track. |
-| Ring Escape | Placeholder | A flag breaks out through nested rotating rings. |
-| Territory Wars | Placeholder | Countries conquer a pixel world map tile by tile. |
-| Growing Ball | Placeholder | Every bounce makes the flag bigger. |
+<br />
 
-New modules plug into `src/modules/registry.ts` with a `render(job)` function.
+<img src="docs/images/shorts.jpg" alt="Four frames from a Flag Clash Short: flags bounce inside a circle with a rotating exit until one is left" width="100%" />
 
-## Windows app
+</div>
 
-### Install
+<br />
 
-- **Download:** open the latest **Windows app** run under the repo's Actions tab and download the
-  `flag-clash-windows` artifact (it contains `Flag Clash_x.y.z_x64-setup.exe`). Pushing a tag like `v1.0.0`
-  also creates a draft GitHub release with the installer attached.
-- **From source:** `npm install`, then `npm run desktop:dev` (needs Rust and the
-  [Tauri prerequisites](https://tauri.app/start/prerequisites/)). `npm run desktop:build` makes the installer.
+## ✨ What it does
 
-The installer is not code-signed yet, so Windows SmartScreen asks for confirmation the first time: click
-**More info**, then **Run anyway**.
+| | |
+| --- | --- |
+| 🎬 **Makes the videos** | Up to 64 country flags bounce inside a circle with one rotating exit. Flags that slip out are eliminated; the last flag inside wins. Every video is unique: different countries, themes, speeds and titles. |
+| 📅 **Posts on autopilot** | Up to 5 Shorts a day plus long videos, at irregular times across the day, like a real creator. Everything is adjustable. |
+| 🔊 **Sound that fits** | Bumps, exits, eliminations and a winner fanfare, timed to the action. No background music, so no copyright claims. |
+| 🖥️ **Runs in the background** | Lives in the system tray, starts with Windows, renders each post about 30 minutes ahead and lets YouTube publish it on the minute. |
+| 🔒 **Your account stays yours** | Uses your own free Google Cloud project. Your sign-in is stored in Windows Credential Manager, never in plain files. |
+| 🧩 **More games coming** | Flag Battle is the first module. Marble Race, Ring Escape, Territory Wars and Growing Ball are next. |
 
-### First-time setup (about five minutes)
+<br />
 
-Flag Clash uploads with **your own** free Google Cloud project, so quota and access stay yours.
+## 📑 Contents
 
-1. Create a project at https://console.cloud.google.com/projectcreate.
-2. Enable **YouTube Data API v3** for it.
-3. Set up the **OAuth consent screen**: user type External, and add your Google account under Test users.
-4. Create **Credentials, OAuth client ID**, application type **Desktop app**. Paste the client ID and secret
-   into Flag Clash, under Settings.
-5. In Flag Clash, open **Channels** and click **Connect a YouTube channel**. Sign in in the browser window
-   that opens and allow access.
-6. Open **Autopilot** and click **Start autopilot**.
+- [Download and install](#-download-and-install)
+- [Set up your channel (5 minutes)](#-set-up-your-channel-5-minutes)
+- [Using Flag Clash](#%EF%B8%8F-using-flag-clash)
+- [How the autopilot posts](#-how-the-autopilot-posts)
+- [Troubleshooting](#%EF%B8%8F-troubleshooting)
+- [For developers](#-for-developers)
+- [Credits](#-credits)
 
-**Important:** YouTube keeps videos uploaded from a new, unaudited API project **private**. To publish
-publicly, submit the free [YouTube API audit](https://support.google.com/youtube/contact/yt_api_form) for
-your project. Until it is approved, posts land as private videos you can publish by hand.
+<br />
 
-### How posting works
+## 📥 Download and install
 
-- **Schedule (editable):** by default up to **5 Shorts a day** and **4 long videos a week**, between 9:00 and
-  23:00, at least 75 minutes apart. Times are spread across the day with random offsets and never land on
-  round minutes, and the daily count varies by one now and then, so the channel looks run by a person.
-- **Daily upload limit (default 6):** the default YouTube API quota is 10,000 units a day and an upload costs
-  about 1,600, so about 6 uploads fit. Ask Google for more quota to raise it.
-- **On time:** each post is rendered about 30 minutes ahead, uploaded as private with a publish time, and
-  YouTube publishes it at the planned minute ("Let YouTube publish on time").
-- **Resilient:** uploads are resumable in 8 MB chunks and resume after network drops; failed jobs retry
-  after 5, 20 and 60 minutes; quota errors wait for the daily reset; slots missed while the computer was off
-  are skipped (no catch-up bursts). **Post now** renders and uploads one post immediately.
-- **Background:** closing the window keeps the app running in the tray (tray menu: open, start or pause
-  autopilot, quit). It starts with your computer by default (turn off in Settings). The computer must be on
-  and awake for posts to render.
-- **Variety:** each post gets a fresh seed, so rosters (world, regions, G20, most populous, South Asia), mode,
-  theme, opening speed and title all rotate. Titles never spoil the winner.
-- **Security:** your channel login (refresh token) is stored in Windows Credential Manager. Sign-in uses
-  the system browser with PKCE.
+1. Open the [**Releases**](https://github.com/MisbahKhan0009/battle-world/releases) page. Every update to the app
+   publishes a new release named **Flag Clash 1.0.N** (the newest is at the top, marked *Latest*).
+2. Under **Assets**, download **`Flag Clash_1.0.N_x64-setup.exe`**.
+3. Run it. Windows SmartScreen may show **"Windows protected your PC"** because the app is not code-signed yet:
+   click **More info**, then **Run anyway**.
+4. Flag Clash opens on its setup guide. Continue below.
 
-Rendered videos are saved to `Videos/Flag Clash` (configurable) and deleted a few days after posting.
+> [!TIP]
+> **Updating** is the same: download the newest installer and run it. It updates in place and keeps your channels,
+> schedule and history.
 
-### App architecture
+<br />
 
-```
-src-tauri/        Rust shell (Tauri 2)
-  src/oauth.rs    Google sign-in: system browser + loopback redirect + PKCE, channel lookup
-  src/tokens.rs   refresh tokens in the OS keychain (file fallback), access-token cache
-  src/youtube.rs  resumable chunked uploads with resume-on-error
-  src/files.rs    state file (atomic writes), saving rendered videos (raw IPC body)
-  src/tray.rs     tray menu and status
-  src/lib.rs      window/tray lifecycle, launch at login, single instance, 30 s autopilot heartbeat
-src/autopilot/    planner.ts (organic schedule), engine.ts (render, upload, retry), types.ts
-src/desktop/      bridge.ts (typed Tauri calls), runtime.ts (wires the engine to the app)
-src/modules/      module registry and the Flag Battle autopilot content generator
-src/app/desktop/  Autopilot, Modules, Channels and Settings screens
-```
+## 🔑 Set up your channel (5 minutes)
 
-Rendering happens in the webview with the same WebCodecs pipeline as the web export, so autopilot videos
-look exactly like the studio preview.
+Flag Clash posts through YouTube's official API using a **free Google Cloud project that belongs to you**. The app
+includes an interactive guide that walks you through every click, with one-click links, values to copy, and a picture
+of each Google page with the right buttons highlighted.
 
-## Quick start
+<img src="docs/images/setup-consent.jpg" alt="The setup guide: a step list on the left, instructions in the middle and a highlighted mock of the Google page on the right" width="100%" />
+
+You will need **a Google account that owns a YouTube channel**. No credit card is needed.
+
+<details open>
+<summary><b>The steps, in case you want to read them first</b></summary>
+
+<br />
+
+| # | Step | Where | What to do |
+| :-: | --- | --- | --- |
+| 1 | **Create a project** | [New project](https://console.cloud.google.com/projectcreate) | Name it `Flag Clash` and click **Create**. Make sure it is selected in the project picker at the top. |
+| 2 | **Turn on the YouTube API** | [YouTube Data API v3](https://console.cloud.google.com/apis/library/youtube.googleapis.com) | Click **Enable**. |
+| 3 | **Set up Google sign-in** | [Google Auth Platform](https://console.cloud.google.com/auth/overview) | Click **Get started**. App name `Flag Clash`, your email as support email, Audience **External**, your email as contact, accept and **Create**. |
+| 4 | **Keep the sign-in alive** | [Audience](https://console.cloud.google.com/auth/audience) | Click **Publish app**, then **Confirm**. (Apps left in "Testing" are signed out by Google every 7 days.) |
+| 5 | **Create the app's keys** | [Clients](https://console.cloud.google.com/auth/clients) | **Create client**, Application type **Desktop app**, name `Flag Clash`, **Create**. Paste the Client ID and Client secret into Flag Clash. |
+| 6 | **Connect your channel** | In Flag Clash | Click **Sign in with Google**, pick your channel's account. On "Google hasn't verified this app" click **Advanced**, then **Go to Flag Clash (unsafe)**, and allow both permissions. |
+| 7 | **Pick a pace** | In Flag Clash | Maximum (default), Steady or Light, and who can see the videos. Click **Start autopilot**. |
+
+</details>
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/setup-keys.jpg" alt="Step 5: paste the client ID and secret" /></td>
+<td width="50%"><img src="docs/images/setup-connect.jpg" alt="Step 6: sign in with Google" /></td>
+</tr>
+<tr>
+<td align="center"><sub>Step 5: the keys are checked as you paste them</sub></td>
+<td align="center"><sub>Step 6: what to click on Google's warning page</sub></td>
+</tr>
+</table>
+
+> [!IMPORTANT]
+> **Public videos need a one-time audit.** YouTube keeps videos uploaded from a new Google Cloud project **private**
+> until the project passes the free [YouTube API audit](https://support.google.com/youtube/contact/yt_api_form).
+> Until then, choose **Private for now** in step 7: posts land in YouTube Studio as private videos you can publish
+> yourself. After approval, switch visibility to **Public** on the Autopilot page.
+
+> [!NOTE]
+> **Is "Go to Flag Clash (unsafe)" safe?** Yes. The warning appears because the sign-in app is *yours* and has not
+> been reviewed by Google, not because something is wrong. Flag Clash only asks to upload videos and read your
+> channel's name, and the login never leaves your computer.
+
+<br />
+
+## 🎛️ Using Flag Clash
+
+### Autopilot
+
+<img src="docs/images/autopilot.jpg" alt="The Autopilot page: next post, the upcoming schedule and schedule settings" width="100%" />
+
+- **Up next** shows the planned posts for today and tomorrow. **Skip** any you don't want.
+- **Post now** renders and uploads one Short or long video immediately, outside the schedule. Great for a first test.
+- **Pause autopilot** stops new posts (also available from the tray icon).
+- **Recent posts** links each upload to YouTube and shows the reason if one failed.
+
+### Tray and startup
+
+Closing the window keeps Flag Clash running in the **system tray** (bottom right of the taskbar; click **^** if it
+is hidden). Right-click the icon to open the app, start or pause the autopilot, or **Quit**. Flag Clash starts with
+Windows by default so the schedule survives restarts; turn that off in **Settings**.
+
+### Studio and modules
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/studio.jpg" alt="The studio: roster, rules and look on the left, live preview on the right" /></td>
+<td width="50%"><img src="docs/images/modules.jpg" alt="Modules: Flag Battle and four upcoming games" /></td>
+</tr>
+<tr>
+<td align="center"><sub>Studio: build and export a battle by hand</sub></td>
+<td align="center"><sub>Modules: choose which games the autopilot uses</sub></td>
+</tr>
+</table>
+
+Open **Modules, Flag Battle, Open studio** to make a video yourself: pick countries (or upload your own images), set
+the rules and look, preview it, and **Export** an MP4. Handy shortcuts: <kbd>Space</kbd> play or pause,
+<kbd>R</kbd> restart, <kbd>E</kbd> export, <kbd>Ctrl</kbd>+<kbd>K</kbd> add countries.
+
+| Module | Status | The game |
+| --- | :-: | --- |
+| **Flag Battle** | ✅ Ready | Flags bounce inside a circle with a rotating exit; last one inside wins. Also has a battle royale mode with HP. |
+| Marble Race | 🔜 Next | Flag marbles race down an obstacle track; first across the line wins. |
+| Ring Escape | 🔜 Next | A flag breaks out through nested rotating rings, shattering each one. |
+| Territory Wars | 🔜 Next | Countries conquer a pixel world map tile by tile. |
+| Growing Ball | 🔜 Next | Every bounce makes the flag bigger until it fills the arena. |
+
+<br />
+
+## 📅 How the autopilot posts
+
+| Setting | Default | Range |
+| --- | :-: | :-: |
+| Shorts per day | **5** | 0 to 10 |
+| Long videos per week | **4** | 0 to 14 |
+| Posting hours | **9:00 to 23:00** | any |
+| Minimum gap between posts | **1 h 15 min** | 30 min to 4 h |
+| Organic variation | **On** | on or off |
+| Daily upload limit | **6** | 1 to 20 |
+
+- **Organic timing.** Posts are spread across your posting hours with random offsets, never on round minutes, and
+  some days post one more or one fewer. Long videos favour the evening.
+- **Right at the limit, not over it.** YouTube's default API quota is 10,000 units a day and each upload costs about
+  1,600, so about **6 uploads a day** fit. The defaults use that fully. To post more, request a quota increase from
+  Google and raise the daily limit.
+- **On time, every time.** Each post renders about 30 minutes ahead, uploads as private with a publish time, and
+  YouTube publishes it on the planned minute.
+- **Fresh every time.** Each post gets its own seed: rosters (world, regions, G20, most populous, South Asia),
+  mode, theme, exit speed and title all change. Titles never spoil the winner.
+- **Resilient.** Uploads resume after network drops, failed posts retry after 5, 20 and 60 minutes, quota errors
+  wait for the daily reset, and posts missed while the PC was off are skipped instead of posted in a burst.
+
+> [!NOTE]
+> The PC needs to be **on and awake** during your posting hours for videos to render. Rendering a Short takes about
+> a minute on a typical laptop.
+
+<br />
+
+## 🛠️ Troubleshooting
+
+<details>
+<summary><b>Windows says "Windows protected your PC"</b></summary>
+
+The installer is not code-signed yet. Click **More info**, then **Run anyway**.
+</details>
+
+<details>
+<summary><b>My videos are uploaded but private</b></summary>
+
+Your Google Cloud project has not passed the YouTube API audit yet, so YouTube forces API uploads to private. Publish
+them in YouTube Studio, and [request the audit](https://support.google.com/youtube/contact/yt_api_form) to post
+publicly automatically.
+</details>
+
+<details>
+<summary><b>"Access blocked" or "access_denied" when signing in</b></summary>
+
+Open [Audience](https://console.cloud.google.com/auth/audience) and either click **Publish app**, or add your Google
+account under **Test users**. Then try **Sign in with Google** again.
+</details>
+
+<details>
+<summary><b>"redirect_uri_mismatch" or "invalid_client"</b></summary>
+
+The client was created with the wrong type, or the keys were pasted incorrectly. Create a new client with
+Application type **Desktop app** in [Clients](https://console.cloud.google.com/auth/clients), and paste its Client ID
+and secret in **Settings** (or setup step 5).
+</details>
+
+<details>
+<summary><b>Every week I have to sign in again</b></summary>
+
+Your sign-in app is still in "Testing", where Google expires logins after 7 days. Open
+[Audience](https://console.cloud.google.com/auth/audience), click **Publish app**, then reconnect the channel once in
+**Channels**.
+</details>
+
+<details>
+<summary><b>Posts fail with "quotaExceeded" or "uploadLimitExceeded"</b></summary>
+
+The daily API quota or YouTube's own upload limit was reached. Flag Clash waits and retries after the daily reset.
+Lower the daily upload limit, or request more quota in Google Cloud.
+</details>
+
+<details>
+<summary><b>Where are the videos saved? How do I uninstall?</b></summary>
+
+Rendered videos go to `Videos\Flag Clash` (change it in **Settings**) and are deleted a few days after posting. To
+uninstall, use **Windows Settings, Apps**. App data lives in `%APPDATA%\com.flagclash.desktop`, and the channel
+login in Windows Credential Manager under `com.flagclash.desktop`.
+</details>
+
+<br />
+
+## 👩‍💻 For developers
+
+<details>
+<summary><b>Build and run from source</b></summary>
+
+<br />
+
+Requires Node 20+, Rust (stable) and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for Windows
+(WebView2 and the MSVC build tools).
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
+npm run desktop:dev     # run the app with hot reload
+npm run desktop:build   # build the Windows installer into src-tauri/target/release/bundle/nsis
 ```
 
-Requires Node 20 or newer. Use the latest Chrome or Edge on desktop for MP4 export.
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | The UI alone in a browser at http://localhost:5173 (autopilot screens show desktop-only notes) |
+| `npm test` | Vitest: physics, determinism, duration tuning, scheduler, autopilot engine, content generator |
+| `npm run lint` | ESLint (includes a rule that bans `Math.random` and clock reads inside the simulation) |
+| `npm run format` | Prettier |
 
-## Scripts
+**Releases.** The [Windows app workflow](.github/workflows/desktop.yml) lints, tests and builds on every push to
+`main`, then publishes a release **Flag Clash 1.0.&lt;run number&gt;** (tag `build-<run number>`) with the installer.
+Pushing a `v*` tag publishes a release under that tag instead.
+</details>
 
-| Script               | What it does                                                         |
-| -------------------- | -------------------------------------------------------------------- |
-| `npm run dev`        | Copies flag SVGs into `public/flags` and starts the Vite dev server   |
-| `npm run build`      | Type-checks and builds the static site into `dist/`                   |
-| `npm run preview`    | Serves the production build locally                                  |
-| `npm test`           | Vitest: determinism, physics, timeline and duration-tuning tests     |
-| `npm run lint`       | ESLint (includes a rule banning `Math.random`/clock reads in the sim) |
-| `npm run format`     | Prettier                                                             |
+<details>
+<summary><b>Project structure</b></summary>
 
-## How it works
+<br />
 
 ```
+src-tauri/            Rust shell (Tauri 2)
+  src/oauth.rs        Google sign-in: system browser, loopback redirect, PKCE, channel lookup
+  src/tokens.rs       refresh tokens in Windows Credential Manager, access-token cache
+  src/youtube.rs      resumable 8 MiB chunked uploads that resume after errors
+  src/files.rs        state file (atomic writes), saving rendered videos (raw IPC body)
+  src/tray.rs         tray menu and status
+  src/lib.rs          window and tray lifecycle, launch at login, single instance, 30 s heartbeat
 src/
-  app/        Home, Studio (setup), Preview screens, hash router
-  components/ UI (Radix primitives, restyled), roster, palette (Ctrl/Cmd+K), editors, export dialog
-  store/      Zustand stores (persisted setup and presets, shared battle state, transient UI)
-  data/       Country dataset (lazy-loaded), regions and quick-fill groups
-  engine/     rng.ts, physics.ts, sim.ts, timeline.ts, tuning.ts (pure, deterministic)
-  render/     renderer.ts (shared by preview and export), effects, tokens, layout, themes
-  audio/      synth.ts (procedural SFX), mix.ts (cues + streaming mixer), player.ts (preview)
-  export/     worker.ts (WebCodecs + mp4-muxer), exporter.ts (controller), fallback.ts (WebM)
-  workers/    sim.worker.ts (tuning + recorded simulation off the main thread)
+  autopilot/          planner.ts (organic schedule), engine.ts (render, upload, retry), types.ts
+  desktop/            bridge.ts (typed Tauri calls), runtime.ts (wires the engine to the UI)
+  modules/            module registry and the Flag Battle content generator
+  app/desktop/        Setup guide, Autopilot, Modules, Channels and Settings screens
+  app/                Studio and Preview screens
+  engine/             deterministic simulation: rng, physics, sim, timeline, tuning
+  render/             the renderer shared by preview and export, effects, layout, themes
+  audio/              procedural sound effects, streaming mixer, live preview audio
+  export/             WebCodecs + mp4-muxer export worker and fallback
 ```
+</details>
 
-### Determinism
+<details>
+<summary><b>Adding a game module</b></summary>
 
-- Fixed 1/120 s physics steps. The sim uses only `+ - * / sqrt` and a seeded mulberry32 PRNG, so the same
-  seed and roster replay the same battle bit for bit (tested in `src/engine/engine.test.ts`).
-- Positions and HP are recorded at 60 Hz. The renderer is a pure function of `(scene, video time)`:
-  particles, shards, confetti, screen shake and camera moves are computed analytically from events and a
-  stateless hash, so scrubbing works and the export matches the preview frame for frame.
+<br />
 
-### Escape physics
+Add an entry to `src/modules/registry.ts` with `status: 'ready'` and a `render(job, onProgress, signal)` function
+that turns `{ format: 'short' | 'video', seed }` into `{ bytes, ext, meta: { title, description, tags } }`. The
+autopilot, Modules page and scheduler pick it up automatically. `src/modules/flagBattle/` is the reference.
+</details>
 
-- The rim is a fixed circle minus the opening: the solid part is an arc (discs reflect off it), and the
-  opening's two edges are point obstacles that move with the rotation (collisions use the edge velocity).
-- A flag is out once its center crosses the rim inside the opening. Crossing anywhere else is impossible:
-  the arc pushes it back. A test checks every exit point lies inside the opening.
-- Angles use deterministic polynomial sin/cos (error below 1e-8) so replays stay bit-identical.
-- Pacing keeps the opening small where it can: to hit a target length the director first speeds every
-  flag up (up to 2×), and only widens the opening (up to 2.5×) if that is not enough. Once a winner is
-  decided the opening closes.
+<details>
+<summary><b>Under the hood: physics, pacing and export</b></summary>
 
-### Battle royale physics
+<br />
 
-- Circle bodies with mass proportional to area, positional correction plus impulse resolution
-  (restitution 0.95), uniform spatial-hash broad phase, rounded-box SDF walls for square and rounded arenas.
-- Speeds relax back to a cruise speed so flags never stall. A small seeded deflection on wall bounces and a
-  stalemate "hunt" steer prevent endless billiard orbits.
-- Damage: `baseDamage × impactFactor × attack × ramp(t)`, 150 ms per-pair cooldown and a 0.5 s
-  per-fighter invulnerability window so crowds produce clear, readable hits.
-- Shrinking arenas never pack alive discs tighter than 42% coverage.
+- **Deterministic.** Fixed 1/120 s physics steps, a seeded mulberry32 PRNG and only `+ - * / sqrt` (plus
+  polynomial sin/cos accurate to 1e-8), so the same seed replays the same battle bit for bit. The renderer is a pure
+  function of video time, so the export matches the preview frame for frame.
+- **Escape physics.** The rim is a solid arc plus the opening's two edges as moving point obstacles. A flag is out
+  once its center crosses the rim inside the opening; tests check every exit happens there.
+- **Pacing director.** Chaotic battles make plain parameter searches unreliable, so a deterministic in-sim director
+  (the "AI director" technique from games) compares progress with a planned curve and nudges speed first, then the
+  opening width (damage in battle royale). Tests check 8 to 64 flags land within 3 s of 30, 45 and 58 s targets.
+- **Export.** Frame-by-frame rendering on an `OffscreenCanvas` in a worker, H.264 via WebCodecs (VP9/AV1 fallback),
+  keyframe every 2 s, sound effects mixed in one-second chunks and encoded as AAC or Opus, muxed with `mp4-muxer`
+  with the index at the front for fast YouTube processing.
+- **Sound.** Every sound is synthesized in `src/audio/synth.ts`: no audio files and no licensing risk.
+</details>
 
-### Duration tuning
+<br />
 
-Battles are chaotic, so a pure binary search is unreliable. Tuned battles use a deterministic pacing
-director inside the sim (the "AI director" technique from games): it compares progress (head count, plus
-the HP pool in battle royale) with a planned curve and nudges a smoothed multiplier (damage in battle
-royale; speed, then opening width, in escape mode). The tuner then runs up to 8
-fast headless probes to calibrate base damage and correct the director's deadline. Tests check that 8 to 64
-fighters land within ±3 s of 30, 45 and 58 s targets; 64 fighters tune in well under a second.
+## 🙏 Credits
 
-### Export
+- Flag artwork: [flag-icons](https://github.com/lipis/flag-icons) (MIT)
+- Country data: [world-countries](https://github.com/mledoze/countries) (ODbL)
+- Sound effects: synthesized in code, dedicated to the public domain (see [`public/audio/CREDITS.md`](public/audio/CREDITS.md))
+- Built with [Tauri](https://tauri.app), [React](https://react.dev), [Vite](https://vite.dev) and
+  [mp4-muxer](https://github.com/Vanilagy/mp4-muxer)
 
-- Runs in a Web Worker on an `OffscreenCanvas`, frame by frame (`t = i / fps`), so the output is smooth
-  whatever the machine speed.
-- Video: best supported of H.264 High/Main/Baseline (level picked from resolution and fps), then VP9,
-  then AV1. Keyframe every 2 s, backpressure on `encodeQueueSize`, every `VideoFrame` closed.
-- Audio (sound effects only): mixed in one-second chunks by a plain-JS streaming mixer (same cues as the preview) and encoded
-  with `AudioEncoder`: AAC where the browser has it (Chrome on Windows and macOS), Opus otherwise.
-- Muxed by `mp4-muxer` with `fastStart: 'in-memory'` (moov atom first, YouTube friendly).
-- Without WebCodecs, the app records in real time with `MediaRecorder` to WebM.
-
-## Sound
-
-Videos carry **sound effects only** (bumps, exits, eliminations, final-2 riser, winner fanfare, intro
-ticks), with no background music. All sounds are generated in `src/audio/synth.ts` (no files, CC0). To
-change a sound, edit its generator (`hit`, `exit`, `elim`, `whoosh`, `fanfare`, `tick`, `boom`). If you add
-real audio files under `public/audio/`, list them in `public/audio/CREDITS.md`.
-
-## Keyboard shortcuts
-
-| Key              | Action               |
-| ---------------- | -------------------- |
-| Space            | Play or pause        |
-| R                | Restart              |
-| ← / →            | Skip 2 seconds       |
-| E                | Open export          |
-| Ctrl/Cmd + K     | Add countries        |
-
-## Notes on the spec
-
-Decisions made where the requirements left room:
-
-- Sound effects are synthesized instead of shipping CC0 files: zero licensing risk, nothing to download.
-- The export mixer is a streaming JS mixer rather than one big `OfflineAudioContext` render, because Web
-  Audio is not available in workers and streaming keeps memory flat for long videos.
-- Linux builds of Chrome have no AAC encoder; there the MP4 carries Opus audio, which YouTube and VLC accept.
-- Flag artwork comes from [flag-icons](https://github.com/lipis/flag-icons) (MIT) and country data from
-  [world-countries](https://github.com/mledoze/countries) (ODbL).
+<div align="center">
+<br />
+<sub>Made for creators who would rather make the next game than press upload.</sub>
+</div>

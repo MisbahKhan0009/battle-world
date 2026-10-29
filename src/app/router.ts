@@ -1,8 +1,16 @@
 import { useSyncExternalStore } from 'react';
 
-export type Route = 'home' | 'studio' | 'preview' | 'autopilot' | 'modules' | 'channels' | 'settings';
+export type Route =
+  | 'home'
+  | 'studio'
+  | 'preview'
+  | 'autopilot'
+  | 'modules'
+  | 'channels'
+  | 'settings'
+  | 'setup';
 
-const ROUTES: Route[] = ['studio', 'preview', 'autopilot', 'modules', 'channels', 'settings'];
+const ROUTES: Route[] = ['studio', 'preview', 'autopilot', 'modules', 'channels', 'settings', 'setup'];
 
 function parse(): Route {
   const h = window.location.hash.replace(/^#\/?/, '');

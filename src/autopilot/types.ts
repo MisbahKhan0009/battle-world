@@ -79,6 +79,8 @@ export type AutopilotState = {
   keepDays: number;
   launchAtLogin: boolean;
   closeToTray: boolean;
+  /** The first-run setup wizard was completed. */
+  setupDone: boolean;
 };
 
 /**
@@ -118,5 +120,6 @@ export function defaultState(outputDir = ''): AutopilotState {
     keepDays: 3,
     launchAtLogin: true,
     closeToTray: true,
+    setupDone: false,
   };
 }

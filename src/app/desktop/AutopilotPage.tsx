@@ -1,5 +1,5 @@
 import * as Popover from '@radix-ui/react-popover';
-import { Check, ExternalLink, Pause, Play, Send } from 'lucide-react';
+import { ExternalLink, Pause, Play, Send } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { Autopilot } from '../../autopilot/engine';
@@ -78,39 +78,19 @@ function FormatChip({ format }: { format: ContentFormat }) {
 }
 
 function SetupSteps({ state }: { state: AutopilotState }) {
-  const steps = [
-    {
-      done: !!(state.google.clientId && state.google.clientSecret),
-      label: 'Add your Google API credentials',
-      route: 'settings' as const,
-    },
-    { done: state.channels.length > 0, label: 'Connect a YouTube channel', route: 'channels' as const },
-    { done: state.running, label: 'Start the autopilot', route: null },
-  ];
-  if (steps.every((s) => s.done)) return null;
+  if (state.setupDone && state.channels.length > 0) return null;
   return (
-    <Card title="Get set up" note="Three steps and the app posts for you, even while it sits in the tray.">
-      <ol className="space-y-2">
-        {steps.map((s, i) => (
-          <li key={s.label} className="flex items-center gap-3 text-sm">
-            <span
-              className={cn(
-                'grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs tabular',
-                s.done ? 'bg-accent text-accent-ink' : 'bg-surface-3 text-muted',
-              )}
-            >
-              {s.done ? <Check size={14} /> : i + 1}
-            </span>
-            <span className={cn('flex-1', s.done && 'text-muted line-through')}>{s.label}</span>
-            {!s.done && s.route && (
-              <Button size="sm" onClick={() => navigate(s.route!)}>
-                Open
-              </Button>
-            )}
-          </li>
-        ))}
-      </ol>
-    </Card>
+    <section className="panel flex flex-wrap items-center gap-4 p-5 ring-1 ring-accent/30">
+      <div className="min-w-0 flex-1">
+        <h2 className="text-[15px] font-medium">Connect your channel in about five minutes</h2>
+        <p className="mt-1 text-sm text-muted">
+          A step-by-step guide walks you through every click, then the autopilot takes over.
+        </p>
+      </div>
+      <Button variant="primary" onClick={() => navigate('setup')}>
+        Start setup
+      </Button>
+    </section>
   );
 }
 

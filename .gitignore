@@ -6,3 +6,4 @@ public/flags
 coverage
 src-tauri/target
 src-tauri/gen
+src-tauri/tauri.ci.conf.json

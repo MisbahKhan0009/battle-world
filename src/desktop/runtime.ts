@@ -24,6 +24,8 @@ function mergeState(raw: string | null, outputDir: string): AutopilotState {
       google: { ...base.google, ...p.google },
       modules: { ...base.modules, ...p.modules },
       outputDir: p.outputDir || outputDir,
+      // Older installs that already have a channel skip the wizard.
+      setupDone: p.setupDone ?? (p.channels?.length ?? 0) > 0,
     };
   } catch {
     return base;

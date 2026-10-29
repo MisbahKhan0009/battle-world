@@ -1,7 +1,7 @@
 name: Windows app
 
-# Builds the Windows installer (.exe). Every push to main uploads it as a workflow artifact;
-# pushing a v* tag also creates a draft GitHub release with the installer attached.
+# Builds the Windows installer (.exe) and publishes it as a GitHub release on every push to main
+# ("Flag Clash 1.0.<run>", tag build-<run>). Pushing a v* tag publishes a release under that tag.
 on:
   push:
     branches: [main]
@@ -36,14 +36,32 @@ jobs:
       - run: npm run lint
       - run: npm test
 
+      # Every build gets its own version (1.0.<run number>) so Windows treats it as an update.
+      - name: Set build version
+        shell: bash
+        run: |
+          echo '{ "version": "1.0.${{ github.run_number }}" }' > src-tauri/tauri.ci.conf.json
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
-          releaseName: 'Flag Clash ${{ github.ref_name }}'
-          releaseBody: 'Download the Windows installer below. See the README for setup.'
-          releaseDraft: true
+          args: --config src-tauri/tauri.ci.conf.json
+          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('build-{0}', github.run_number) }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/v') && format('Flag Clash {0}', github.ref_name) || format('Flag Clash 1.0.{0}', github.run_number) }}
+          releaseBody: |
+            ## Install
+
+            1. Download **Flag Clash_1.0.${{ github.run_number }}_x64-setup.exe** below.
+            2. Run it. Windows SmartScreen may warn because the app is not code-signed: click **More info**, then **Run anyway**.
+            3. Open Flag Clash and follow the setup wizard.
+
+            Already installed? Run the new installer; it updates in place and keeps your channels and schedule.
+
+            Built from ${{ github.sha }}.
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: false
 
       - uses: actions/upload-artifact@v4
         with:

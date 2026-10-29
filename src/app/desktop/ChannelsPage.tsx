@@ -65,11 +65,11 @@ export function ChannelsPage() {
               <Info size={18} className="mt-0.5 shrink-0 text-accent" />
               <div className="flex-1 text-sm">
                 <p>
-                  Connecting a channel needs your own Google API credentials. They take about five minutes to
-                  create.
+                  Connecting a channel needs your own Google API keys. The setup guide shows every click and
+                  takes about five minutes.
                 </p>
-                <Button size="sm" className="mt-3" onClick={() => navigate('settings')}>
-                  Add credentials in Settings
+                <Button size="sm" className="mt-3" onClick={() => navigate('setup')}>
+                  Open the setup guide
                 </Button>
               </div>
             </div>
