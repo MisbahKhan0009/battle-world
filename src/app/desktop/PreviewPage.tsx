@@ -1,39 +1,144 @@
 import { Download, Pause, Play, Shuffle, Volume2, VolumeX } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Mixer } from '../../audio/mix';
+import { Mixer, type Cue } from '../../audio/mix';
 import { buildRaceCues } from '../../audio/raceCues';
+import { buildRingsCues } from '../../audio/ringCues';
 import { SAMPLE_RATE } from '../../audio/synth';
-import type { ContentFormat } from '../../autopilot/types';
+import type { ContentFormat, VideoMeta } from '../../autopilot/types';
 import { Button } from '../../components/ui/Button';
 import { Segmented } from '../../components/ui/controls';
 import { loadCountries } from '../../data/countries';
-import type { RaceConfig } from '../../engine/race/types';
+import type { Look } from '../../engine/types';
 import { desktop, isDesktop } from '../../desktop/bridge';
 import { useAutopilot } from '../../desktop/runtime';
 import { runExport } from '../../export/exporter';
+import type { ExportContent } from '../../export/production';
 import { loadSceneFighters } from '../../lib/battle';
 import { loadFlagSafe, WINNER_RASTER } from '../../lib/flags';
 import { RaceClient } from '../../lib/raceClient';
-import { planMarbleRace, type MarbleRacePlan } from '../../modules/marbleRace/content';
+import { RingsClient } from '../../lib/ringsClient';
+import { planMarbleRace } from '../../modules/marbleRace/content';
+import { planRingEscape } from '../../modules/ringEscape/content';
+import type { Fighter } from '../../engine/types';
+import type { Ctx2D } from '../../render/canvas';
 import { DESIGN_SIZE } from '../../render/layout';
 import { RaceRenderer } from '../../render/race/renderer';
-import { buildRaceScene, type RaceScene } from '../../render/race/scene';
+import { buildRaceScene } from '../../render/race/scene';
+import { RingsRenderer } from '../../render/rings/renderer';
+import { buildRingsScene } from '../../render/rings/scene';
 import type { SceneFighter } from '../../render/scene';
 import { DesktopLayout } from './Layout';
 
+/** One playable sample of a game, ready to preview and export. */
 type Loaded = {
-  plan: MarbleRacePlan;
-  config: RaceConfig;
-  scene: RaceScene;
+  meta: VideoMeta;
+  look: Look;
+  content: ExportContent;
   fighters: SceneFighter[];
   winnerImage: ImageBitmap | null;
+  total: number;
+  renderer: (W: number, H: number) => { render(ctx: Ctx2D, v: number): void };
+  cues: () => Cue[];
+  summary: string;
 };
+
+type PreviewGame = {
+  id: string;
+  title: string;
+  newLabel: string;
+  busyText: string;
+  load: (format: ContentFormat, seed: number) => Promise<Loaded>;
+};
+
+async function art(fighters: Fighter[], winner: number) {
+  const scene = await loadSceneFighters(fighters);
+  const w = fighters[winner];
+  const winnerImage = w ? (await loadFlagSafe(w.imageSrc, WINNER_RASTER)).bitmap : null;
+  return { scene, winnerImage };
+}
+
+const MARBLE_RACE: PreviewGame = {
+  id: 'marble-race',
+  title: 'Marble Race',
+  newLabel: 'New race',
+  busyText: 'Building the track and running the race…',
+  load: async (format, seed) => {
+    const plan = planMarbleRace({ format, seed }, await loadCountries(), []);
+    const client = new RaceClient();
+    try {
+      const { config, result } = await client.run({
+        seed: plan.raceSeed,
+        ids: plan.fighters.map((f) => f.id),
+        targetSec: plan.targetSec,
+        maxSec: plan.maxSec,
+      });
+      const { scene: fighters, winnerImage } = await art(plan.fighters, result.winnerIndex);
+      const scene = buildRaceScene({ result, look: plan.look, fighters, winnerImage });
+      return {
+        meta: plan.meta,
+        look: plan.look,
+        content: { kind: 'marble-race', config },
+        fighters,
+        winnerImage,
+        total: scene.timeline.total,
+        renderer: (W, H) => new RaceRenderer(scene, W, H),
+        cues: () => buildRaceCues(scene),
+        summary: `${fighters.length} marbles, ${config.sections} track sections. Every race is new: the track, lineup, flag count and winner change each time, the same way the autopilot makes them.`,
+      };
+    } finally {
+      client.dispose();
+    }
+  },
+};
+
+const RING_ESCAPE: PreviewGame = {
+  id: 'ring-escape',
+  title: 'Ring Escape',
+  newLabel: 'New game',
+  busyText: 'Building the rings and playing the game…',
+  load: async (format, seed) => {
+    const plan = planRingEscape({ format, seed }, await loadCountries(), []);
+    const client = new RingsClient();
+    try {
+      const { config, result } = await client.run({
+        seed: plan.gameSeed,
+        ids: plan.fighters.map((f) => f.id),
+        heats: plan.heats,
+        targetSec: plan.targetSec,
+        maxSec: plan.maxSec,
+      });
+      const { scene: fighters, winnerImage } = await art(plan.fighters, result.winnerIndex);
+      const scene = buildRingsScene({ result, look: plan.look, fighters, winnerImage });
+      const rings = config.rounds.map((r) => r.rings);
+      return {
+        meta: plan.meta,
+        look: plan.look,
+        content: { kind: 'ring-escape', config },
+        fighters,
+        winnerImage,
+        total: scene.timeline.total,
+        renderer: (W, H) => new RingsRenderer(scene, W, H),
+        cues: () => buildRingsCues(scene),
+        summary:
+          (plan.heats
+            ? `${fighters.length} flags in ${plan.heats.length} heats (${rings.slice(0, -1).join(', ')} rings) and a final of ${rings[rings.length - 1]} rings.`
+            : `${fighters.length} flags, ${rings[0]} rings.`) +
+          ' Every game is new: the rings, lineup, flag count and winner change each time, the same way the autopilot makes them.',
+      };
+    } finally {
+      client.dispose();
+    }
+  },
+};
+
+export const RacePage = () => <GamePreview game={MARBLE_RACE} />;
+export const RingsPage = () => <GamePreview game={RING_ESCAPE} />;
 
 const fmt = (v: number) => `${Math.floor(v / 60)}:${String(Math.floor(v % 60)).padStart(2, '0')}`;
 
-/** Watch sample Marble Races (the same renderer and sound as the uploads) and export one by hand. */
-export function RacePage() {
+/** Watch samples of a game (the same renderer and sound as the uploads) and export one by hand. */
+function GamePreview({ game }: { game: PreviewGame }) {
   const { state } = useAutopilot();
   const [format, setFormat] = useState<ContentFormat>('short');
   const [seed, setSeed] = useState(() => 1 + Math.floor(Math.random() * 999_999));
@@ -44,7 +149,7 @@ export function RacePage() {
   const [v, setV] = useState(0);
   const [exporting, setExporting] = useState<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rendererRef = useRef<RaceRenderer | null>(null);
+  const rendererRef = useRef<{ render(ctx: Ctx2D, v: number): void } | null>(null);
   const clock = useRef<{
     start: number;
     from: number;
@@ -53,46 +158,35 @@ export function RacePage() {
   }>({ start: 0, from: 0, audio: null, src: null });
   const audioBuf = useRef<AudioBuffer | null>(null);
 
-  // Plan and simulate a race in the worker whenever the format or seed changes.
+  // Plan and simulate a game in a worker whenever the format or seed changes.
   useEffect(() => {
     let live = true;
-    const client = new RaceClient();
     setBusy(true);
     setPlaying(false);
-    (async () => {
-      const plan = planMarbleRace({ format, seed }, await loadCountries(), []);
-      const { config, result } = await client.run({
-        seed: plan.raceSeed,
-        ids: plan.fighters.map((f) => f.id),
-        targetSec: plan.targetSec,
-        maxSec: plan.maxSec,
-      });
-      const fighters = await loadSceneFighters(plan.fighters);
-      const w = plan.fighters[result.winnerIndex];
-      const winnerImage = w ? (await loadFlagSafe(w.imageSrc, WINNER_RASTER)).bitmap : null;
-      const scene = buildRaceScene({ result, look: plan.look, fighters, winnerImage });
-      if (!live) return;
-      audioBuf.current = null;
-      setRace({ plan, config, scene, fighters, winnerImage });
-      setV(0);
-      setBusy(false);
-    })()
-      .catch((err) => toast.error(String(err)))
-      .finally(() => client.dispose());
+    game
+      .load(format, seed)
+      .then((loaded) => {
+        if (!live) return;
+        audioBuf.current = null;
+        setRace(loaded);
+        setV(0);
+        setBusy(false);
+      })
+      .catch((err) => toast.error(String(err)));
     return () => {
       live = false;
     };
-  }, [format, seed]);
+  }, [game, format, seed]);
 
   // Renderer at the canvas' pixel size.
   useEffect(() => {
     const c = canvasRef.current;
     if (!race || !c) return;
-    const { W, H } = DESIGN_SIZE[race.plan.look.aspect];
+    const { W, H } = DESIGN_SIZE[race.look.aspect];
     const scale = Math.min(1, 1100 / Math.max(W, H)) * (window.devicePixelRatio > 1 ? 1 : 0.8);
     c.width = Math.round(W * scale);
     c.height = Math.round(H * scale);
-    rendererRef.current = new RaceRenderer(race.scene, c.width, c.height);
+    rendererRef.current = race.renderer(c.width, c.height);
     rendererRef.current.render(c.getContext('2d')!, 0);
   }, [race]);
 
@@ -110,9 +204,9 @@ export function RacePage() {
       if (!race || muted) return;
       const ctx = (clock.current.audio ??= new AudioContext({ sampleRate: SAMPLE_RATE }));
       if (!audioBuf.current) {
-        const total = race.scene.timeline.total;
+        const total = race.total;
         const frames = Math.ceil(total * SAMPLE_RATE);
-        const mixer = new Mixer(null, { sfxVolume: 0.85 }, buildRaceCues(race.scene));
+        const mixer = new Mixer(null, { sfxVolume: 0.85 }, race.cues());
         const { L, R } = mixer.render(0, frames);
         const buf = ctx.createBuffer(2, frames, SAMPLE_RATE);
         buf.copyToChannel(L, 0);
@@ -131,7 +225,7 @@ export function RacePage() {
   // Playback loop.
   useEffect(() => {
     if (!playing || !race) return;
-    const total = race.scene.timeline.total;
+    const total = race.total;
     clock.current.start = performance.now();
     clock.current.from = v >= total - 0.05 ? 0 : v;
     startAudio(clock.current.from);
@@ -172,8 +266,8 @@ export function RacePage() {
     setExporting(0);
     try {
       const out = await runExport({
-        content: { kind: 'marble-race', config: race.config },
-        look: race.plan.look,
+        content: race.content,
+        look: race.look,
         fighters: race.fighters,
         winnerImage: race.winnerImage,
         fps: format === 'short' ? 60 : 30,
@@ -183,7 +277,7 @@ export function RacePage() {
         onThumb: (b) => b.close(),
         signal: new AbortController().signal,
       });
-      const name = `marble-race_${format}_${seed}.${out.ext}`;
+      const name = `${game.id}_${format}_${seed}.${out.ext}`;
       if (isDesktop() && state) {
         const path = await desktop.saveVideo(
           state.outputDir,
@@ -208,11 +302,11 @@ export function RacePage() {
     }
   };
 
-  const total = race?.scene.timeline.total ?? 0;
-  const wide = race?.plan.look.aspect === '16:9';
+  const total = race?.total ?? 0;
+  const wide = race?.look.aspect === '16:9';
   return (
     <DesktopLayout
-      title="Marble Race"
+      title={game.title}
       actions={
         <div className="flex items-center gap-2">
           <Segmented<ContentFormat>
@@ -230,7 +324,7 @@ export function RacePage() {
             onClick={() => setSeed(1 + Math.floor(Math.random() * 999_999))}
             disabled={busy}
           >
-            <Shuffle size={15} /> New race
+            <Shuffle size={15} /> {game.newLabel}
           </Button>
           <Button variant="primary" onClick={() => void exportMp4()} disabled={busy || exporting !== null}>
             <Download size={15} /> {exporting !== null ? `Exporting ${exporting}%` : 'Export MP4'}
@@ -247,10 +341,10 @@ export function RacePage() {
               : { height: 'min(72vh, 820px)', aspectRatio: '9 / 16' }
           }
         >
-          <canvas ref={canvasRef} className="h-full w-full" aria-label="Marble race preview" />
+          <canvas ref={canvasRef} className="h-full w-full" aria-label={`${game.title} preview`} />
           {busy && (
             <div className="absolute inset-0 grid place-items-center bg-black/60 text-sm text-muted">
-              Building the track and running the race…
+              {game.busyText}
             </div>
           )}
         </div>
@@ -290,10 +384,9 @@ export function RacePage() {
         )}
         {race && (
           <p className="max-w-[960px] text-center text-sm text-muted">
-            <span className="text-text">{race.plan.meta.title}</span>
+            <span className="text-text">{race.meta.title}</span>
             <br />
-            {race.fighters.length} marbles, {race.config.sections} track sections. Every race is new: the
-            track, lineup, flag count and winner change each time, the same way the autopilot makes them.
+            {race.summary}
           </p>
         )}
       </div>

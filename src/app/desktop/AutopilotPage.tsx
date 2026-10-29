@@ -20,7 +20,7 @@ import { desktop, isDesktop } from '../../desktop/bridge';
 import { useAutopilot } from '../../desktop/runtime';
 import { cn } from '../../lib/utils';
 import { MODULES } from '../../modules/registry';
-import { navigate } from '../router';
+import { navigate, routeParam } from '../router';
 import { Card, DesktopLayout, DesktopOnly } from './Layout';
 import {
   FormatChip,
@@ -320,7 +320,7 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
   const [chDraft, setChDraft] = useState<ChannelDraft>(() => channelDraftOf(state.channels));
   const [post, setPost] = useState<PostSettings>(state.post);
   const [busy, setBusy] = useState(false);
-  const [sel, setSel] = useState(state.channels[0]?.id ?? '');
+  const [sel, setSel] = useState(() => routeParam() ?? state.channels[0]?.id ?? '');
   // Edits stay a draft until "Replan the week"; follow the saved settings when they change elsewhere.
   const applied = JSON.stringify(state.schedule);
   const appliedCh = JSON.stringify(channelDraftOf(state.channels));

@@ -29,7 +29,9 @@ export type SoundId =
   | 'ding'
   | 'tock0'
   | 'tock1'
-  | 'tock2';
+  | 'tock2'
+  | 'pluck'
+  | 'shatter';
 export type Stereo = { L: Float32Array; R: Float32Array };
 
 const noise = (i: number, seed: number) => hashFloat(seed, i) * 2 - 1;
@@ -293,6 +295,53 @@ function ding(): Float32Array {
   return normalize(out, 0.7);
 }
 
+/**
+ * Ring Escape bounce: a soft, bright "ting" (E5). Cues pitch it along a pentatonic scale, so
+ * bounces sound like a little tune instead of noise.
+ */
+function pluck(): Float32Array {
+  const len = Math.floor(SR * 0.55);
+  const out = new Float32Array(len);
+  const f = 659.25;
+  for (let i = 0; i < len; i++) {
+    const t = i / SR;
+    out[i] =
+      (Math.sin(TAU * f * t) +
+        0.35 * Math.sin(TAU * f * 2.01 * t) * Math.exp(-t / 0.09) +
+        0.12 * Math.sin(TAU * f * 4.2 * t) * Math.exp(-t / 0.03)) *
+      Math.min(1, t / 0.002) *
+      Math.exp(-t / 0.2);
+  }
+  return normalize(out, 0.7);
+}
+
+/** A ring breaking: bright glass shards over a short crackle, with no low boom. */
+function shatter(): Float32Array {
+  const len = Math.floor(SR * 0.85);
+  const out = new Float32Array(len);
+  let hpPrev = 0;
+  let hpOut = 0;
+  const pings = Array.from({ length: 11 }, (_, k) => ({
+    f: 2600 + 3600 * hashFloat(81, k),
+    at: 0.005 + 0.22 * hashFloat(82, k) ** 1.6,
+    d: 0.05 + 0.16 * hashFloat(83, k),
+  }));
+  for (let i = 0; i < len; i++) {
+    const t = i / SR;
+    const n = noise(i, 47);
+    hpOut = 0.86 * (hpOut + n - hpPrev);
+    hpPrev = n;
+    let glass = 0;
+    for (const p of pings) {
+      if (t < p.at) continue;
+      const tt = t - p.at;
+      glass += Math.sin(TAU * p.f * tt) * Math.exp(-tt / p.d) * 0.2;
+    }
+    out[i] = hpOut * Math.exp(-t / 0.07) * 0.55 + glass;
+  }
+  return normalize(out, 0.8);
+}
+
 const sfxCache = new Map<SoundId, Float32Array>();
 
 export function getSound(id: SoundId): Float32Array {
@@ -315,11 +364,15 @@ export function getSound(id: SoundId): Float32Array {
                     ? boing()
                     : id === 'ding'
                       ? ding()
-                      : id.startsWith('clack')
-                        ? clack(Number(id.slice(5)))
-                        : id.startsWith('tock')
-                          ? tock(Number(id.slice(4)))
-                          : hit(Number(id.slice(3)));
+                      : id === 'pluck'
+                        ? pluck()
+                        : id === 'shatter'
+                          ? shatter()
+                          : id.startsWith('clack')
+                            ? clack(Number(id.slice(5)))
+                            : id.startsWith('tock')
+                              ? tock(Number(id.slice(4)))
+                              : hit(Number(id.slice(3)));
     sfxCache.set(id, s);
   }
   return s;

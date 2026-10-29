@@ -14,28 +14,6 @@ export type GamePlan = {
 };
 
 export const PLANS: Record<string, GamePlan> = {
-  'ring-escape': {
-    pitch: 'One flag, ten spinning rings, one way out of each.',
-    howItPlays: [
-      'A flag ball starts in the center of 8 to 12 nested rings, each with a small gap and its own rotation speed and direction.',
-      'It bounces until it slips through a gap; that ring shatters and the next one starts. Every bounce plays a note that climbs in pitch.',
-      'Versions: one flag ("Can Brazil escape?"), or four flags in separate ring sets racing to break out first.',
-    ],
-    simulation: [
-      'Reuses Flag Battle’s escape physics: a solid arc plus the gap’s two edges as moving point obstacles, at fixed 1/120 s steps.',
-      'Gravity on, restitution just above 1 so the ball never settles; a tiny speed cap keeps it watchable.',
-      'Length is fitted by choosing ring count and gap widths from probe runs (like the race’s finish placement), never by steering the ball.',
-    ],
-    video: [
-      'Shorts of 30 to 58 s (vertical); long videos as a best-of-10 tournament of escapes.',
-      'Thumbnail: the full set of rings with the flag in the middle and “CAN IT ESCAPE?”.',
-    ],
-    steps: [
-      'Ring-set generator and escape physics with tests (ball never crosses a solid arc).',
-      'Renderer: ring shatter particles, pitch-climbing bounce sounds, escape counter.',
-      'Content planner (titles, flags, no-repeat), autopilot renderer, preview page.',
-    ],
-  },
   'territory-wars': {
     pitch: 'Countries conquer a pixel world map, tile by tile.',
     howItPlays: [

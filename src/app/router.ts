@@ -8,6 +8,7 @@ export type Route =
   | 'calendar'
   | 'dashboard'
   | 'race'
+  | 'rings'
   | 'modules'
   | 'channels'
   | 'settings'
@@ -19,6 +20,7 @@ const ROUTES: Route[] = [
   'autopilot',
   'dashboard',
   'race',
+  'rings',
   'calendar',
   'modules',
   'channels',
@@ -36,12 +38,19 @@ function subscribe(cb: () => void) {
   return () => window.removeEventListener('hashchange', cb);
 }
 
+/** The part after the screen name in the hash (`#/autopilot/UC123` gives `UC123`). */
+export function routeParam(): string | undefined {
+  const part = window.location.hash.replace(/^#\/?/, '').split('/')[1];
+  return part ? decodeURIComponent(part) : undefined;
+}
+
 /** Hash routing keeps deep links working on any static host (GitHub Pages included). */
 export function useRoute(): Route {
   return useSyncExternalStore(subscribe, parse, () => 'home');
 }
 
-export function navigate(route: Route): void {
-  const next = route === 'home' ? '#/' : `#/${route}`;
+/** Goes to a screen; `sub` picks something on it (like a channel on the Autopilot page). */
+export function navigate(route: Route, sub?: string): void {
+  const next = route === 'home' ? '#/' : `#/${route}${sub ? `/${encodeURIComponent(sub)}` : ''}`;
   if (window.location.hash !== next) window.location.hash = next;
 }

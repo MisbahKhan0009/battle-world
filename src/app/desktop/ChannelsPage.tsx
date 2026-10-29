@@ -154,7 +154,7 @@ function ChannelCard({
             onChange={(dailyCap) => onChange({ ...c, dailyCap })}
           />
         </div>
-        <Button size="sm" variant="secondary" onClick={() => navigate('autopilot')}>
+        <Button size="sm" variant="secondary" onClick={() => navigate('autopilot', c.id)}>
           Edit schedule
         </Button>
         <Button size="sm" variant="ghost" onClick={() => navigate('dashboard')}>

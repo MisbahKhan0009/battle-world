@@ -22,7 +22,7 @@ export type ContentModule = {
   /** Route of the module's manual editor, if it has one. */
   studioRoute?: 'studio';
   /** Route of the module's preview page, if it has one. */
-  previewRoute?: 'race';
+  previewRoute?: 'race' | 'rings';
   render?: (job: RenderJob, onProgress: (p: number) => void, signal: AbortSignal) => Promise<RenderResult>;
 };
 
@@ -62,10 +62,13 @@ export const MODULES: ContentModule[] = [
     name: 'Ring Escape',
     tagline: 'Break out of spinning rings',
     description:
-      'A flag bounces inside nested rotating rings and smashes through each gap to break out. Every ring it clears shatters.',
-    status: 'coming-soon',
-    formats: ['short'],
+      'Flag balls bounce inside nested spinning rings. Slip through a gap and that ring shatters; the first flag out of the last ring wins. Long videos are a knockout of heats and a final.',
+    status: 'ready',
+    formats: ['short', 'video'],
     accent: '#FF3DCE',
+    previewRoute: 'rings',
+    render: (job, onProgress, signal) =>
+      import('./ringEscape/autopilot').then((m) => m.renderRingEscape(job, onProgress, signal)),
   },
   {
     id: 'territory-wars',

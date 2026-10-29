@@ -74,6 +74,18 @@ describe('planner', () => {
     expect(Math.max(...days)).toBe(1);
   });
 
+  test('any 7 days in a row hold exactly the weekly number of long videos', () => {
+    for (const perWeek of [1, 2, 3, 5]) {
+      for (const key of ['UC1:flag-battle', 'UC2:ring-escape']) {
+        const daily = Array.from({ length: 40 }, (_, i) =>
+          videosOnDay(key, new Date(2026, 9, 1 + i), perWeek),
+        );
+        for (let s = 0; s + 7 <= daily.length; s++)
+          expect(daily.slice(s, s + 7).reduce((a, b) => a + b, 0)).toBe(perWeek);
+      }
+    }
+  });
+
   test('peak hours put more posts in the evening than the morning, at varying times', () => {
     let morning = 0;
     let evening = 0;

@@ -251,7 +251,8 @@ export function ModulesPage() {
                     )}
                     {m.previewRoute && (
                       <Button variant="secondary" onClick={() => navigate(m.previewRoute!)}>
-                        Watch a sample race <ArrowUpRight size={14} />
+                        Watch a sample {m.previewRoute === 'race' ? 'race' : 'game'}{' '}
+                        <ArrowUpRight size={14} />
                       </Button>
                     )}
                   </div>

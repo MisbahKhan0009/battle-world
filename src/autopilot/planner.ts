@@ -45,19 +45,16 @@ function weekday(d: Date): number {
   return (d.getDay() + 6) % 7; // Monday = 0
 }
 
-/** Long videos scheduled for this day under a per-week budget spread over random days. */
-export function videosOnDay(channelId: string, d: Date, perWeek: number): number {
+/**
+ * Long videos on this day: evenly spaced (every 7 / perWeek days) from an offset unique to the
+ * channel and game, so any 7 days in a row hold exactly `perWeek` of them and each game keeps its
+ * own regular days, like a real channel's upload schedule.
+ */
+export function videosOnDay(key: string, d: Date, perWeek: number): number {
   if (perWeek <= 0) return 0;
-  const rng = new Rng(hash32(strHash(channelId), weekIndex(d), 11));
-  const days = [0, 1, 2, 3, 4, 5, 6];
-  for (let i = days.length - 1; i > 0; i--) {
-    const j = rng.int(i + 1);
-    [days[i], days[j]] = [days[j], days[i]];
-  }
-  const wd = weekday(d);
-  let count = 0;
-  for (let k = 0; k < perWeek; k++) if (days[k % 7] === wd) count++;
-  return count;
+  const day = Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000);
+  const offset = (hash32(strHash(key), 11) / 4294967296) * 7;
+  return Math.floor(((day + 1 + offset) * perWeek) / 7) - Math.floor(((day + offset) * perWeek) / 7);
 }
 
 /**
