@@ -45,7 +45,7 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
   `freshenPair` (relabels the winning ball; country fighters/marbles are physically identical, so winners and final
   pairs don't repeat). `src/modules/thumbnail.ts` composes the spoiler-free cover for any game.
 - `src/modules/flagBattle/`, `src/modules/marbleRace/`, `src/modules/ringEscape/`, `src/modules/growingBall/`,
-  `src/modules/paperLand/` – per-game content planning (`content.ts`) and headless
+  `src/modules/paperLand/`, `src/modules/blackHole/`, `src/modules/territoryWars/` – per-game content planning (`content.ts`) and headless
   autopilot rendering (`autopilot.ts`, `thumbnail.ts`).
 - `src/engine/race/` – Marble Race: `track.ts` (procedural sections with a clear top band), `sim.ts` (rolling
   spheres with friction impulses, I = 2/5 m r²), `race.ts` (finish line placed at the section boundary closest to
@@ -66,6 +66,24 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
   change groups (`changeT`/`changeStart`/`cells`/`owners`). Rendering in `src/render/paper/`: a tilted three.js board
   (one solid color per country from `assignColors`, smooth land outlines from `src/render3d/contour.ts`) with 2D
   countryball sprites on top; cues in `src/audio/paperCues.ts`.
+- `src/engine/black/` – Black Hole (Hole.io): `city.ts` (seeded grid of blocks: parks, homes, shops, downtown towers;
+  cars, buses, lamps and cones on the roads; every object has a size `s` and footprint `area`), `sim.ts` (60 steps/s;
+  an object falls in when `s <= FIT * r` and it is mostly over the hole, area grows by what it eats; a hole
+  `EAT_MARGIN` bigger swallows a smaller one once it covers its center; seeded steering seeks food, flees bigger holes,
+  chases smaller ones after `CALM`, slows near a target so it never orbits it), `show.ts` (on a clock like Paper Land;
+  liveliest of a few cities; knockout like Ring Escape). Rendering in `src/render/black/` (top-down city baked once,
+  holes as a flag rim with white countryball eyes, falling animation, Shorts camera follows a moving average of the
+  leader); cues in `src/audio/blackCues.ts`, voices in `src/audio/holeVoices.ts`; preview loader `blackPreview.ts`.
+- `src/engine/territory/` – Territory Wars: `map.ts` (crop of the pixel world map `src/data/worldGrid.json` around the
+  competitors' real centers, square in km; tiny islands dropped; landmasses joined by the shortest sea crossings;
+  equal home blobs, own land first; rebuild the grid with `npm run build-map`), `sim.ts` (cellular automaton in ticks:
+  each owned cell attacks one random neighbor; empty land falls easily, rivals by relative strength =
+  cells^0.3 x morale x rally; double-buffered so scan order doesn't bias borders), `show.ts` (one war per video, no
+  heats; a few seeds played in full, playback `rate` in ticks/s fitted to the target; `avoid` steers away from recent
+  winners because countries sit on real land and can't be relabelled with `freshenPair`). Rendering in
+  `src/render/territory/` (`mapLayer.ts` paints flag-textured cells straight into ImageData, repainted only when the
+  tick changes); cues in `src/audio/territoryCues.ts`, voices in `src/audio/territoryVoices.ts` (game voices are
+  registered in `synth.ts` through `gameVoices.ts`); preview loader `territoryPreview.ts`.
 - `src/render3d/` – three.js helpers (only Paper Land's board uses them): `gl.ts` (one shared WebGLRenderer per
   thread, transparent, copied into the 2D frame so overlays draw on top; works in the export worker), `rig.ts`
   (camera framing onto the 2D layout's arena, lights, `project`), `contour.ts`.
@@ -75,11 +93,12 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
 - `src/dashboard/` – channel dashboard data: read-only YouTube calls via the `youtube_api_get` command
   (channels, playlistItems, videos), pure insight math (`insights.ts`, tested), and channel snapshots saved to
   `state.stats` every 3 hours (the growth charts). UI in `src/app/desktop/DashboardPage.tsx` + `charts.tsx`.
-- `src/modules/plans.ts` – written plans for every coming-soon game (shown on the Modules page; a test requires one).
+- `src/modules/plans.ts` – written plans for every coming-soon game (shown on the Modules page; a test requires one;
+  empty while every game is ready).
 - Videos default to made-for-kids (`post.madeForKids`); planners get `job.kids` and must not ask for comments then.
 - `src/export/production.ts` – builds the renderer + mixer for any game from its config (worker and fallback).
-- `src/modules/registry.ts` – content modules. Flag Battle, Marble Race, Ring Escape, Growing Ball and Paper Land
-  are ready; territory-wars and black-hole are next. A new game also needs a `DEFAULT_PACE` entry. A module needs `status: 'ready'` and a `render(job, onProgress, signal)`.
+- `src/modules/registry.ts` – content modules. Flag Battle, Marble Race, Ring Escape, Growing Ball, Paper Land,
+  Black Hole and Territory Wars are ready. A new game also needs a `DEFAULT_PACE` entry. A module needs `status: 'ready'` and a `render(job, onProgress, signal)`.
 - `src/desktop/` – `bridge.ts` (typed Tauri invokes), `runtime.ts` (autopilot singleton + `useAutopilot` hook; runs a
   finished batch's sleep/shutdown after a 60 s cancellable countdown shown by `PowerCountdown.tsx`).
 - `src/app/desktop/` – Setup wizard, Autopilot (prepare-ahead card + schedule), Videos (every video by day: play via

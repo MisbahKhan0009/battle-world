@@ -1,6 +1,7 @@
 dist
 public/flags
 src/data/countries.json
+src/data/worldGrid.json
 package-lock.json
 *.md
 src-tauri/target

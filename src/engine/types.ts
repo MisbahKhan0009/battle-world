@@ -46,7 +46,11 @@ export type Look = {
     | 'ember'
     | 'peach'
     | 'mint'
-    | 'kraft';
+    | 'kraft'
+    | 'atlas'
+    | 'parchment'
+    | 'dusk'
+    | 'lilac';
   title: string;
   subtitle: string;
   titleFont: 'display' | 'sans';

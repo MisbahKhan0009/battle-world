@@ -1,14 +1,24 @@
 import { describe, expect, test } from 'vitest';
 import countries from '../data/countries.json';
 import type { Country } from '../data/countries';
+import { planBlackHole } from './blackHole/content';
 import { planFlagBattle } from './flagBattle/content';
 import { planGrowingBall } from './growingBall/content';
 import { planMarbleRace } from './marbleRace/content';
 import { planPaperLand } from './paperLand/content';
 import { planRingEscape } from './ringEscape/content';
+import { planTerritoryWars } from './territoryWars/content';
 
 const all = countries as Country[];
-const PLANNERS = [planFlagBattle, planMarbleRace, planRingEscape, planGrowingBall, planPaperLand];
+const PLANNERS = [
+  planFlagBattle,
+  planMarbleRace,
+  planRingEscape,
+  planGrowingBall,
+  planPaperLand,
+  planTerritoryWars,
+  planBlackHole,
+];
 
 describe('video titles', () => {
   test('never name a country', () => {

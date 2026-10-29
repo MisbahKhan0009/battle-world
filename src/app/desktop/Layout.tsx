@@ -72,7 +72,8 @@ export function DesktopLayout({
             const active =
               route === r ||
               (r === 'autopilot' && route === 'home' && desktop) ||
-              (r === 'modules' && ['battle', 'race', 'rings', 'grow', 'paper'].includes(route));
+              (r === 'modules' &&
+                ['battle', 'race', 'rings', 'grow', 'paper', 'territory', 'black'].includes(route));
             return (
               <li key={r}>
                 <button
