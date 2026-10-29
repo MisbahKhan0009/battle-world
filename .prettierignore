@@ -3,3 +3,5 @@ public/flags
 src/data/countries.json
 package-lock.json
 *.md
+src-tauri/target
+src-tauri/gen

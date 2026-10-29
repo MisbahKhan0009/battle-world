@@ -44,16 +44,21 @@ export async function pickVideoConfig(
     { muxCodec: 'vp9', label: 'VP9', config: { ...base, codec: 'vp09.00.41.08' } },
     { muxCodec: 'av1', label: 'AV1', config: { ...base, codec: 'av01.0.09M.08' } },
   ];
+  // Chromium honours variable-bitrate targets; other engines (WebKit) may not, so they try
+  // constant bitrate first to keep file sizes predictable.
+  const chromium = typeof navigator !== 'undefined' && /Chrome\//.test(navigator.userAgent);
+  const modes: VideoEncoderBitrateMode[] = chromium ? ['variable', 'constant'] : ['constant', 'variable'];
   for (const accel of ['prefer-hardware', 'no-preference'] as const) {
-    for (const c of candidates) {
-      const config = { ...c.config, hardwareAcceleration: accel };
-      try {
-        const res = await VideoEncoder.isConfigSupported(config);
-        if (res.supported) return { ...c, config };
-      } catch {
-        /* try next */
+    for (const c of candidates)
+      for (const bitrateMode of modes) {
+        const config = { ...c.config, hardwareAcceleration: accel, bitrateMode };
+        try {
+          const res = await VideoEncoder.isConfigSupported(config);
+          if (res.supported) return { ...c, config };
+        } catch {
+          /* try next */
+        }
       }
-    }
   }
   return null;
 }

@@ -63,11 +63,12 @@ export async function runFallback(input: ExportInput): Promise<ExportOutcome> {
   recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
 
   return new Promise<ExportOutcome>((resolve, reject) => {
-    let raf = 0;
+    // Timer-driven (not requestAnimationFrame) so it keeps going while the window is hidden.
+    let raf: ReturnType<typeof setTimeout> | undefined;
     let start = 0;
     let lastThumb = -10;
     const stop = (err?: Error) => {
-      cancelAnimationFrame(raf);
+      clearTimeout(raf);
       input.signal.removeEventListener('abort', onAbort);
       source?.stop();
       if (recorder.state !== 'inactive') recorder.stop();
@@ -89,7 +90,8 @@ export async function runFallback(input: ExportInput): Promise<ExportOutcome> {
         fallback: true,
       });
     };
-    const tick = (now: number) => {
+    const tick = () => {
+      const now = performance.now();
       const v = (now - start) / 1000;
       renderer.render(ctx, Math.min(v, total));
       input.onProgress({
@@ -104,11 +106,11 @@ export async function runFallback(input: ExportInput): Promise<ExportOutcome> {
         );
       }
       if (v >= total) return stop();
-      raf = requestAnimationFrame(tick);
+      raf = setTimeout(tick, 1000 / input.fps);
     };
     recorder.start(1000);
     source?.start();
     start = performance.now();
-    raf = requestAnimationFrame(tick);
+    raf = setTimeout(tick, 0);
   });
 }

@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { Toaster } from 'sonner';
 import { PresetsDialog } from '../components/PresetsDialog';
 import { webCodecsAvailable } from '../export/exporter';
+import { isDesktop } from '../desktop/bridge';
 import { useBattleRunner } from '../hooks/useBattleRunner';
 import { useApp } from '../store/app';
 import { useUi } from '../store/ui';
@@ -11,6 +12,12 @@ import { useRoute } from './router';
 
 const Studio = lazy(() => import('./Studio').then((m) => ({ default: m.Studio })));
 const Preview = lazy(() => import('./Preview').then((m) => ({ default: m.Preview })));
+const AutopilotPage = lazy(() =>
+  import('./desktop/AutopilotPage').then((m) => ({ default: m.AutopilotPage })),
+);
+const ModulesPage = lazy(() => import('./desktop/ModulesPage').then((m) => ({ default: m.ModulesPage })));
+const ChannelsPage = lazy(() => import('./desktop/ChannelsPage').then((m) => ({ default: m.ChannelsPage })));
+const SettingsPage = lazy(() => import('./desktop/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const ExportDialog = lazy(() =>
   import('../components/ExportDialog').then((m) => ({ default: m.ExportDialog })),
 );
@@ -82,7 +89,13 @@ function GlobalShortcuts() {
 
 export function App() {
   useBattleRunner();
-  const route = useRoute();
+  const raw = useRoute();
+  // The desktop app opens on the autopilot dashboard instead of the web landing page.
+  const route = raw === 'home' && isDesktop() ? 'autopilot' : raw;
+
+  useEffect(() => {
+    if (isDesktop()) void import('../desktop/runtime').then((m) => m.startAutopilot());
+  }, []);
   const fontsReady = useFontsReady();
   const exportOpen = useUi((s) => s.exportOpen);
 
@@ -99,6 +112,10 @@ export function App() {
             {route === 'home' && <Home />}
             {route === 'studio' && <Studio />}
             {route === 'preview' && <Preview />}
+            {route === 'autopilot' && <AutopilotPage />}
+            {route === 'modules' && <ModulesPage />}
+            {route === 'channels' && <ChannelsPage />}
+            {route === 'settings' && <SettingsPage />}
           </Suspense>
         )}
       </div>

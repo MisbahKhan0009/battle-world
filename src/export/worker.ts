@@ -83,8 +83,21 @@ async function run(req: ExportRequest): Promise<void> {
   // ---- audio
   if (audio) {
     post({ type: 'progress', frame: 0, total: frames, stage: 'audio' });
+    // Some encoders (WebKitGTK) stamp every packet of an input batch with the batch start time.
+    // Re-time packets so timestamps always increase by each packet's duration.
+    const packetUs = audio.muxCodec === 'opus' ? 20_000 : (1024 / SAMPLE_RATE) * 1e6;
+    let nextTs = 0;
     const encoder = new AudioEncoder({
-      output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+      output: (chunk, meta) => {
+        // Trust the reported duration only when it is a plausible packet length (Opus max 120 ms).
+        const duration = chunk.duration && chunk.duration <= 120_000 ? chunk.duration : packetUs;
+        const ts = Math.max(chunk.timestamp, nextTs);
+        nextTs = ts + duration;
+        if (ts === chunk.timestamp) return muxer.addAudioChunk(chunk, meta);
+        const data = new Uint8Array(chunk.byteLength);
+        chunk.copyTo(data);
+        muxer.addAudioChunk(new EncodedAudioChunk({ type: chunk.type, timestamp: ts, duration, data }), meta);
+      },
       error: (err) => (encodeError = err),
     });
     encoder.configure(audio.config);

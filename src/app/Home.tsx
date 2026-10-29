@@ -82,9 +82,14 @@ export function Home() {
           <Logo />
           <span className="font-display text-2xl leading-none">Flag Clash</span>
         </span>
-        <Button variant="ghost" size="sm" onClick={() => navigate('studio')}>
-          Open studio <ArrowUpRight size={14} />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => navigate('modules')}>
+            Modules
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => navigate('studio')}>
+            Open studio <ArrowUpRight size={14} />
+          </Button>
+        </div>
       </header>
 
       <section className="relative z-10 mx-auto grid w-full max-w-[1240px] flex-1 items-center gap-10 px-5 pb-12 sm:px-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-6">

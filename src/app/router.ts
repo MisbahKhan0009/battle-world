@@ -1,12 +1,12 @@
 import { useSyncExternalStore } from 'react';
 
-export type Route = 'home' | 'studio' | 'preview';
+export type Route = 'home' | 'studio' | 'preview' | 'autopilot' | 'modules' | 'channels' | 'settings';
+
+const ROUTES: Route[] = ['studio', 'preview', 'autopilot', 'modules', 'channels', 'settings'];
 
 function parse(): Route {
   const h = window.location.hash.replace(/^#\/?/, '');
-  if (h.startsWith('studio')) return 'studio';
-  if (h.startsWith('preview')) return 'preview';
-  return 'home';
+  return ROUTES.find((r) => h.startsWith(r)) ?? 'home';
 }
 
 function subscribe(cb: () => void) {

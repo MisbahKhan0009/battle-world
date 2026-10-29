@@ -13,6 +13,7 @@ import { useApp } from '../store/app';
 import { useBattle } from '../store/battle';
 import { useUi } from '../store/ui';
 import { Logo } from './Home';
+import { isDesktop } from '../desktop/bridge';
 import { navigate } from './router';
 
 export function BattleStatus({ className }: { className?: string }) {
@@ -72,9 +73,9 @@ export function Studio() {
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line px-3 sm:px-5">
         <button
           type="button"
-          onClick={() => navigate('home')}
+          onClick={() => navigate(isDesktop() ? 'modules' : 'home')}
           className="flex items-center gap-2.5 rounded-lg pr-2"
-          aria-label="Back to home"
+          aria-label={isDesktop() ? 'Back to modules' : 'Back to home'}
         >
           <ArrowLeft size={16} className="text-muted" />
           <Logo size={24} />
