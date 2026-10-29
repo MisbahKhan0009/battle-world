@@ -52,7 +52,7 @@ jobs:
           releaseBody: |
             ## Install
 
-            1. Download **Flag Clash_1.0.${{ github.run_number }}_x64-setup.exe** below.
+            1. Download **Flag.Clash_1.0.${{ github.run_number }}_x64-setup.exe** below.
             2. Run it. Windows SmartScreen may warn because the app is not code-signed: click **More info**, then **Run anyway**.
             3. Open Flag Clash and follow the setup wizard.
 

@@ -53,7 +53,7 @@ human-looking schedule, while it sits quietly in the system tray.
 
 1. Open the [**Releases**](https://github.com/MisbahKhan0009/battle-world/releases) page. Every update to the app
    publishes a new release named **Flag Clash 1.0.N** (the newest is at the top, marked *Latest*).
-2. Under **Assets**, download **`Flag Clash_1.0.N_x64-setup.exe`**.
+2. Under **Assets**, download **`Flag.Clash_1.0.N_x64-setup.exe`**.
 3. Run it. Windows SmartScreen may show **"Windows protected your PC"** because the app is not code-signed yet:
    click **More info**, then **Run anyway**.
 4. Flag Clash opens on its setup guide. Continue below.
