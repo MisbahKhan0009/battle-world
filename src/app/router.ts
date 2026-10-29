@@ -11,6 +11,7 @@ export type Route =
   | 'rings'
   | 'grow'
   | 'paper'
+  | 'black'
   | 'modules'
   | 'channels'
   | 'settings'
@@ -24,6 +25,7 @@ const ROUTES: Route[] = [
   'rings',
   'grow',
   'paper',
+  'black',
   'calendar',
   'videos',
   'modules',
