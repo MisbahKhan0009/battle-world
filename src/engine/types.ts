@@ -1,4 +1,6 @@
 export type ArenaShape = 'circle' | 'square' | 'rounded';
+/** escape: flags leave through a rotating opening, last one inside wins. royale: flags damage each other. */
+export type GameMode = 'escape' | 'royale';
 export type DamageModel = 'impact' | 'fixed';
 
 export type Fighter = {
@@ -17,7 +19,9 @@ export type Fighter = {
 };
 
 export type Rules = {
-  mode: 'royale';
+  mode: GameMode;
+  /** Escape mode: opening width (multiple of the average flag width), rotation speed and direction. */
+  gap: { size: number; speedDeg: number; direction: 'cw' | 'ccw' };
   arena: ArenaShape;
   shrink: { enabled: boolean; startSec: number; rate: number };
   damageModel: DamageModel;
@@ -68,13 +72,27 @@ export type SimEvent =
       x: number;
       y: number;
     }
-  | { t: number; type: 'eliminate'; id: string; by?: string; x: number; y: number }
+  | {
+      t: number;
+      type: 'eliminate';
+      id: string;
+      by?: string;
+      x: number;
+      y: number;
+      /** Escape mode: the flag left through the opening with this velocity. */
+      escaped?: boolean;
+      vx?: number;
+      vy?: number;
+    }
   | { t: number; type: 'final2' }
   | { t: number; type: 'winner'; id: string };
 
 /** Fully resolved, serializable input to the simulation. */
 export type SimConfig = {
+  mode: GameMode;
   fighters: { id: string; hp: number; size: number; speed: number; attack: number }[];
+  /** Escape mode: base half-angle of the opening (radians) and rotation speed (rad/s, signed). */
+  gap: { halfAngle: number; omega: number };
   arena: ArenaShape;
   shrink: { enabled: boolean; startSec: number; rate: number };
   damageModel: DamageModel;
@@ -97,6 +115,9 @@ export type Track = {
   data: Float32Array;
   /** Arena scale per frame (1 = full size). */
   arena: Float32Array;
+  /** Escape mode: opening center angle (unwrapped, radians) and half-angle per frame. */
+  gapAngle: Float32Array;
+  gapHalf: Float32Array;
 };
 
 export type SimResult = {

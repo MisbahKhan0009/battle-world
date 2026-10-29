@@ -103,3 +103,29 @@ export class SpatialGrid {
     this.head[k] = i;
   }
 }
+
+const PI = 3.141592653589793;
+const TWO_PI = 6.283185307179586;
+const HALF_PI = 1.5707963267948966;
+
+/**
+ * Deterministic sine (Taylor series after range reduction to [-pi/2, pi/2], |error| < 1e-9).
+ * Math.sin may differ in the last bits between JS engines; the sim must not.
+ */
+export function dsin(a: number): number {
+  a = a - TWO_PI * Math.floor(a / TWO_PI + 0.5); // [-pi, pi]
+  if (a > HALF_PI) a = PI - a;
+  else if (a < -HALF_PI) a = -PI - a;
+  const a2 = a * a;
+  return (
+    a *
+    (1 - (a2 / 6) * (1 - (a2 / 20) * (1 - (a2 / 42) * (1 - (a2 / 72) * (1 - (a2 / 110) * (1 - a2 / 156))))))
+  );
+}
+
+export function dcos(a: number): number {
+  return dsin(a + HALF_PI);
+}
+
+/** Widest the escape opening may get (half-angle, radians). */
+export const MAX_GAP_HALF = 0.75;

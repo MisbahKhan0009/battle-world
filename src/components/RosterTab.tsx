@@ -257,7 +257,7 @@ export function RosterTab() {
       <section className="rounded-xl bg-surface-2/50 p-3 ring-1 ring-line">
         <Toggle
           label="Balanced"
-          description="Everyone gets 100 HP and 1× size, speed and attack."
+          description="Everyone gets the same size and speed (and 100 HP and 1× attack in Battle royale)."
           checked={balanced}
           onChange={setBalanced}
         />
@@ -289,8 +289,12 @@ const RosterRow = memo(function RosterRow({
   const removeFighter = useApp((s) => s.removeFighter);
   const duplicateFighter = useApp((s) => s.duplicateFighter);
   const addFighters = useApp((s) => s.addFighters);
+  const escapeMode = useApp((s) => s.rules.mode === 'escape');
   const modified =
-    !balanced && (fighter.hp !== 100 || fighter.size !== 1 || fighter.speed !== 1 || fighter.attack !== 1);
+    !balanced &&
+    (fighter.size !== 1 ||
+      fighter.speed !== 1 ||
+      (!escapeMode && (fighter.hp !== 100 || fighter.attack !== 1)));
 
   return (
     <li
@@ -322,7 +326,11 @@ const RosterRow = memo(function RosterRow({
         className={cn('text-xs tabular', modified ? 'text-accent' : 'text-muted')}
         title={modified ? 'Custom stats' : undefined}
       >
-        {balanced ? 100 : fighter.hp} HP
+        {escapeMode
+          ? modified
+            ? `${fighter.size.toFixed(1)}× size`
+            : ''
+          : `${balanced ? 100 : fighter.hp} HP`}
       </span>
       <Menu.Root>
         <Menu.Trigger asChild>

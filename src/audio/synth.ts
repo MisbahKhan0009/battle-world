@@ -20,7 +20,8 @@ export type SoundId =
   | 'whoosh'
   | 'fanfare'
   | 'tick'
-  | 'boom';
+  | 'boom'
+  | 'exit';
 export type MusicId = 'energetic' | 'epic' | 'chill';
 export type Stereo = { L: Float32Array; R: Float32Array };
 
@@ -136,6 +137,26 @@ function boom(): Float32Array {
   return normalize(out, 0.9);
 }
 
+/** A flag slipping out through the opening: quick rising zip with an airy tail. */
+function exit(): Float32Array {
+  const dur = 0.55;
+  const len = Math.floor(SR * dur);
+  const out = new Float32Array(len);
+  let phase = 0;
+  let lp = 0;
+  const a = lpCoef(3000);
+  for (let i = 0; i < len; i++) {
+    const t = i / SR;
+    const p = t / dur;
+    const f = 260 * Math.pow(5, Math.min(1, p / 0.45));
+    phase += (TAU * f) / SR;
+    const env = Math.min(1, t / 0.008) * Math.exp(-t / 0.16);
+    lp += (noise(i, 88) - lp) * a;
+    out[i] = (Math.sin(phase) + 0.35 * Math.sin(phase * 2.01)) * env + lp * Math.exp(-t / 0.09) * 0.8;
+  }
+  return normalize(out, 0.8);
+}
+
 function tick(): Float32Array {
   const len = Math.floor(SR * 0.09);
   const out = new Float32Array(len);
@@ -204,7 +225,9 @@ export function getSound(id: SoundId): Float32Array {
               ? tick()
               : id === 'boom'
                 ? boom()
-                : hit(Number(id.slice(3)));
+                : id === 'exit'
+                  ? exit()
+                  : hit(Number(id.slice(3)));
     sfxCache.set(id, s);
   }
   return s;

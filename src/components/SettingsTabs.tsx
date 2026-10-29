@@ -31,99 +31,151 @@ export function RulesTab() {
   const rules = useApp((s) => s.rules);
   const setRules = useApp((s) => s.setRules);
   const setShrink = useApp((s) => s.setShrink);
+  const setGap = (patch: Partial<Rules['gap']>) => setRules({ gap: { ...rules.gap, ...patch } });
   const seedLocked = useApp((s) => s.seedLocked);
   const setSeedLocked = useApp((s) => s.setSeedLocked);
   const rerollSeed = useApp((s) => s.rerollSeed);
 
   return (
     <div className="space-y-7">
-      <Section title="Mode" note="Team battles, brackets and races are planned.">
-        <div className="flex h-10 items-center rounded-xl bg-bg/60 px-3 text-sm ring-1 ring-line">
-          Battle royale, last flag standing wins
-        </div>
-      </Section>
-
-      <Section title="Arena">
-        <Segmented<Rules['arena']>
-          label="Arena shape"
-          value={rules.arena}
-          onChange={(arena) => setRules({ arena })}
+      <Section title="Mode">
+        <Segmented<Rules['mode']>
+          label="Game mode"
+          value={rules.mode}
+          onChange={(mode) => setRules({ mode })}
           options={[
-            {
-              value: 'circle',
-              label: (
-                <>
-                  <Circle size={14} /> Circle
-                </>
-              ),
-            },
-            {
-              value: 'square',
-              label: (
-                <>
-                  <Square size={14} /> Square
-                </>
-              ),
-            },
-            {
-              value: 'rounded',
-              label: (
-                <>
-                  <SquareDashed size={14} /> Rounded
-                </>
-              ),
-            },
+            { value: 'escape', label: 'Escape the circle' },
+            { value: 'royale', label: 'Battle royale' },
           ]}
         />
-        <Toggle
-          label="Shrinking arena"
-          description="The wall closes in so the battle cannot stall."
-          checked={rules.shrink.enabled}
-          onChange={(enabled) => setShrink({ enabled })}
-        />
-        {rules.shrink.enabled && (
-          <div className="space-y-5 rounded-xl bg-surface-2/50 p-4 ring-1 ring-line">
+        <p className="text-xs text-muted">
+          {rules.mode === 'escape'
+            ? 'Flags bounce inside a fixed circle. Anyone who slips out through the rotating opening is out. The last flag inside wins.'
+            : 'Flags lose HP when they collide. The last flag standing wins.'}
+        </p>
+      </Section>
+
+      {rules.mode === 'escape' ? (
+        <Section title="Opening" note="The circle stays fixed. Only the opening moves around the rim.">
+          <Slider
+            label="Opening size"
+            value={rules.gap.size}
+            min={1.3}
+            max={4}
+            step={0.1}
+            onChange={(size) => setGap({ size })}
+            format={(v) => `${v.toFixed(1)}× flag width`}
+          />
+          <Slider
+            label="Rotation speed"
+            value={rules.gap.speedDeg}
+            min={0}
+            max={180}
+            step={5}
+            onChange={(speedDeg) => setGap({ speedDeg })}
+            format={(v) => (v === 0 ? 'Still' : `${v}° per second`)}
+          />
+          <Segmented<Rules['gap']['direction']>
+            label="Rotation direction"
+            value={rules.gap.direction}
+            onChange={(direction) => setGap({ direction })}
+            options={[
+              { value: 'cw', label: 'Clockwise' },
+              { value: 'ccw', label: 'Counterclockwise' },
+            ]}
+          />
+          {rules.targetDurationSec !== 'auto' && (
+            <p className="text-xs text-muted">
+              To land on the target length the flags may speed up, and the opening may widen a little if that
+              is not enough.
+            </p>
+          )}
+        </Section>
+      ) : (
+        <>
+          <Section title="Arena">
+            <Segmented<Rules['arena']>
+              label="Arena shape"
+              value={rules.arena}
+              onChange={(arena) => setRules({ arena })}
+              options={[
+                {
+                  value: 'circle',
+                  label: (
+                    <>
+                      <Circle size={14} /> Circle
+                    </>
+                  ),
+                },
+                {
+                  value: 'square',
+                  label: (
+                    <>
+                      <Square size={14} /> Square
+                    </>
+                  ),
+                },
+                {
+                  value: 'rounded',
+                  label: (
+                    <>
+                      <SquareDashed size={14} /> Rounded
+                    </>
+                  ),
+                },
+              ]}
+            />
+            <Toggle
+              label="Shrinking arena"
+              description="The wall closes in so the battle cannot stall."
+              checked={rules.shrink.enabled}
+              onChange={(enabled) => setShrink({ enabled })}
+            />
+            {rules.shrink.enabled && (
+              <div className="space-y-5 rounded-xl bg-surface-2/50 p-4 ring-1 ring-line">
+                <Slider
+                  label="Starts at"
+                  value={rules.shrink.startSec}
+                  min={0}
+                  max={60}
+                  onChange={(startSec) => setShrink({ startSec })}
+                  format={(v) => `${v}s`}
+                />
+                <Slider
+                  label="Shrink speed"
+                  value={rules.shrink.rate}
+                  min={0.002}
+                  max={0.03}
+                  step={0.001}
+                  onChange={(rate) => setShrink({ rate })}
+                  format={(v) => `${(v * 100).toFixed(1)}% per second`}
+                />
+              </div>
+            )}
+          </Section>
+
+          <Section title="Damage">
+            <Segmented<Rules['damageModel']>
+              label="Damage model"
+              value={rules.damageModel}
+              onChange={(damageModel) => setRules({ damageModel })}
+              options={[
+                { value: 'impact', label: 'By impact speed' },
+                { value: 'fixed', label: 'Fixed per hit' },
+              ]}
+            />
             <Slider
-              label="Starts at"
-              value={rules.shrink.startSec}
+              label="Damage ramp"
+              value={rules.damageRamp}
               min={0}
-              max={60}
-              onChange={(startSec) => setShrink({ startSec })}
-              format={(v) => `${v}s`}
+              max={0.1}
+              step={0.005}
+              onChange={(damageRamp) => setRules({ damageRamp })}
+              format={(v) => (v === 0 ? 'Off' : `+${(v * 100).toFixed(1)}% per second`)}
             />
-            <Slider
-              label="Shrink speed"
-              value={rules.shrink.rate}
-              min={0.002}
-              max={0.03}
-              step={0.001}
-              onChange={(rate) => setShrink({ rate })}
-              format={(v) => `${(v * 100).toFixed(1)}% per second`}
-            />
-          </div>
-        )}
-      </Section>
-
-      <Section title="Damage">
-        <Segmented<Rules['damageModel']>
-          label="Damage model"
-          value={rules.damageModel}
-          onChange={(damageModel) => setRules({ damageModel })}
-          options={[
-            { value: 'impact', label: 'By impact speed' },
-            { value: 'fixed', label: 'Fixed per hit' },
-          ]}
-        />
-        <Slider
-          label="Damage ramp"
-          value={rules.damageRamp}
-          min={0}
-          max={0.1}
-          step={0.005}
-          onChange={(damageRamp) => setRules({ damageRamp })}
-          format={(v) => (v === 0 ? 'Off' : `+${(v * 100).toFixed(1)}% per second`)}
-        />
-      </Section>
+          </Section>
+        </>
+      )}
 
       <Section
         title="Target length"

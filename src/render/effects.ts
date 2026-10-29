@@ -34,7 +34,7 @@ export function shakeOffset(fx: EffectsIndex, t: number, seed: number): { x: num
   }
   for (const e of fx.elims) {
     const age = t - e.t;
-    if (age < 0 || age > 0.5) continue;
+    if (age < 0 || age > 0.5 || e.escaped) continue;
     const amp = 16 * Math.exp(-age / 0.12);
     const ang = hashFloat(seed, e.i, 11) * Math.PI * 2;
     x += Math.cos(ang) * amp * Math.cos(age * 55);
@@ -122,7 +122,7 @@ export function drawShatter(
 ): void {
   for (const e of fx.elims) {
     const age = t - e.t;
-    if (age < 0 || age > SHARD_LIFE) continue;
+    if (age < 0 || age > SHARD_LIFE || e.escaped) continue;
     const r = radii[e.i];
     const p = age / SHARD_LIFE;
 

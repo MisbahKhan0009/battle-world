@@ -103,6 +103,20 @@ export class BattleRenderer {
     return data[o0] + (data[o1] - data[o0]) * a;
   }
 
+  private get escapeMode(): boolean {
+    return this.scene.result.config.mode === 'escape';
+  }
+
+  /** Opening center angle and half-angle at sim time t. */
+  private gapAt(t: number): { angle: number; half: number } {
+    const track = this.scene.result.track!;
+    const { f0, f1, a } = this.frameAt(t);
+    return {
+      angle: track.gapAngle[f0] + (track.gapAngle[f1] - track.gapAngle[f0]) * a,
+      half: track.gapHalf[f0] + (track.gapHalf[f1] - track.gapHalf[f0]) * a,
+    };
+  }
+
   private arenaAt(t: number): number {
     const track = this.scene.result.track!;
     const { f0, f1, a } = this.frameAt(t);
@@ -157,7 +171,8 @@ export class BattleRenderer {
       return { z: c.z, x: Math.max(-lim, Math.min(lim, c.x)), y: Math.max(-lim, Math.min(lim, c.y)) };
     };
 
-    if (result.final2T !== null && t >= result.final2T) {
+    // Escape mode keeps the whole circle in frame so the opening stays visible.
+    if (result.final2T !== null && t >= result.final2T && !this.escapeMode) {
       const pair: number[] = [];
       for (let i = 0; i < this.scene.fighters.length; i++) if (result.elimT[i] > result.final2T) pair.push(i);
       const p = easeInOut((t - result.final2T) / 1.2);
@@ -288,6 +303,115 @@ export class BattleRenderer {
     else ctx.roundRect(-h, -h, 2 * h, 2 * h, ROUNDED_CORNER * h);
   }
 
+  /** Escape mode: a fixed circle whose rim has one rotating opening. */
+  private drawEscapeArena(ctx: Ctx2D, t: number, v: number, k: number): void {
+    const th = this.theme;
+    const R = ARENA_R;
+    const { angle, half } = this.gapAt(t);
+
+    ctx.beginPath();
+    ctx.arc(0, 0, R, 0, Math.PI * 2);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 1.1);
+    g.addColorStop(0, th.floorInner);
+    g.addColorStop(1, th.floorOuter);
+    ctx.fillStyle = g;
+    ctx.fill();
+
+    ctx.save();
+    ctx.clip();
+    ctx.globalAlpha = th.dark ? 0.07 : 0.1;
+    ctx.strokeStyle = th.border;
+    ctx.lineWidth = 3 * k;
+    ctx.beginPath();
+    ctx.arc(0, 0, R * 0.28, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Exit glow fanning out from the opening.
+    const glow = ctx.createRadialGradient(0, 0, R * 0.82, 0, 0, R * 1.32);
+    glow.addColorStop(0, 'rgba(0,0,0,0)');
+    glow.addColorStop(0.35, withAlphaHex(th.accent, 0.28));
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, R * 1.32, angle - half * 1.15, angle + half * 1.15);
+    ctx.closePath();
+    ctx.fill();
+
+    // Chevrons pointing out through the opening.
+    const cx = Math.cos(angle);
+    const cy = Math.sin(angle);
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 5 * k;
+    ctx.strokeStyle = th.accent;
+    for (let c = 0; c < 3; c++) {
+      const phase = (v * 1.6 + c / 3) % 1;
+      const dist = R + (14 + 46 * phase) * k;
+      const s = 11 * k;
+      ctx.globalAlpha = Math.sin(phase * Math.PI) * 0.85;
+      const px = cx * dist;
+      const py = cy * dist;
+      ctx.beginPath();
+      ctx.moveTo(px - cx * s - cy * s, py - cy * s + cx * s);
+      ctx.lineTo(px, py);
+      ctx.lineTo(px - cx * s + cy * s, py - cy * s - cx * s);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Solid rim: everything except the opening.
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = th.border;
+    ctx.beginPath();
+    ctx.arc(0, 0, R, angle + half, angle - half + Math.PI * 2);
+    ctx.globalAlpha = 0.16;
+    ctx.lineWidth = 20 * k;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 7 * k;
+    ctx.stroke();
+    // Edge posts.
+    ctx.fillStyle = '#FFFFFF';
+    for (const side of [1, -1]) {
+      const a = angle + side * half;
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * R, Math.sin(a) * R, 6.5 * k, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.lineCap = 'butt';
+  }
+
+  /** Escape mode: flags that just left slide out through the opening and fade. */
+  private drawEscapes(ctx: Ctx2D, t: number, k: number, zoomPx: number): void {
+    const { fx, result } = this.scene;
+    const life = 1.1;
+    for (const e of fx.elims) {
+      const age = t - e.t;
+      if (!e.escaped || age < 0 || age > life) continue;
+      const p = age / life;
+      const r = result.radii[e.i];
+      // Exit pulse at the rim.
+      if (age < 0.5) {
+        const q = age / 0.5;
+        ctx.globalAlpha = (1 - q) * 0.9;
+        ctx.strokeStyle = this.theme.accent;
+        ctx.lineWidth = (8 * (1 - q) + 1) * k;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, r * (1 + 1.4 * easeOut(q)), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      const scale = 1 - 0.35 * p;
+      const tok = this.tokens.get(e.i, 2 * r * zoomPx * scale);
+      const size = 2 * r * TOKEN_SCALE * scale;
+      ctx.globalAlpha = 1 - p * p;
+      ctx.drawImage(tok, e.x + e.vx * age - size / 2, e.y + e.vy * age - size / 2, size, size);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   private drawArena(ctx: Ctx2D, t: number, k: number): void {
     const shape = this.scene.result.config.arena;
     const th = this.theme;
@@ -354,12 +478,13 @@ export class BattleRenderer {
       if (!this.isAlive(i, t)) continue;
       const r = radii[i];
       const age = t - lastHitTime(fx, i, t);
-      const pop = age < 0.16 ? 1 + 0.09 * (1 - age / 0.16) : 1;
+      // Bumps in escape mode do no damage, so they get a lighter pop and flash.
+      const pop = age < 0.16 ? 1 + (this.escapeMode ? 0.05 : 0.09) * (1 - age / 0.16) : 1;
       const tok = this.tokens.get(i, 2 * r * zoomPx * pop);
       const size = 2 * r * TOKEN_SCALE * pop;
       ctx.drawImage(tok, this.x[i] - size / 2, this.y[i] - size / 2, size, size);
       if (age < 0.18) {
-        ctx.globalAlpha = 0.85 * (1 - age / 0.18) ** 2;
+        ctx.globalAlpha = (this.escapeMode ? 0.3 : 0.85) * (1 - age / 0.18) ** 2;
         ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
         ctx.arc(this.x[i], this.y[i], r * pop, 0, Math.PI * 2);
@@ -368,9 +493,10 @@ export class BattleRenderer {
       }
     }
 
-    // HP rings.
+    // HP rings (battle royale only).
+    const hpMode = !this.escapeMode;
     ctx.lineCap = 'round';
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < n && hpMode; i++) {
       if (!this.isAlive(i, t)) continue;
       const r = radii[i];
       const ring = Math.max(3.2 * k, r * 0.1);
@@ -400,14 +526,15 @@ export class BattleRenderer {
 
     // Labels: HP numbers, plus names once few remain.
     const showNames = alive <= 4;
-    if (look.showHpNumbers || showNames) {
+    const showHp = look.showHpNumbers && hpMode;
+    if (showHp || showNames) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.lineJoin = 'round';
       for (let i = 0; i < n; i++) {
         if (!this.isAlive(i, t)) continue;
         const r = radii[i];
-        let y = this.y[i] + r + Math.max(3.2 * k, r * 0.1) + 6 * k;
+        let y = this.y[i] + r + (hpMode ? Math.max(3.2 * k, r * 0.1) : 0) + 6 * k;
         if (showNames) {
           const size = Math.max(30 * k, Math.min(r * 0.6, 46 * k));
           ctx.font = `${size}px ${FONT_DISPLAY}`;
@@ -415,7 +542,7 @@ export class BattleRenderer {
           this.outlinedText(ctx, scene.fighters[i].name.toUpperCase(), this.x[i], y, th.text, 5 * k);
           y += size * 0.62;
         }
-        if (look.showHpNumbers) {
+        if (showHp) {
           const size = Math.max(15 * k, Math.min(r * 0.5, 34 * k));
           ctx.font = `${size}px ${FONT_DISPLAY}`;
           y += size * 0.55;
@@ -528,7 +655,8 @@ export class BattleRenderer {
     this.outlinedText(ctx, num, L.x, base, th.text, 8);
     const w = ctx.measureText(num).width;
     ctx.font = `${L.size * 0.42}px ${FONT_DISPLAY}`;
-    this.outlinedText(ctx, `/ ${total} LEFT`, L.x + w + L.size * 0.14, base, th.subtext, 6);
+    const label = this.escapeMode ? 'INSIDE' : 'LEFT';
+    this.outlinedText(ctx, `/ ${total} ${label}`, L.x + w + L.size * 0.14, base, th.subtext, 6);
   }
 
   private drawKillFeed(ctx: Ctx2D, t: number): void {
@@ -551,6 +679,10 @@ export class BattleRenderer {
       const outP = age > keep - 0.5 ? (keep - age) / 0.5 : 1;
       const killer = e.by >= 0 ? fighters[e.by] : null;
       const victim = fighters[e.i];
+      if (e.escaped) {
+        this.drawEscapeFeedRow(ctx, e.i, victim.name, row, inP, outP);
+        return;
+      }
       ctx.font = `600 ${size}px ${FONT_SANS}`;
       const kName = this.ellipsize(ctx, killer?.name ?? '', F.maxW * 0.36);
       const vName = this.ellipsize(ctx, victim.name, F.maxW * 0.36);
@@ -609,6 +741,53 @@ export class BattleRenderer {
       ctx.lineTo(x + vW, y + 1);
       ctx.stroke();
     });
+    ctx.globalAlpha = 1;
+  }
+
+  /** Kill-feed row for a flag that left through the opening: [flag] Name OUT. */
+  private drawEscapeFeedRow(
+    ctx: Ctx2D,
+    i: number,
+    name: string,
+    row: number,
+    inP: number,
+    outP: number,
+  ): void {
+    const F = this.layout.feed;
+    const th = this.theme;
+    const size = F.size;
+    const disc = size * 1.3;
+    const gap = size * 0.4;
+    const padX = size * 0.5;
+    ctx.font = `600 ${size}px ${FONT_SANS}`;
+    const label = this.ellipsize(ctx, name, F.maxW * 0.6);
+    const nameW = ctx.measureText(label).width;
+    ctx.font = `${size * 1.05}px ${FONT_DISPLAY}`;
+    const outW = ctx.measureText('OUT').width;
+    const width = padX * 2 + disc + gap + nameW + gap + outW;
+    const h = F.lineH - 8;
+    const y = F.y + row * F.lineH;
+    const slide = (1 - inP) * 40 * (F.align === 'right' ? 1 : -1);
+    let x = (F.align === 'right' ? F.x - width : F.x) + slide;
+    ctx.globalAlpha = Math.max(0, Math.min(inP, outP)) * (row === 0 ? 1 : 0.82);
+    ctx.fillStyle = th.hudBg;
+    ctx.beginPath();
+    ctx.roundRect(x, y - h / 2, width, h, h / 2);
+    ctx.fill();
+    x += padX;
+    const tok = this.tokens.get(i, disc * this.px);
+    const s = disc * TOKEN_SCALE;
+    ctx.drawImage(tok, x + disc / 2 - s / 2, y - s / 2, s, s);
+    x += disc + gap;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font = `600 ${size}px ${FONT_SANS}`;
+    ctx.fillStyle = th.text;
+    ctx.fillText(label, x, y);
+    x += nameW + gap;
+    ctx.font = `${size * 1.05}px ${FONT_DISPLAY}`;
+    ctx.fillStyle = th.danger;
+    ctx.fillText('OUT', x, y + size * 0.05);
     ctx.globalAlpha = 1;
   }
 
@@ -722,7 +901,9 @@ export class BattleRenderer {
       this.outlinedText(ctx, w.name.toUpperCase(), W / 2, cy + R + 100 + (1 - tp) * 20, th.text, 12);
       const kills = result.kills[result.winnerIndex];
       ctx.font = `500 ${m * 0.034}px ${FONT_SANS}`;
-      const stat = `${kills} elimination${kills === 1 ? '' : 's'} out of ${fighters.length - 1} rivals`;
+      const stat = this.escapeMode
+        ? `Last of ${fighters.length} flags inside`
+        : `${kills} elimination${kills === 1 ? '' : 's'} out of ${fighters.length - 1} rivals`;
       this.outlinedText(ctx, stat, W / 2, cy + R + 100 + m * 0.1, th.subtext, 6);
       ctx.globalAlpha = 1;
     }
@@ -891,8 +1072,10 @@ export class BattleRenderer {
         this.px * (L.arena.cx + shake.x - cam.x * scale),
         this.px * (L.arena.cy + shake.y - cam.y * scale),
       );
-      this.drawArena(ctx, t, k);
-      if (look.particles) {
+      if (this.escapeMode) this.drawEscapeArena(ctx, t, v, k);
+      else this.drawArena(ctx, t, k);
+      if (this.escapeMode) this.drawEscapes(ctx, t, k, scale * this.px);
+      if (look.particles && !this.escapeMode) {
         drawShatter(
           ctx,
           fx,
@@ -909,7 +1092,7 @@ export class BattleRenderer {
       }
       this.drawFighters(ctx, t, k, scale * this.px);
       if (look.particles) drawSparks(ctx, fx, t, scene.seed, k, this.accents);
-      if (look.showDamageNumbers && phase === 'battle') this.drawDamageNumbers(ctx, t, k);
+      if (look.showDamageNumbers && phase === 'battle' && !this.escapeMode) this.drawDamageNumbers(ctx, t, k);
       ctx.restore();
 
       if (phase === 'battle' || phase === 'intro') {
@@ -939,4 +1122,12 @@ function wrapText(ctx: Ctx2D, text: string, maxW: number): string[] {
   }
   if (line) lines.push(line);
   return lines;
+}
+
+/** #RRGGBB plus alpha as an rgba() string. */
+function withAlphaHex(hex: string, a: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return `rgba(198,255,61,${a})`;
+  const v = parseInt(m[1], 16);
+  return `rgba(${(v >> 16) & 255},${(v >> 8) & 255},${v & 255},${a})`;
 }

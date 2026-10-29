@@ -4,13 +4,14 @@ import { BattlePlayer } from '../components/BattlePlayer';
 import { PresetStack } from '../components/PresetsDialog';
 import { Button } from '../components/ui/Button';
 import { STARTER } from '../data/countries';
-import { DEFAULT_BASE_DAMAGE, simulate } from '../engine/sim';
+import { simulate } from '../engine/sim';
+import { tune } from '../engine/tuning';
 import { WINNER_HOLD_SEC } from '../engine/timeline';
 import { Rng } from '../engine/rng';
 import type { Fighter } from '../engine/types';
 import { loadSceneFighters } from '../lib/battle';
 import { buildScene, type Scene } from '../render/scene';
-import { countryFighter, DEFAULT_LOOK, useApp } from '../store/app';
+import { countryFighter, DEFAULT_LOOK, DEFAULT_RULES, useApp } from '../store/app';
 import { useUi } from '../store/ui';
 import { navigate } from './router';
 
@@ -25,18 +26,13 @@ function useAmbientScene(): [Scene | null, () => void] {
     const picks: Fighter[] = [];
     while (picks.length < 10 && pool.length)
       picks.push(countryFighter(pool.splice(rng.int(pool.length), 1)[0]));
-    const result = simulate(
-      {
-        fighters: picks.map((f) => ({ id: f.id, hp: 100, size: 1, speed: 1.1, attack: 1 })),
-        arena: round % 3 === 2 ? 'rounded' : 'circle',
-        shrink: { enabled: true, startSec: 6, rate: 0.012 },
-        damageModel: 'impact',
-        baseDamage: DEFAULT_BASE_DAMAGE * 1.4,
-        damageRamp: 0.05,
-        seed: round * 104729,
-      },
-      { record: true, holdSec: WINNER_HOLD_SEC + 1 },
-    );
+    const { config } = tune({
+      fighters: picks.map((f) => ({ id: f.id, hp: 100, size: 1, speed: 1.1, attack: 1 })),
+      rules: { ...DEFAULT_RULES, seed: round * 104729, targetDurationSec: 28 },
+      intro: true,
+      outro: false,
+    });
+    const result = simulate(config, { record: true, holdSec: WINNER_HOLD_SEC + 1 });
     loadSceneFighters(picks).then((fighters) => {
       if (!live) return;
       setScene(
@@ -99,8 +95,8 @@ export function Home() {
             Clash
           </h1>
           <p className="mt-6 max-w-[34ch] text-lg leading-relaxed text-muted sm:text-xl">
-            Throw up to 64 countries into an arena, watch the physics decide a winner, and export a
-            Shorts-ready MP4 with sound.
+            Drop up to 64 countries into a circle with one rotating exit. The last flag inside wins. Export it
+            as a Shorts-ready MP4 with sound.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button

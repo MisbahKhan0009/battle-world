@@ -141,7 +141,7 @@ export function ExportDialog() {
 
   const copyMeta = async () => {
     if (!winner || !scene) return;
-    const { title, tags } = hashtagsFor(winner.name, scene.fighters.length);
+    const { title, tags } = hashtagsFor(winner.name, scene.fighters.length, scene.result.config.mode);
     try {
       await navigator.clipboard.writeText(`${title}\n\n${tags}`);
       setCopied(true);

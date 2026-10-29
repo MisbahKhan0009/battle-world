@@ -26,7 +26,8 @@ export const MAX_FIGHTERS = 64;
 export const MIN_FIGHTERS = 2;
 
 export const DEFAULT_RULES: Rules = {
-  mode: 'royale',
+  mode: 'escape',
+  gap: { size: 2, speedDeg: 45, direction: 'cw' },
   arena: 'circle',
   shrink: { enabled: true, startSec: 12, rate: 0.008 },
   damageModel: 'impact',
@@ -38,7 +39,7 @@ export const DEFAULT_RULES: Rules = {
 export const DEFAULT_LOOK: Look = {
   aspect: '9:16',
   theme: 'night',
-  title: 'Which country wins? 🔥',
+  title: 'Last flag inside wins 🔥',
   subtitle: 'Comment your country 👇',
   titleFont: 'display',
   titleSize: 'M',
@@ -184,7 +185,7 @@ export const useApp = create<State & Actions>()(
       applyPreset: (p) =>
         set({
           fighters: p.fighters.map((f) => ({ ...f })),
-          rules: { ...DEFAULT_RULES, ...p.rules, shrink: { ...DEFAULT_RULES.shrink, ...p.rules.shrink } },
+          rules: mergeRules(p.rules),
           look: { ...DEFAULT_LOOK, ...p.look },
           balanced: p.balanced ?? false,
         }),
@@ -209,14 +210,23 @@ export const useApp = create<State & Actions>()(
     }),
     {
       name: 'flag-clash',
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
+      // v2 switched the default game to "escape the circle".
+      migrate: (persisted, version) => {
+        const p = (persisted ?? {}) as Partial<State>;
+        if (version < 2 && p.rules) {
+          p.rules = { ...p.rules, mode: 'escape' };
+          if (p.look?.title === 'Which country wins? 🔥') p.look = { ...p.look, title: DEFAULT_LOOK.title };
+        }
+        return p as State & Actions;
+      },
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<State>;
         return {
           ...current,
           ...p,
-          rules: { ...DEFAULT_RULES, ...p.rules, shrink: { ...DEFAULT_RULES.shrink, ...p.rules?.shrink } },
+          rules: mergeRules(p.rules),
           look: { ...DEFAULT_LOOK, ...p.look },
           audio: { ...DEFAULT_AUDIO, ...p.audio },
           exportSettings: { ...DEFAULT_EXPORT, ...p.exportSettings },
@@ -226,6 +236,16 @@ export const useApp = create<State & Actions>()(
     },
   ),
 );
+
+/** Fills rule fields added in later versions (older presets and saved setups). */
+export function mergeRules(r: Partial<Rules> | undefined): Rules {
+  return {
+    ...DEFAULT_RULES,
+    ...r,
+    gap: { ...DEFAULT_RULES.gap, ...r?.gap },
+    shrink: { ...DEFAULT_RULES.shrink, ...r?.shrink },
+  };
+}
 
 /** Simulation-facing fighter stats (applies the Balanced toggle). */
 export function simFighters(fighters: Fighter[], balanced: boolean) {

@@ -1,4 +1,5 @@
-import { DEFAULT_BASE_DAMAGE, DEFAULT_RAMP, simulate } from './sim';
+import { ARENA_R } from './physics';
+import { computeRadii, DEFAULT_BASE_DAMAGE, DEFAULT_RAMP, simulate } from './sim';
 import { videoOverhead } from './timeline';
 import type { Rules, SimConfig, SimResult } from './types';
 
@@ -21,10 +22,22 @@ export type TuneResult = {
 const MAX_RUNS = 8;
 const TOLERANCE = 1;
 
+/** Opening half-angle (radians) for a width of `size` average flag diameters. */
+export function gapHalfAngle(fighters: SimConfig['fighters'], size: number): number {
+  const radii = computeRadii(fighters.map((f) => f.size));
+  const mean = radii.reduce((a, b) => a + b, 0) / Math.max(1, radii.length);
+  // Chord ~ arc for small angles: half-angle = (size * 2r) / (2R).
+  return (size * mean) / ARENA_R;
+}
+
 function baseConfig(input: TuneInput): SimConfig {
   const { rules } = input;
+  const gap = rules.gap ?? { size: 2, speedDeg: 45, direction: 'cw' };
+  const omega = ((gap.speedDeg * Math.PI) / 180) * (gap.direction === 'ccw' ? -1 : 1);
   return {
+    mode: rules.mode === 'royale' ? 'royale' : 'escape',
     fighters: input.fighters,
+    gap: { halfAngle: gapHalfAngle(input.fighters, gap.size), omega },
     arena: rules.arena,
     shrink: { ...rules.shrink },
     damageModel: rules.damageModel,
@@ -53,21 +66,26 @@ export function tune(input: TuneInput): TuneResult {
   // Normalize the ramp to the target so the late-game multiplier is the same as a 60s battle.
   const rampAtTarget = (input.rules.damageRamp || DEFAULT_RAMP) * (60 / winTarget);
 
+  const escape = base.mode === 'escape';
   const configFor = (k: number, directorT: number): SimConfig => ({
     ...base,
-    baseDamage: DEFAULT_BASE_DAMAGE * k,
-    damageRamp: rampAtTarget * k,
+    // Escape mode scales the opening; royale scales damage.
+    gap: escape ? { ...base.gap, halfAngle: base.gap.halfAngle * k } : base.gap,
+    baseDamage: escape ? base.baseDamage : DEFAULT_BASE_DAMAGE * k,
+    damageRamp: escape ? base.damageRamp : rampAtTarget * k,
     targetWinSec: directorT,
   });
 
   // The in-sim director does most of the pacing. Each probe (1) recalibrates base damage so
   // the director's average multiplier sits near 1 (natural-looking hits) and (2) corrects the
   // director's own deadline by the observed overshoot. The closest run wins.
-  let k = Math.min(2, 30 / winTarget);
+  let k = escape ? 1 : Math.min(2, 30 / winTarget);
   let directorT = winTarget;
   let best: { cfg: SimConfig; result: SimResult; err: number } | null = null;
   let runs = 0;
-  while (runs < MAX_RUNS) {
+  // Escape probes are cheap (no damage bookkeeping), so they get a few more tries.
+  const maxRuns = escape ? MAX_RUNS + 4 : MAX_RUNS;
+  while (runs < maxRuns) {
     const cfg = configFor(k, directorT);
     const result = simulate(cfg, { maxSec: winTarget * 4 + 30 });
     runs++;
@@ -75,7 +93,11 @@ export function tune(input: TuneInput): TuneResult {
     if (!best || Math.abs(err) < Math.abs(best.err)) best = { cfg, result, err };
     if (Math.abs(best.err) <= TOLERANCE && (runs >= 2 || Math.abs(Math.log(result.meanDirector)) < 0.4))
       break;
-    k *= Math.min(3, Math.max(0.33, result.meanDirector));
+    if (escape) {
+      // The director already spends speed and some opening width; widen (or narrow) the base
+      // opening only by what the observed error still asks for.
+      k *= Math.exp(Math.max(-0.7, Math.min(0.7, (2.5 * err) / winTarget)));
+    } else k *= Math.min(3, Math.max(0.33, result.meanDirector));
     directorT = Math.max(winTarget * 0.6, Math.min(winTarget * 1.3, directorT - err * 0.8));
   }
 

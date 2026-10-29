@@ -25,7 +25,16 @@ export type EffectsIndex = {
   hitDmgB: Float32Array;
   /** Per fighter: sorted times it took a hit. */
   hitsOf: Float64Array[];
-  elims: { t: number; i: number; by: number; x: number; y: number }[];
+  elims: {
+    t: number;
+    i: number;
+    by: number;
+    x: number;
+    y: number;
+    escaped: boolean;
+    vx: number;
+    vy: number;
+  }[];
 };
 
 export type Scene = {
@@ -74,7 +83,16 @@ export function buildEffectsIndex(result: SimResult, ids: string[]): EffectsInde
   fx.hitsOf = per.map((p) => Float64Array.from(p));
   for (const e of result.events) {
     if (e.type !== 'eliminate') continue;
-    fx.elims.push({ t: e.t, i: index.get(e.id)!, by: e.by ? index.get(e.by)! : -1, x: e.x, y: e.y });
+    fx.elims.push({
+      t: e.t,
+      i: index.get(e.id)!,
+      by: e.by ? index.get(e.by)! : -1,
+      x: e.x,
+      y: e.y,
+      escaped: !!e.escaped,
+      vx: e.vx ?? 0,
+      vy: e.vy ?? 0,
+    });
   }
   return fx;
 }

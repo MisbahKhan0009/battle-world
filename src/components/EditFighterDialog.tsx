@@ -26,6 +26,7 @@ export function EditFighterDialog({
   const fighter = useApp((s) => s.fighters.find((f) => f.id === fighterId) ?? null);
   const update = useApp((s) => s.updateFighter);
   const balanced = useApp((s) => s.balanced);
+  const escapeMode = useApp((s) => s.rules.mode === 'escape');
   const [file, setFile] = useState<File | null>(null);
   const [picking, setPicking] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -117,6 +118,11 @@ export function EditFighterDialog({
                 Balanced mode is on, so stats below are ignored in battle.
               </p>
             )}
+            {!balanced && escapeMode && (
+              <p className="rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted">
+                In Escape the circle only size and speed matter. HP and attack apply to Battle royale.
+              </p>
+            )}
             <Slider
               label="HP"
               value={fighter.hp}
@@ -124,7 +130,7 @@ export function EditFighterDialog({
               max={500}
               step={10}
               onChange={(hp) => set({ hp })}
-              disabled={balanced}
+              disabled={balanced || escapeMode}
             />
             <Slider
               label="Size"
@@ -154,7 +160,7 @@ export function EditFighterDialog({
               step={0.05}
               onChange={(attack) => set({ attack })}
               format={(v) => `${v.toFixed(2)}×`}
-              disabled={balanced}
+              disabled={balanced || escapeMode}
             />
           </div>
 

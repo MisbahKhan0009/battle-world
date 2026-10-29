@@ -39,7 +39,8 @@ export function buildCues(scene: Scene): Cue[] {
     cues.push({
       at,
       sound: `hit${variant}` as SoundId,
-      gain: 0.22 + 0.6 * f,
+      // Bumps are softer in escape mode, where collisions do no damage.
+      gain: (0.22 + 0.6 * f) * (scene.result.config.mode === 'escape' ? 0.6 : 1),
       rate: (0.9 + 0.22 * hashFloat(seed, k, 902)) * timeline.speedAt(at),
       pan: Math.max(-0.6, Math.min(0.6, (fx.hitX[k] / ARENA_R) * 0.6)),
     });
@@ -48,8 +49,8 @@ export function buildCues(scene: Scene): Cue[] {
     const at = timeline.videoAt(e.t);
     cues.push({
       at,
-      sound: 'elim',
-      gain: 0.85,
+      sound: e.escaped ? 'exit' : 'elim',
+      gain: e.escaped ? 0.75 : 0.85,
       rate: 0.95 + 0.1 * hashFloat(seed, e.i, 903),
       pan: (e.x / ARENA_R) * 0.4,
     });

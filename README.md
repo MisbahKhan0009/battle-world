@@ -1,8 +1,15 @@
 # Flag Clash
 
-Build physics flag battles for YouTube Shorts and regular videos, right in the browser. Pick a roster of
+Build physics flag videos for YouTube Shorts and regular videos, right in the browser. Pick a roster of
 up to 64 countries (or your own images), watch a deterministic physics battle play out, and export it as an
 MP4 with sound effects and music.
+
+Two game modes:
+
+- **Escape the circle** (default): flags bounce inside a fixed circle with one small opening that rotates
+  around the rim. A flag that slips out through the opening is out. The last flag inside wins.
+  Flags never damage each other.
+- **Battle royale**: flags lose HP when they collide. The last flag standing wins.
 
 No backend, no login. Everything is saved in your browser and the app works offline after the first visit.
 
@@ -59,7 +66,18 @@ src/
   particles, shards, confetti, screen shake and camera moves are computed analytically from events and a
   stateless hash, so scrubbing works and the export matches the preview frame for frame.
 
-### Physics
+### Escape physics
+
+- The rim is a fixed circle minus the opening: the solid part is an arc (discs reflect off it), and the
+  opening's two edges are point obstacles that move with the rotation (collisions use the edge velocity).
+- A flag is out once its center crosses the rim inside the opening. Crossing anywhere else is impossible:
+  the arc pushes it back. A test checks every exit point lies inside the opening.
+- Angles use deterministic polynomial sin/cos (error below 1e-8) so replays stay bit-identical.
+- Pacing keeps the opening small where it can: to hit a target length the director first speeds every
+  flag up (up to 2×), and only widens the opening (up to 2.5×) if that is not enough. Once a winner is
+  decided the opening closes.
+
+### Battle royale physics
 
 - Circle bodies with mass proportional to area, positional correction plus impulse resolution
   (restitution 0.95), uniform spatial-hash broad phase, rounded-box SDF walls for square and rounded arenas.
@@ -71,9 +89,10 @@ src/
 
 ### Duration tuning
 
-Battles are chaotic, so a pure binary search over damage is unreliable. Tuned battles use a deterministic
-pacing director inside the sim (the "AI director" technique from games): it compares the remaining HP pool
-and head count with a planned curve and nudges a smoothed damage multiplier. The tuner then runs up to 8
+Battles are chaotic, so a pure binary search is unreliable. Tuned battles use a deterministic pacing
+director inside the sim (the "AI director" technique from games): it compares progress (head count, plus
+the HP pool in battle royale) with a planned curve and nudges a smoothed multiplier (damage in battle
+royale; speed, then opening width, in escape mode). The tuner then runs up to 8
 fast headless probes to calibrate base damage and correct the director's deadline. Tests check that 8 to 64
 fighters land within ±3 s of 30, 45 and 58 s targets; 64 fighters tune in well under a second.
 

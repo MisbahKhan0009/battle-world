@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'vitest';
-import { ARENA_R, wallContact } from './physics';
+import { ARENA_R, dcos, dsin, wallContact } from './physics';
 import { Rng } from './rng';
 import { DT, Simulation, simulate } from './sim';
 import { Timeline } from './timeline';
 import { tune } from './tuning';
-import type { ArenaShape, Rules, SimConfig } from './types';
+import type { ArenaShape, GameMode, Rules, SimConfig } from './types';
 
 function roster(n: number, seed = 1) {
   const rng = new Rng(seed);
@@ -19,7 +19,9 @@ function roster(n: number, seed = 1) {
 
 function config(n: number, overrides: Partial<SimConfig> = {}): SimConfig {
   return {
+    mode: 'royale',
     fighters: roster(n),
+    gap: { halfAngle: 0.12, omega: 0.8 },
     arena: 'circle',
     shrink: { enabled: true, startSec: 8, rate: 0.01 },
     damageModel: 'impact',
@@ -160,9 +162,61 @@ describe('timeline', () => {
   });
 });
 
-describe('duration tuning', () => {
+describe('escape mode', () => {
+  const escapeConfig = (n: number, seed: number): SimConfig =>
+    config(n, { mode: 'escape', seed, gap: { halfAngle: 0.14, omega: 0.9 } });
+
+  test('dsin/dcos match Math.sin/cos closely', () => {
+    for (let a = -20; a < 20; a += 0.0137) {
+      expect(Math.abs(dsin(a) - Math.sin(a))).toBeLessThan(1e-8);
+      expect(Math.abs(dcos(a) - Math.cos(a))).toBeLessThan(1e-8);
+    }
+  });
+
+  test('flags only leave through the opening, never through the solid rim', () => {
+    for (const seed of [1, 2, 3]) {
+      const sim = new Simulation({ ...escapeConfig(24, seed), targetWinSec: 40 });
+      let escapes = 0;
+      for (let s = 0; s < 120 * 900 && !sim.done; s++) {
+        const before = sim.events.length;
+        sim.step();
+        for (const e of sim.events.slice(before)) {
+          if (e.type !== 'eliminate') continue;
+          escapes++;
+          expect(e.escaped).toBe(true);
+          // Exit point must be inside the opening (small tolerance for the step size).
+          const d = Math.hypot(e.x, e.y);
+          const cosToGap = (e.x * Math.cos(sim.gapAngle) + e.y * Math.sin(sim.gapAngle)) / d;
+          expect(cosToGap).toBeGreaterThan(Math.cos(sim.gapHalf + 0.02));
+        }
+        // Everyone still in play stays within the rim (allowing the opening corridor).
+        for (let i = 0; i < sim.n; i++) {
+          if (!sim.alive[i]) continue;
+          expect(Math.hypot(sim.x[i], sim.y[i])).toBeLessThanOrEqual(ARENA_R + 1e-6);
+        }
+      }
+      expect(escapes).toBe(23);
+    }
+  });
+
+  test('no damage is dealt in escape mode', () => {
+    const r = simulate(escapeConfig(16, 9));
+    for (const e of r.events) if (e.type === 'hit') expect(e.dmgA + e.dmgB).toBe(0);
+    expect(r.events.filter((e) => e.type === 'winner').length).toBe(1);
+  });
+
+  test('same seed replays the same escape battle', () => {
+    const a = simulate(escapeConfig(32, 5), { record: true });
+    const b = simulate(escapeConfig(32, 5), { record: true });
+    expect(JSON.stringify(a.events)).toBe(JSON.stringify(b.events));
+    expect(a.track!.gapAngle).toEqual(b.track!.gapAngle);
+  });
+});
+
+describe.each<GameMode>(['escape', 'royale'])('duration tuning (%s)', (mode) => {
   const rules = (target: number, seed: number): Rules => ({
-    mode: 'royale',
+    mode,
+    gap: { size: 2, speedDeg: 45, direction: 'cw' },
     arena: 'circle',
     shrink: { enabled: true, startSec: 10, rate: 0.008 },
     damageModel: 'impact',

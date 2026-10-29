@@ -28,10 +28,17 @@ export function buildFilename(
   return name.replace(/\.(mp4|webm)$/i, '') || 'flag-clash';
 }
 
-export function hashtagsFor(winner: string, count: number): { title: string; tags: string } {
+export function hashtagsFor(
+  winner: string,
+  count: number,
+  mode: 'escape' | 'royale' = 'escape',
+): { title: string; tags: string } {
   const clean = winner.replace(/[^\p{L}\p{N}]+/gu, '');
   return {
-    title: `${count} countries battle it out. Can you guess the winner? ${winner} takes it!`,
+    title:
+      mode === 'escape'
+        ? `${count} countries, one rotating exit. Who stays inside the longest? ${winner} does!`
+        : `${count} countries battle it out. Can you guess the winner? ${winner} takes it!`,
     tags: `#shorts #flags #countryballs #flagbattle #countries #${clean.toLowerCase()} #geography #marblerace`,
   };
 }
