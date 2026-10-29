@@ -252,10 +252,18 @@ login in Windows Credential Manager under `com.flagclash.desktop`.
 <br />
 
 Requires Node 20+, Rust (stable) and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for Windows
-(WebView2 and the MSVC build tools).
+(WebView2 and the MSVC build tools). On a fresh PC, one script installs all of it with winget and then the npm
+packages:
+
+```powershell
+git clone https://github.com/MisbahKhan0009/battle-world.git
+cd battle-world
+powershell -ExecutionPolicy Bypass -File scripts\setup-windows.ps1
+```
+
+Then:
 
 ```bash
-npm install
 npm run desktop:dev     # run the app with hot reload
 npm run desktop:build   # build the Windows installer into src-tauri/target/release/bundle/nsis
 ```
