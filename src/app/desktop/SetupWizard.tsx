@@ -22,8 +22,7 @@ import {
   channelGames,
   connectedChannel,
   DEFAULT_SCHEDULE,
-  PROJECT_UPLOADS_PER_DAY,
-  splitPace,
+  CHANNEL_UPLOADS_PER_DAY,
 } from '../../autopilot/types';
 import { Button } from '../../components/ui/Button';
 import { inputClass, Toggle } from '../../components/ui/controls';
@@ -486,38 +485,41 @@ function ConnectBody({ state, update }: StepCtx) {
 }
 
 /** Overall paces, split evenly across the games that are switched on. */
-const PACES: { id: string; name: string; desc: string; shorts: number; videos: number }[] = [
+const PACES: { id: string; name: string; desc: string; perGame: number; long: number }[] = [
   {
-    id: 'max',
-    name: 'Maximum, still organic',
-    desc: 'About 5 Shorts a day and 4 long videos a week across your games. Uses the full default API quota.',
-    shorts: 5,
-    videos: 4,
+    id: 'daily',
+    name: 'Every game, every day',
+    desc: 'One Short a day from every game, plus one long video a day (the games take turns).',
+    perGame: 1,
+    long: 1,
   },
   {
-    id: 'steady',
-    name: 'Steady',
-    desc: '3 Shorts a day and 2 long videos a week across your games.',
-    shorts: 3,
-    videos: 2,
+    id: 'double',
+    name: 'Double Shorts',
+    desc: 'Two Shorts a day from every game, plus one long video a day.',
+    perGame: 2,
+    long: 1,
   },
   {
-    id: 'light',
-    name: 'Light',
-    desc: '1 Short a day and 1 long video a week.',
-    shorts: 1,
-    videos: 1,
+    id: 'shorts',
+    name: 'Shorts only',
+    desc: 'One Short a day from every game, no long videos.',
+    perGame: 1,
+    long: 0,
   },
 ];
 
-/** A preset's pace split across one channel's games. */
+/** A preset's pace for one channel's games. */
 const presetFor = (ch: Channel, p: (typeof PACES)[number]) =>
-  splitPace(p.shorts, p.videos, channelGames(ch, readyModuleIds()));
+  Object.fromEntries(
+    channelGames(ch, readyModuleIds()).map((id) => [id, { shortsPerDay: p.perGame, videosPerWeek: 1 }]),
+  );
 
 function PaceBody({ state, update }: StepCtx) {
   const current = PACES.find(
     (p) =>
       state.channels.length > 0 &&
+      (state.schedule.longPerDay ?? 0) === p.long &&
       state.channels.every((ch) => JSON.stringify(presetFor(ch, p)) === JSON.stringify(ch.games ?? {})),
   )?.id;
   const setPrivacy = (privacy: PostSettings['privacy']) => void update({ post: { ...state.post, privacy } });
@@ -533,11 +535,11 @@ function PaceBody({ state, update }: StepCtx) {
             onClick={() =>
               void update(
                 {
-                  schedule: { ...DEFAULT_SCHEDULE, ...state.schedule },
+                  schedule: { ...DEFAULT_SCHEDULE, ...state.schedule, longPerDay: p.long },
                   channels: state.channels.map((ch) => ({
                     ...ch,
                     games: presetFor(ch, p),
-                    dailyCap: PROJECT_UPLOADS_PER_DAY,
+                    dailyCap: Math.max(ch.dailyCap, CHANNEL_UPLOADS_PER_DAY),
                   })),
                 },
                 { replan: true },
@@ -560,8 +562,8 @@ function PaceBody({ state, update }: StepCtx) {
       </div>
       <p className="text-xs text-muted">
         Posts go out between 9:00 and 23:00 at different times every day, weighted toward the hours your
-        audience is most active, at least 75 minutes apart. You can fine-tune everything later on the
-        Autopilot page.
+        audience is most active, at least an hour apart. You can fine-tune everything later on the Autopilot
+        page.
       </p>
       <label className="block max-w-md space-y-2 text-[13px] font-medium">
         <span>Where most of your viewers live</span>

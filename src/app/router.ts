@@ -2,11 +2,11 @@ import { useSyncExternalStore } from 'react';
 
 export type Route =
   | 'home'
-  | 'studio'
-  | 'preview'
   | 'autopilot'
   | 'calendar'
+  | 'videos'
   | 'dashboard'
+  | 'battle'
   | 'race'
   | 'rings'
   | 'grow'
@@ -17,15 +17,15 @@ export type Route =
   | 'setup';
 
 const ROUTES: Route[] = [
-  'studio',
-  'preview',
   'autopilot',
   'dashboard',
+  'battle',
   'race',
   'rings',
   'grow',
   'paper',
   'calendar',
+  'videos',
   'modules',
   'channels',
   'settings',

@@ -32,7 +32,7 @@ const SHORT_TITLES = [
   'Marble Race: {n} Countries 🏁 Who Wins?',
   '{n} Flag Marbles Race to the Finish 🏁',
   'Which Country Wins the Marble Race? 🤔',
-  'Can {fav} Win the Marble Race? 🏁',
+  'Pick Your Marble Before the Start 🏁',
   '{group} Marble Race 🌍 ({n} Countries)',
   'Guess the Winner 👀 {n} Country Marbles',
   'Country Marble Race 🔥 Watch Till the End',
@@ -53,18 +53,17 @@ export function buildRaceMeta(
     format: ContentFormat;
     n: number;
     group: string;
-    fav: string;
     avoidTemplates?: string[];
     kids?: boolean;
   },
 ): VideoMeta & { template: string } {
-  const { format, n, group, fav } = args;
+  const { format, n, group } = args;
   const template = pickFresh(
     rng,
     format === 'short' ? SHORT_TITLES : VIDEO_TITLES,
     args.avoidTemplates ?? [],
   );
-  let title = fill(template, { n: String(n), group, fav });
+  let title = fill(template, { n: String(n), group });
   if (format === 'short') title = `${title} #shorts`;
   title = title.slice(0, 100);
   const hashtags = ['#marblerace', '#marblerun', '#countries', '#flags'];
@@ -114,12 +113,10 @@ export function planMarbleRace(
     GAME_THEMES['marble-race'],
     same.slice(-1).map((r) => r.theme as Look['theme']),
   );
-  const fav = pick(rng, fighters).name;
   const { template, ...meta } = buildRaceMeta(rng, {
     format: job.format,
     n: fighters.length,
     group,
-    fav,
     avoidTemplates: mine.slice(-6).map((r) => r.template ?? ''),
     kids: job.kids,
   });

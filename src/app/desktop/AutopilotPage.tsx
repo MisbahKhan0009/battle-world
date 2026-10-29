@@ -6,8 +6,11 @@ import { AUDIENCE_ZONES } from '../../autopilot/engagement';
 import type { Autopilot } from '../../autopilot/engine';
 import { dayKey, parseDayKey } from '../../autopilot/planner';
 import {
+  DEFAULT_PREPARE,
+  MAX_AHEAD_DAYS,
   PROJECT_UPLOADS_PER_DAY,
   type AutopilotState,
+  type PrepareSettings,
   type Channel,
   type ContentFormat,
   type ModulePace,
@@ -372,7 +375,8 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
     },
     { shorts: 0, videos: 0 },
   );
-  const perDayAvg = totals.shorts + totals.videos / 7;
+  const daily = draft.longPerDay !== undefined;
+  const perDayAvg = totals.shorts + (daily ? (games.length ? draft.longPerDay! : 0) : totals.videos / 7);
   const overCap = !!cd && perDayAvg > cd.dailyCap;
   const week = channel ? upcomingWeek(state, channel.id) : {};
   // The Google quota is shared by every channel on the same keys.
@@ -381,7 +385,9 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
     .reduce((sum, c) => {
       const d = chDraft[c.id];
       if (!d) return sum;
-      const asked = Object.values(d.games).reduce((a, p) => a + p.shortsPerDay + p.videosPerWeek / 7, 0);
+      const asked =
+        Object.values(d.games).reduce((a, p) => a + p.shortsPerDay + (daily ? 0 : p.videosPerWeek / 7), 0) +
+        (daily && Object.keys(d.games).length ? draft.longPerDay! : 0);
       return sum + Math.min(d.dailyCap, asked);
     }, 0);
   const setCh = (patch: Partial<Pick<Channel, 'games' | 'dailyCap'>>) =>
@@ -392,7 +398,7 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
   return (
     <Card
       title="Schedule"
-      note="Every channel posts its own games. Defaults post as often as YouTube's API quota allows while still looking natural."
+      note="By default every game posts one Short a day, and one long video a day takes turns between the games."
     >
       <div className="space-y-6">
         <ReplanBar dirty={dirty} busy={busy} onReplan={() => void replan()} onReset={reset} />
@@ -432,6 +438,22 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
                 No games on this channel yet. Pick them on the Channels page.
               </p>
             )}
+            {daily && games.length > 0 && (
+              <div className="space-y-2 rounded-xl bg-surface-2/50 p-4 ring-1 ring-line">
+                <Stepper
+                  label="Long videos"
+                  hint="the games take turns"
+                  value={draft.longPerDay!}
+                  min={0}
+                  max={3}
+                  unit="a day"
+                  onChange={(longPerDay) => apply({ ...draft, longPerDay })}
+                />
+                <p className="text-xs text-muted">
+                  Next 7 days: {games.map((m) => `${m.name} ${week[`${m.id}:video`] ?? 0}`).join(', ')}.
+                </p>
+              </div>
+            )}
             {games.map((m) => {
               const pace = cd!.games[m.id];
               return (
@@ -451,14 +473,16 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
                     unit="a day"
                     onChange={(v) => setPace(m.id, { shortsPerDay: v })}
                   />
-                  <Stepper
-                    label="Long videos"
-                    value={pace.videosPerWeek}
-                    min={0}
-                    max={14}
-                    unit="a week"
-                    onChange={(v) => setPace(m.id, { videosPerWeek: v })}
-                  />
+                  {!daily && (
+                    <Stepper
+                      label="Long videos"
+                      value={pace.videosPerWeek}
+                      min={0}
+                      max={14}
+                      unit="a week"
+                      onChange={(v) => setPace(m.id, { videosPerWeek: v })}
+                    />
+                  )}
                   <p className="text-xs text-muted">
                     Planned for the next 7 days:{' '}
                     <span className="text-text tabular">{week[`${m.id}:short`] ?? 0}</span> Shorts,{' '}
@@ -472,14 +496,17 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
               hint="for this channel"
               value={cd!.dailyCap}
               min={1}
-              max={20}
+              max={50}
               unit="a day"
               onChange={(dailyCap) => setCh({ dailyCap })}
             />
             <p className="text-xs text-muted">
-              Together: {totals.shorts} Shorts a day and {totals.videos} long videos a week on this channel
-              (about {perDayAvg.toFixed(1)} posts a day). Its games share one timeline, so posts never
-              overlap, keep the minimum gap, and alternate between games.
+              Together: {totals.shorts} Shorts a day and{' '}
+              {daily
+                ? `${draft.longPerDay} long video${draft.longPerDay === 1 ? '' : 's'} a day`
+                : `${totals.videos} long videos a week`}{' '}
+              on this channel (about {perDayAvg.toFixed(1)} posts a day). Its games share one timeline, so
+              posts never overlap, keep the minimum gap, and alternate between games.
             </p>
             {overCap && (
               <p className="rounded-xl bg-hp-mid/10 p-3 text-xs text-hp-mid ring-1 ring-hp-mid/30">
@@ -493,7 +520,7 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
               hint="shared by every channel"
               value={draft.projectCap ?? PROJECT_UPLOADS_PER_DAY}
               min={1}
-              max={30}
+              max={PROJECT_UPLOADS_PER_DAY}
               unit="a day"
               onChange={(projectCap) => apply({ ...draft, projectCap })}
             />
@@ -502,8 +529,7 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
               {projectPerDay > (draft.projectCap ?? PROJECT_UPLOADS_PER_DAY) + 0.01
                 ? `Each day keeps ${draft.projectCap ?? PROJECT_UPLOADS_PER_DAY}, shared fairly between the channels and their games.`
                 : 'That fits.'}{' '}
-              Your Google project allows about {PROJECT_UPLOADS_PER_DAY} a day (10,000 API units, about 1,600
-              per upload); raise this only after Google approves more quota.
+              Your Google project can upload {PROJECT_UPLOADS_PER_DAY} videos a day.
             </p>
           </div>
         )}
@@ -599,6 +625,113 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
             onChange={(madeForKids) => applyPost({ ...post, madeForKids })}
           />
         </div>
+      </div>
+    </Card>
+  );
+}
+
+const WEEKDAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+/** Preparing ahead: every day or week at a set time, hands-off mode, and review before upload. */
+function AutomationCard({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
+  const prep = state.prepare ?? DEFAULT_PREPARE;
+  const set = (patch: Partial<PrepareSettings>) => {
+    const next = { ...prep, ...patch };
+    // Uploading ahead means YouTube publishes each video at its time.
+    const ahead = next.auto !== 'off' || next.handsOffDays > 0;
+    void ap.update({
+      prepare: next,
+      ...(ahead && state.post.privacy === 'public' && !state.post.publishViaYouTube
+        ? { post: { ...state.post, publishViaYouTube: true } }
+        : {}),
+    });
+  };
+  const time = minutesToTime(prep.atMin);
+  const shown = new Date(2000, 0, 1, Math.floor(prep.atMin / 60), prep.atMin % 60).toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  return (
+    <Card
+      title="Prepare ahead"
+      note="Videos are rendered and uploaded before their day, scheduled on YouTube for their own time, so the computer can be off when they go out."
+    >
+      <div className="space-y-5">
+        <div className="space-y-2">
+          <span className="text-[13px] font-medium">Automatically</span>
+          <Segmented<PrepareSettings['auto']>
+            label="Prepare ahead automatically"
+            value={prep.auto}
+            onChange={(auto) => set({ auto })}
+            options={[
+              { value: 'off', label: 'Off' },
+              { value: 'daily', label: 'Every day' },
+              { value: 'weekly', label: 'Every week' },
+            ]}
+          />
+          {prep.auto !== 'off' && (
+            <div className="grid grid-cols-2 gap-3">
+              {prep.auto === 'weekly' && (
+                <select
+                  aria-label="Day of the week"
+                  value={prep.weekday}
+                  onChange={(e) => set({ weekday: Number(e.target.value) })}
+                  className="h-10 w-full rounded-xl border border-line-strong bg-bg px-3 text-sm"
+                >
+                  {WEEKDAY_NAMES.map((d, i) => (
+                    <option key={d} value={i}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <input
+                type="time"
+                aria-label="Time"
+                value={time}
+                onChange={(e) => set({ atMin: timeToMinutes(e.target.value) })}
+                className="h-10 w-full rounded-xl border border-line-strong bg-bg/60 px-3 text-sm tabular"
+              />
+            </div>
+          )}
+          <p className="text-xs text-muted">
+            {prep.auto === 'daily'
+              ? `Every day at ${shown}, the next day's videos are rendered and scheduled. A good time is before you go to bed.`
+              : prep.auto === 'weekly'
+                ? `Every ${WEEKDAY_NAMES[prep.weekday]} at ${shown}, the next 7 days are rendered and scheduled.`
+                : 'Off: each video is rendered a few hours before its time while the app runs. Use Render and upload on the Videos page to prepare days by hand.'}
+          </p>
+        </div>
+        <div className="space-y-3 border-t border-line pt-5">
+          <Toggle
+            label="Hands-off mode"
+            description="Always keeps the coming days rendered and scheduled on YouTube. If you cannot open the app for a while, the channel keeps posting."
+            checked={prep.handsOffDays > 0}
+            onChange={(on) => set({ handsOffDays: on ? 7 : 0 })}
+          />
+          {prep.handsOffDays > 0 && (
+            <Stepper
+              label="Days ahead"
+              hint="up to 30"
+              value={prep.handsOffDays}
+              min={1}
+              max={MAX_AHEAD_DAYS}
+              unit="days"
+              onChange={(handsOffDays) => set({ handsOffDays })}
+            />
+          )}
+        </div>
+        <div className="border-t border-line pt-5">
+          <Toggle
+            label="Review before upload"
+            description="Rendered videos wait on the Videos page until you approve them. Leave off for hands-off posting."
+            checked={prep.review}
+            onChange={(review) => set({ review })}
+          />
+        </div>
+        <Button variant="secondary" onClick={() => navigate('videos')}>
+          Open Videos
+        </Button>
       </div>
     </Card>
   );
@@ -739,6 +872,7 @@ export function AutopilotPage() {
           <History state={state} onOpen={setOpenId} />
         </div>
         <div className="space-y-5">
+          <AutomationCard ap={ap} state={state} />
           <ScheduleForm ap={ap} state={state} />
         </div>
       </div>

@@ -6,10 +6,14 @@ import { useSyncExternalStore } from 'react';
 import { Autopilot, type Activity, type Backend } from '../autopilot/engine';
 import {
   assignNewGames,
+  CHANNEL_UPLOADS_PER_DAY,
   DEFAULT_PACE,
+  DEFAULT_PREPARE,
+  DEFAULT_SCHEDULE,
   defaultState,
   LEGACY_GAMES,
   type AutopilotState,
+  type Channel,
   type ScheduleSettings,
 } from '../autopilot/types';
 import { moduleById, readyModuleIds } from '../modules/registry';
@@ -19,8 +23,38 @@ import { musicFor } from './music';
 let instance: Autopilot | null = null;
 let starting: Promise<Autopilot> | null = null;
 
+/**
+ * The one-channel plan: every game posts one Short a day and one long video a day takes
+ * turns between them. A single channel gets every game; with several, each keeps its games.
+ */
+function toPlanV2(
+  schedule: ScheduleSettings,
+  channels: Channel[],
+): { schedule: ScheduleSettings; channels: Channel[] } {
+  const ready = readyModuleIds();
+  const one = { shortsPerDay: 1, videosPerWeek: 1 };
+  return {
+    schedule: {
+      ...schedule,
+      perModule: Object.fromEntries(ready.map((id) => [id, { ...one }])),
+      longPerDay: 1,
+      dailyCap: CHANNEL_UPLOADS_PER_DAY,
+      projectCap: DEFAULT_SCHEDULE.projectCap,
+      varyDaily: false,
+      minGapMin: Math.min(schedule.minGapMin, DEFAULT_SCHEDULE.minGapMin),
+    },
+    channels: channels.map((c) => ({
+      ...c,
+      dailyCap: Math.max(c.dailyCap, CHANNEL_UPLOADS_PER_DAY),
+      games: Object.fromEntries(
+        (channels.length === 1 ? ready : Object.keys(c.games ?? {})).map((id) => [id, { ...one }]),
+      ),
+    })),
+  };
+}
+
 function mergeState(raw: string | null, outputDir: string): AutopilotState {
-  const base = { ...defaultState(outputDir), knownGames: readyModuleIds() };
+  const base = { ...defaultState(outputDir), knownGames: readyModuleIds(), planVersion: 2 };
   if (!raw) return base;
   try {
     const p = JSON.parse(raw) as Partial<AutopilotState>;
@@ -60,15 +94,21 @@ function mergeState(raw: string | null, outputDir: string): AutopilotState {
     if (assigned) channels = assigned;
     // The all-channels daily limit is new: plan the week again so it applies right away.
     const newCap = !!old && old.projectCap === undefined;
-    const replan = migrate || needGames || !!assigned || newCap;
+    let schedule: ScheduleSettings = { ...base.schedule, ...restSchedule, perModule };
+    const v2 = (p.planVersion ?? 1) < 2;
+    if (v2) ({ schedule, channels } = toPlanV2(schedule, channels));
+    const replan = migrate || needGames || !!assigned || newCap || v2;
     return {
       ...base,
       ...p,
       channels,
+      planVersion: 2,
+      prepare: { ...DEFAULT_PREPARE, ...p.prepare },
+      batch: p.batch ?? null,
       ...(replan
         ? { slots: (p.slots ?? []).filter((s) => s.status !== 'planned' || s.manual), plannedDays: {} }
         : {}),
-      schedule: { ...base.schedule, ...restSchedule, perModule },
+      schedule,
       // Made for kids became the default; apply it once to existing installs too.
       post: { ...base.post, ...p.post, ...(p.kidsDefaulted ? {} : { madeForKids: true }) },
       kidsDefaulted: true,
@@ -184,6 +224,10 @@ export function startAutopilot(): Promise<Autopilot> {
       const s = ap.snapshot;
       if (s) void ap.update({ running: !s.running });
     });
+    // Rendered videos can be played in the app.
+    void desktop.allowMedia(st.outputDir).catch(() => undefined);
+    ap.subscribe(() => watchBatch(ap));
+    watchBatch(ap);
     // Fallback timer in case the heartbeat is missed.
     setInterval(() => void ap.tick(), 60_000);
     // Channel totals every 3 hours for the dashboard's growth charts.
@@ -194,6 +238,46 @@ export function startAutopilot(): Promise<Autopilot> {
     return ap;
   })();
   return starting;
+}
+
+/** Seconds of warning before the computer shuts down or sleeps after a batch. */
+export const POWER_COUNTDOWN_SEC = 60;
+
+/** A shutdown or sleep that is counting down after a finished batch (cancellable in the app). */
+let power: { kind: 'shutdown' | 'sleep'; at: number; timer: ReturnType<typeof setTimeout> } | null = null;
+
+function watchBatch(ap: Autopilot): void {
+  const b = ap.snapshot?.batch;
+  if (!b?.finishedAt || b.afterHandled || power) return;
+  if (b.after === 'nothing') {
+    void ap.batchHandled();
+    return;
+  }
+  const kind = b.after;
+  power = {
+    kind,
+    at: Date.now() + POWER_COUNTDOWN_SEC * 1000,
+    timer: setTimeout(() => {
+      power = null;
+      void ap.batchHandled().then(() => desktop.powerAction(kind));
+      notify();
+    }, POWER_COUNTDOWN_SEC * 1000),
+  };
+  void desktop.showWindow().catch(() => undefined);
+  notify();
+}
+
+/** Stops a pending shutdown or sleep. */
+export function cancelPower(): void {
+  if (!power) return;
+  clearTimeout(power.timer);
+  power = null;
+  void instance?.batchHandled();
+  notify();
+}
+
+export function pendingPower(): { kind: 'shutdown' | 'sleep'; at: number } | null {
+  return power && { kind: power.kind, at: power.at };
 }
 
 let version = 0;

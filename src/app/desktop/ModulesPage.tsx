@@ -130,137 +130,137 @@ export function ModulesPage() {
   const { ap, state } = useAutopilot();
   const desktop = isDesktop();
   return (
-    <DesktopLayout title="Modules">
+    <DesktopLayout title="Games">
       <p className="mb-6 max-w-[64ch] text-sm text-muted">
-        Each module is a game that renders complete videos on its own. Every channel posts its own games (two
-        per channel works best); pick which channels a game posts on here or on the Channels page.
+        Each game renders complete videos on its own. Your channel posts every game: one Short a day each, and
+        the long video of the day takes turns between them. Watch a sample of any game below.
       </p>
       <div className="grid max-w-[1200px] items-start gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {MODULES.map((m) => {
-          const ready = m.status === 'ready';
-          const onChannels = state?.channels.filter((c) => m.id in (c.games ?? {})) ?? [];
-          return (
-            <article key={m.id} className={cn('panel flex flex-col overflow-hidden', !ready && 'opacity-80')}>
-              <div className="relative aspect-[16/9]">
-                <ModuleArt m={m} />
-                {!ready && (
-                  <span className="absolute top-3 left-3 rounded-full bg-black/60 px-2.5 py-1 text-[11px] text-text backdrop-blur">
-                    Coming next
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-1 flex-col p-5">
-                <h2
-                  className="font-display text-3xl leading-none"
-                  style={{ color: ready ? m.accent : undefined }}
-                >
-                  {m.name}
-                </h2>
-                <p className="mt-1 text-sm text-text">{m.tagline}</p>
-                <p className="mt-2 flex-1 text-[13px] leading-relaxed text-muted">{m.description}</p>
-                <p className="mt-3 text-xs text-muted">
-                  {m.formats.map((f) => (f === 'short' ? 'Shorts' : 'Long videos')).join(' and ')}
-                </p>
-                {!ready && PLANS[m.id] && (
-                  <details className="group mt-4 border-t border-line pt-4 text-[13px]">
-                    <summary className="flex cursor-pointer list-none items-center gap-1.5 font-medium text-text">
-                      <ChevronRight size={14} className="transition-transform group-open:rotate-90" />
-                      See the plan
-                    </summary>
-                    <div className="mt-3 space-y-3 text-muted">
-                      <p className="text-text">{PLANS[m.id].pitch}</p>
-                      {(
-                        [
-                          ['How it plays', PLANS[m.id].howItPlays],
-                          ['Simulation', PLANS[m.id].simulation],
-                          ['Videos', PLANS[m.id].video],
-                          ['Build steps', PLANS[m.id].steps],
-                        ] as const
-                      ).map(([title, items]) => (
-                        <div key={title}>
-                          <div className="mb-1 text-xs font-medium tracking-wide text-text uppercase">
-                            {title}
+        {[...MODULES.filter((x) => x.status === 'ready'), ...MODULES.filter((x) => x.status !== 'ready')].map(
+          (m) => {
+            const ready = m.status === 'ready';
+            const onChannels = state?.channels.filter((c) => m.id in (c.games ?? {})) ?? [];
+            return (
+              <article
+                key={m.id}
+                className={cn('panel flex flex-col overflow-hidden', !ready && 'opacity-80')}
+              >
+                <div className="relative aspect-[16/9]">
+                  <ModuleArt m={m} />
+                  {!ready && (
+                    <span className="absolute top-3 left-3 rounded-full bg-black/60 px-2.5 py-1 text-[11px] text-text backdrop-blur">
+                      Coming next
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-1 flex-col p-5">
+                  <h2
+                    className="font-display text-3xl leading-none"
+                    style={{ color: ready ? m.accent : undefined }}
+                  >
+                    {m.name}
+                  </h2>
+                  <p className="mt-1 text-sm text-text">{m.tagline}</p>
+                  <p className="mt-2 flex-1 text-[13px] leading-relaxed text-muted">{m.description}</p>
+                  <p className="mt-3 text-xs text-muted">
+                    {m.formats.map((f) => (f === 'short' ? 'Shorts' : 'Long videos')).join(' and ')}
+                  </p>
+                  {!ready && PLANS[m.id] && (
+                    <details className="group mt-4 border-t border-line pt-4 text-[13px]">
+                      <summary className="flex cursor-pointer list-none items-center gap-1.5 font-medium text-text">
+                        <ChevronRight size={14} className="transition-transform group-open:rotate-90" />
+                        See the plan
+                      </summary>
+                      <div className="mt-3 space-y-3 text-muted">
+                        <p className="text-text">{PLANS[m.id].pitch}</p>
+                        {(
+                          [
+                            ['How it plays', PLANS[m.id].howItPlays],
+                            ['Simulation', PLANS[m.id].simulation],
+                            ['Videos', PLANS[m.id].video],
+                            ['Build steps', PLANS[m.id].steps],
+                          ] as const
+                        ).map(([title, items]) => (
+                          <div key={title}>
+                            <div className="mb-1 text-xs font-medium tracking-wide text-text uppercase">
+                              {title}
+                            </div>
+                            <ul className="list-disc space-y-1 pl-4 leading-relaxed">
+                              {items.map((it) => (
+                                <li key={it}>{it}</li>
+                              ))}
+                            </ul>
                           </div>
-                          <ul className="list-disc space-y-1 pl-4 leading-relaxed">
-                            {items.map((it) => (
-                              <li key={it}>{it}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                )}
-                {ready && (
-                  <div className="mt-4 space-y-3 border-t border-line pt-4">
-                    {desktop && ap && state && state.channels.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="text-[13px] font-medium">Posts on</div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {state.channels.map((c) => {
-                            const on = m.id in (c.games ?? {});
-                            return (
-                              <button
-                                key={c.id}
-                                type="button"
-                                aria-pressed={on}
-                                onClick={() => {
-                                  const games = { ...(c.games ?? {}) };
-                                  if (on) delete games[m.id];
-                                  else
-                                    games[m.id] = {
-                                      ...(DEFAULT_PACE[m.id] ?? { shortsPerDay: 2, videosPerWeek: 2 }),
-                                    };
-                                  void ap.update(
-                                    {
-                                      channels: state.channels.map((x) =>
-                                        x.id === c.id ? { ...c, games } : x,
-                                      ),
-                                    },
-                                    { replan: true },
-                                  );
-                                }}
-                                className={cn(
-                                  'flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs ring-1 transition-colors',
-                                  on ? 'bg-surface-3 text-text' : 'text-muted ring-line hover:text-text',
-                                )}
-                                style={on ? { boxShadow: `inset 0 0 0 1.5px ${m.accent}` } : undefined}
-                              >
-                                {on && <Check size={12} />}
-                                {c.title}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <p className="text-xs text-muted">
-                          {onChannels.length
-                            ? onChannels
-                                .map(
-                                  (c) =>
-                                    `${c.title}: ${c.games[m.id].shortsPerDay} Shorts a day, ${c.games[m.id].videosPerWeek} long videos a week`,
-                                )
-                                .join('. ') + '. Change the pace on the Autopilot page.'
-                            : 'Not on any channel yet. Pick a channel above.'}
-                        </p>
+                        ))}
                       </div>
-                    )}
-                    {m.studioRoute && (
-                      <Button variant="secondary" onClick={() => navigate(m.studioRoute!)}>
-                        Open studio <ArrowUpRight size={14} />
-                      </Button>
-                    )}
-                    {m.previewRoute && (
-                      <Button variant="secondary" onClick={() => navigate(m.previewRoute!)}>
-                        Watch a sample {m.previewRoute === 'race' ? 'race' : 'game'}{' '}
-                        <ArrowUpRight size={14} />
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </article>
-          );
-        })}
+                    </details>
+                  )}
+                  {ready && (
+                    <div className="mt-4 space-y-3 border-t border-line pt-4">
+                      {desktop && ap && state && state.channels.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="text-[13px] font-medium">Posts on</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {state.channels.map((c) => {
+                              const on = m.id in (c.games ?? {});
+                              return (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  aria-pressed={on}
+                                  onClick={() => {
+                                    const games = { ...(c.games ?? {}) };
+                                    if (on) delete games[m.id];
+                                    else
+                                      games[m.id] = {
+                                        ...(DEFAULT_PACE[m.id] ?? { shortsPerDay: 2, videosPerWeek: 2 }),
+                                      };
+                                    void ap.update(
+                                      {
+                                        channels: state.channels.map((x) =>
+                                          x.id === c.id ? { ...c, games } : x,
+                                        ),
+                                      },
+                                      { replan: true },
+                                    );
+                                  }}
+                                  className={cn(
+                                    'flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs ring-1 transition-colors',
+                                    on ? 'bg-surface-3 text-text' : 'text-muted ring-line hover:text-text',
+                                  )}
+                                  style={on ? { boxShadow: `inset 0 0 0 1.5px ${m.accent}` } : undefined}
+                                >
+                                  {on && <Check size={12} />}
+                                  {c.title}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-xs text-muted">
+                            {onChannels.length
+                              ? onChannels
+                                  .map(
+                                    (c) =>
+                                      `${c.title}: ${c.games[m.id].shortsPerDay} Short${c.games[m.id].shortsPerDay === 1 ? '' : 's'} a day`,
+                                  )
+                                  .join('. ') + '. Change the pace on the Autopilot page.'
+                              : 'Not on any channel yet. Pick a channel above.'}
+                          </p>
+                        </div>
+                      )}
+                      {m.previewRoute && (
+                        <Button variant="secondary" onClick={() => navigate(m.previewRoute!)}>
+                          Watch a sample {m.previewRoute === 'race' ? 'race' : 'game'}{' '}
+                          <ArrowUpRight size={14} />
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </article>
+            );
+          },
+        )}
       </div>
     </DesktopLayout>
   );

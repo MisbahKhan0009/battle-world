@@ -31,13 +31,15 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
   in `buildProduction` (music only, no effects); a sidecar `.txt` credit goes into the description.
 - `src/export/` – WebCodecs worker + mp4-muxer, with a timer-driven WebM fallback.
 - `src/autopilot/` – `planner.ts` (organic daily plan, deterministic per channel+day, weighted by `engagement.ts`
-  audience-activity curves in the audience's time zone; each channel posts its own games (`Channel.games`, about 2
-  per channel, each with its own pace) on one non-overlapping timeline with the channel's `dailyCap`; the engine
-  plans with `channelGames` + `channelSchedule`; `schedule` holds the shared timing; `state.modules` and
-  `schedule.perModule` are legacy, migrated in `runtime.ts`; a newly released game goes once to a channel with room
-  via `assignNewGames` + `state.knownGames`; `planChannelsDay` shares `schedule.projectCap` (all channels, default 6 =
-  one Google project's quota) fairly between channels each day), `engine.ts` (render → upload → thumbnail state machine,
-  retries, quota handling, per-slot event log, `contentLog` history), `types.ts` (defaults). Tests in
+  audience-activity curves in the audience's time zone; one channel with every game is the default: each game posts
+  `shortsPerDay` Shorts (default 1) and `schedule.longPerDay` long videos a day take turns between the games (older
+  settings without `longPerDay` use each game's `videosPerWeek`); `planChannelsDay` shares `schedule.projectCap`
+  between channels; `planVersion` 2 migration in `runtime.ts`), `engine.ts` (render → upload → thumbnail state
+  machine, retries, quota pause until midnight Pacific (`uploadPausedUntil`), per-slot event log, `contentLog`
+  history; `horizons()` decides how far ahead to render and upload: just in time, `prepare.auto` daily/weekly at
+  `atMin`, `prepare.handsOffDays`, or a `batch` date range with an after-action; slots rendered for upload ahead get
+  `uploadAhead`; per-video controls `rerender`/`editSlot`/`approve`/`publishNow`/`restore`; `prepare.review` holds
+  uploads until approved), `types.ts` (defaults: 100 uploads a day per Google project, 15 per channel). Tests in
   `autopilot.test.ts`.
 - `src/modules/common.ts` – shared no-repeat rules: `chooseLineup` (counts, lineups, groups vs recent posts) and
   `freshenPair` (relabels the winning ball; country fighters/marbles are physically identical, so winners and final
@@ -75,20 +77,28 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
 - `src/export/production.ts` – builds the renderer + mixer for any game from its config (worker and fallback).
 - `src/modules/registry.ts` – content modules. Flag Battle, Marble Race, Ring Escape, Growing Ball and Paper Land
   are ready; territory-wars and black-hole are next. A new game also needs a `DEFAULT_PACE` entry. A module needs `status: 'ready'` and a `render(job, onProgress, signal)`.
-- `src/desktop/` – `bridge.ts` (typed Tauri invokes), `runtime.ts` (autopilot singleton + `useAutopilot` hook).
-- `src/app/desktop/` – Setup wizard, Autopilot, Calendar, Modules, Channels (per-channel games, limits, quota
-  banner), Settings screens, `PreviewPage.tsx` (Marble Race, Ring Escape, Growing Ball and Paper Land preview/export); `posts.tsx` is the live post timeline dialog. Hash router in `src/app/router.ts`.
+- `src/desktop/` – `bridge.ts` (typed Tauri invokes), `runtime.ts` (autopilot singleton + `useAutopilot` hook; runs a
+  finished batch's sleep/shutdown after a 60 s cancellable countdown shown by `PowerCountdown.tsx`).
+- `src/app/desktop/` – Setup wizard, Autopilot (prepare-ahead card + schedule), Videos (every video by day: play via
+  the asset protocol, edit, re-render, publish now, skip/restore, approve; "Render and upload" batch dialog; locked-
+  private warning from `lockedPrivate`), Calendar, Games (`ModulesPage.tsx`), Channels, Settings screens,
+  `PreviewPage.tsx` (a sample page for every game, with export); `posts.tsx` is the live post timeline dialog. There
+  is no Studio any more. Hash router in `src/app/router.ts`.
 - `src-tauri/src/` – OAuth loopback + PKCE (`oauth.rs`), tokens in Windows Credential Manager (`tokens.rs`),
-  resumable uploads (`youtube.rs`), files/state (`files.rs`), tray (`tray.rs`), app lifecycle + 30 s heartbeat (`lib.rs`).
+  resumable uploads (`youtube.rs`), files/state (`files.rs`), tray (`tray.rs`), app lifecycle + 30 s heartbeat,
+  `power_action` (shutdown/sleep, Windows), `media_allow` (asset protocol scope for the videos folder) and
+  `window_show` (`lib.rs`).
 
 ## Gotchas
 
 - `useSyncExternalStore` must get a stable, module-level `subscribe` (an inline one caused an infinite render loop).
 - Debug Tauri builds load `devUrl`; to test a debug binary against `dist`, build with
   `--features tauri/custom-protocol`.
-- YouTube: unaudited Google projects force uploads private; apps left in "Testing" lose refresh tokens after
-  7 days; quota is 10,000 units/day and an upload costs ~1,600, hence the daily cap of 6. The quota is per Google
-  project, so it is shared by every channel on the same keys.
+- YouTube: unaudited Google projects force uploads private (scheduled ones never go public on their own); apps left
+  in "Testing" lose refresh tokens after 7 days. Uploads have their own quota of 100 a day per Google project
+  (videos.insert costs 1 unit in that bucket); thumbnails (50 units) and reads come from the 10,000-unit pool. The
+  quota resets at midnight Pacific and is shared by every channel on the same keys.
+- Titles never name a country (`src/modules/titles.test.ts`).
 - Users bring their own Google OAuth client (Desktop app type); nothing secret is bundled. They can load it from
   Google's client_secret JSON (`src/desktop/clientSecret.ts`).
 - The YouTube API cannot create Community posts. Custom thumbnails need a verified channel and don't show in the

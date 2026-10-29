@@ -22,10 +22,8 @@ export type ContentModule = {
   formats: ContentFormat[];
   /** Brand color for the module card. */
   accent: string;
-  /** Route of the module's manual editor, if it has one. */
-  studioRoute?: 'studio';
-  /** Route of the module's preview page, if it has one. */
-  previewRoute?: 'race' | 'rings' | 'grow' | 'paper';
+  /** Route of the module's sample page, if it has one. */
+  previewRoute?: 'battle' | 'race' | 'rings' | 'grow' | 'paper';
   render?: (job: RenderJob, onProgress: (p: number) => void, signal: AbortSignal) => Promise<RenderResult>;
 };
 
@@ -43,7 +41,7 @@ export const MODULES: ContentModule[] = [
     status: 'ready',
     formats: ['short', 'video'],
     accent: '#C6FF3D',
-    studioRoute: 'studio',
+    previewRoute: 'battle',
     render: (job, onProgress, signal) =>
       import('./flagBattle/autopilot').then((m) => m.renderFlagBattle(job, onProgress, signal)),
   },

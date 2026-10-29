@@ -36,7 +36,7 @@ export type RingEscapePlan = {
 const SHORT_TITLES = [
   'Which Country Escapes the Rings First? 🌀',
   'Escape the Spinning Rings 🌀 {n} Countries',
-  'Can {fav} Escape First? 🌀',
+  'Only One Flag Gets Out First 🌀',
   '{group} Ring Escape 🌍 ({n} Countries)',
   'Guess Who Escapes First 👀 {n} Countries',
   'Ring Escape: {n} Countries 🔥 Watch Till the End',
@@ -58,18 +58,17 @@ export function buildRingsMeta(
     n: number;
     heats: number;
     group: string;
-    fav: string;
     avoidTemplates?: string[];
     kids?: boolean;
   },
 ): VideoMeta & { template: string } {
-  const { format, n, group, fav } = args;
+  const { format, n, group } = args;
   const template = pickFresh(
     rng,
     format === 'short' ? SHORT_TITLES : VIDEO_TITLES,
     args.avoidTemplates ?? [],
   );
-  let title = fill(template, { n: String(n), group, fav, h: String(args.heats) });
+  let title = fill(template, { n: String(n), group, h: String(args.heats) });
   if (format === 'short') title = `${title} #shorts`;
   title = title.slice(0, 100);
   const hashtags = ['#ringescape', '#satisfying', '#countries', '#flags'];
@@ -132,13 +131,11 @@ export function planRingEscape(
     GAME_THEMES['ring-escape'],
     same.slice(-1).map((r) => r.theme as Look['theme']),
   );
-  const fav = pick(rng, fighters).name;
   const { template, ...meta } = buildRingsMeta(rng, {
     format: job.format,
     n: fighters.length,
     heats: heats?.length ?? 0,
     group,
-    fav,
     avoidTemplates: mine.slice(-6).map((r) => r.template ?? ''),
     kids: job.kids,
   });

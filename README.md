@@ -29,13 +29,15 @@ human-looking schedule, while it sits quietly in the system tray.
 | | |
 | --- | --- |
 | 🎬 **Makes the videos** | Five games so far. **Flag Battle**: up to 64 country flags bounce inside a circle with one rotating exit; the last flag inside wins. **Marble Race**: flag marbles roll down a track of ramps, plinko pegs, spinners and bumpers; first across the line wins. **Ring Escape**: flag balls bounce inside spinning rings and shatter each one they slip through; first out of the last ring wins. **Growing Ball**: every bounce off the wall makes a flag bigger; when the arena is full, the biggest wins. **Paper Land**: like Paper.io, flags draw trails to claim land and cut each other's trails; when the clock runs out, the most land wins. No two posts repeat a winner, a lineup or even a flag count. |
-| 📺 **Several channels** | Connect as many YouTube channels as you like. Each channel posts its own games (two per channel works best) with its own pace and daily limit, and you can pause any of them. |
+| 📺 **One channel, every game** | Your channel posts every game: one Short a day from each game, plus one long video a day that takes turns between them. You can still connect more channels and split the games between them. |
 | 🖼️ **Spoiler-free thumbnails** | Every post gets its own cover ("WHO ESCAPES LAST?") made from the start of the battle, so the thumbnail never gives the winner away. |
-| 📅 **Posts on autopilot** | Each game on each channel has its own schedule (about 5 Shorts a day and 4 long videos a week per channel by default), all on one timeline per channel so posts never overlap, planned a full week ahead and timed for when your audience is most active. Everything is adjustable. |
+| 📅 **Posts on autopilot** | Every day's posts are planned ahead on one timeline so they never overlap, timed for when your audience is most active. Everything is adjustable. |
+| 🌙 **Prepare ahead, hands off** | Render and upload a day or up to 30 days at once (then sleep or shut down the PC), prepare the next day or week automatically at a set time, or switch on hands-off mode to always stay days ahead. Videos are scheduled on YouTube for their own time, so they go out even when the PC is off. |
+| 🎞️ **Every video under your control** | The Videos page lists every video by day: watch it, edit its title, description or time, make a new one, publish it now, skip it, or approve it first with review before upload. |
 | 📊 **Channel dashboard** | Subscribers and views over time, every upload against your typical result, which game performs best, your best hours to post, and your top videos, in one page. |
 | 🗓️ **Calendar and live tracking** | One calendar for every game and channel, color-coded with filters per game and per channel. Click any post to watch it render, upload and go live, step by step. |
 | 🔊 **Sound that fits** | Every game has its own sound and color world: Flag Battle's punchy hits and brass fanfare in lime, Marble Race's wooden clicks, start-light beeps and bell in cyan or race amber, Ring Escape's glass celesta and shatter in magenta, Growing Ball's water-drop bloops in coral, Paper Land's marimba and scissor snips in mint. All timed to the action. Prefer music? Point Settings at a folder of YouTube Audio Library tracks and videos use those instead. |
-| 🖥️ **Runs in the background** | Lives in the system tray, starts with Windows, renders each post a few hours ahead and lets YouTube publish it on the minute. |
+| 🖥️ **Runs in the background** | Lives in the system tray, starts with Windows, renders each post ahead and lets YouTube publish it on the minute. |
 | 🔒 **Your account stays yours** | Uses your own free Google Cloud project. Your sign-in is stored in Windows Credential Manager, never in plain files. |
 | 🧩 **More games coming** | Flag Battle, Marble Race, Ring Escape, Growing Ball and Paper Land are live. Territory Wars and Black Hole (like Hole.io) are next, each with a written plan in the app. |
 
@@ -153,33 +155,55 @@ extra to set up. **Refresh** reloads it; **YouTube Studio** opens your channel t
   one of its games. Great for a first test.
 - **Pause autopilot** stops new posts (also available from the tray icon).
 - **Recent posts** links each upload to YouTube and shows the reason if one failed.
-- **Schedule** (right column): pick a **channel** (when you have more than one), then each of its games has a card
-  with **−** and **+** buttons for **Shorts a day** and **long videos a week**, and how many of each are actually
-  planned for the next 7 days. Below them are the channel's **daily upload limit** and the total for all channels
-  against your Google quota. The posting hours and timing settings underneath apply to every channel. Changes stay
-  a draft until you click **Replan the week** (or **Reset** to undo): then the week, the calendar and the counts
-  update, and posts already rendering or uploaded are kept. If a channel's games together ask for more than its
-  daily limit, a warning explains that each day keeps the limit, trimmed fairly from the busiest game.
+- **Prepare ahead** (right column):
+  - **Automatically:** **Every day** at a time you pick (before bed is a good time), the next day's videos are
+    rendered and scheduled on YouTube; **Every week** does the next 7 days on the day you pick.
+  - **Hands-off mode** always keeps the next days (7 by default, up to 30) rendered and scheduled, so the channel keeps
+    posting even if you can't open the app for a while.
+  - **Review before upload** holds every rendered video on the Videos page until you approve it.
+- **Schedule:** **Long videos a day** (one by default; the games take turns) and, for each game, **Shorts a day**
+  (one by default), with how many of each are planned for the next 7 days. Below them are the channel's **daily
+  upload limit** and the total for all channels. The posting hours and timing settings underneath apply to every
+  channel. Changes stay a draft until you click **Replan the week** (or **Reset** to undo); posts already rendering
+  or uploaded are kept.
+
+### Videos
+
+<img src="docs/images/videos.jpg" alt="The Videos page: a batch preparing the next two days with a progress bar, and each day's Shorts and long video with their covers, games, times and buttons to approve, play, edit, make a new video, publish now and skip" width="100%" />
+
+Every video, day by day, with its cover, game, time and status. For each one you can:
+
+- **Play** the rendered file right in the app.
+- **Edit** its title, description or the time it goes out (until it is on YouTube).
+- **Make a new video** for the same slot (a fresh lineup and game), **Publish now**, **Skip**, or put a skipped one
+  back.
+- **Approve** it, when **Review before upload** is on (or **Approve all** at once).
+- **Open on YouTube** once it is up.
+
+**Render and upload** (top right) prepares a whole day or range now: pick **Tomorrow**, the **next 7, 14 or 30
+days**, or any dates. Choose **Render and upload** (scheduled on YouTube for each video's time) or **Render only**
+(watch and edit first; each one uploads a few hours before its time), and what the PC does **when it is done**: keep
+everything on, **sleep** or **shut down**, after a one-minute countdown you can cancel. YouTube allows 100 uploads a
+day per Google project; anything over that goes up after the daily reset. If uploads stay private after their time
+(Google projects that have not passed YouTube's API audit lock every upload as private), a banner says so and links
+to the audit form.
 
 ### Channels
 
 <img src="docs/images/channels.jpg" alt="The Channels page: two connected channels, each with its games, an on/off switch and a daily upload limit, under a banner with the total uploads a day against the Google quota" width="100%" />
 
-**Connect a YouTube channel** as often as you like: every channel gets its own card. On each card:
+One channel posting every game is the default: the first channel you connect gets every game, and a newly released
+game joins it automatically. You can still **connect more channels**; each gets its own card:
 
-- **Games on this channel:** click a game to add or remove it. Two games per channel works best, so each channel has
-  a clear identity for viewers and for YouTube. A new channel automatically gets games no other channel uses yet
-  (your first channel starts with Flag Battle and Marble Race, the second with Ring Escape and Growing Ball). When
-  an update adds a new game, it goes to a channel that still has room for one, once; after that it is yours to move.
-  With two full channels, Paper Land waits for you: add it on the **Modules** page or connect a third channel.
+- **Games on this channel:** click a game to add or remove it, or **Post every game here**. A later channel gets the
+  games no other channel posts yet.
 - **Autopilot posts here:** pause or resume one channel without touching the others.
-- **Daily upload limit** for that channel, and **Edit schedule** to set each game's pace on the Autopilot page.
+- **Daily upload limit** for that channel (15 by default), and **Edit schedule** for its pace.
 - **Disconnect** (the plug icon) stops posting there and removes its access.
 
-All channels share your one Google Cloud project, and its free quota allows about **6 uploads a day in total**.
-The card at the top sets **Uploads a day, all channels** (6 by default) and shows what your channels ask for. When
-they ask for more, every day keeps the limit, shared fairly between the channels and their games, so nothing fails
-for lack of quota. If Google [approves more quota](https://support.google.com/youtube/contact/yt_api_form), raise it.
+All channels share your one Google Cloud project, which can upload **100 videos a day** (its own upload quota; the
+other API calls, like custom thumbnails at 50 units each, use the separate 10,000-unit pool). The card at the top
+sets **Uploads a day, all channels**.
 
 ### Calendar
 
@@ -195,7 +219,7 @@ live.
 
 - **Google API credentials:** load them from the `client_secret_….json` file or paste them.
 - **Rendered videos:** the folder videos are saved to (default `Videos\Flag Clash`), and how many days to keep them
-  after posting (default 3; 0 deletes them right after upload).
+  after they go out (default 3; 0 deletes them right after upload).
 - **Background:** launch when you sign in to Windows, and keep running in the tray when the window closes (both on
   by default).
 - **Music:** turn on **Use music instead of the game sounds** and videos carry one track from your music folder
@@ -220,7 +244,7 @@ Windows by default so the schedule survives restarts; turn that off in **Setting
 Flag marbles race down a freshly generated track: zigzag **ramps**, **plinko** peg fields, rotating **spinners**,
 **bumpers** that kick, funnels, and **forks** where the field splits into two lanes. The camera follows the front of
 the race, the standings update live, a **FINAL STRETCH** banner marks the last section, close finishes get a
-**PHOTO FINISH** slow motion, and the video ends on the winner alone. Sounds are glassy clicks between marbles and dry wooden clicks on the track (no drum thuds); the start lights beep, a wooden ratchet runs into a photo finish, and the winner gets a tubular bell. Open **Modules, Marble Race, Watch a sample
+**PHOTO FINISH** slow motion, and the video ends on the winner alone. Sounds are glassy clicks between marbles and dry wooden clicks on the track (no drum thuds); the start lights beep, a wooden ratchet runs into a photo finish, and the winner gets a tubular bell. Open **Games, Marble Race, Watch a sample
 race** to play random races with sound and export one by hand.
 
 ### Ring Escape
@@ -232,7 +256,7 @@ the first ball through a gap **shatters** that ring for everyone, and the first 
 The camera follows the balls and widens as the rings get bigger, each flag shows how many rings it broke, and the
 last escape plays in slow motion. Shorts are one game of 4 to 8 flags; **long videos are a knockout**: 12 to 20
 flags play 3 or 4 heats, and the heat winners meet in the final. Bounces play glassy celesta notes that climb a
-pentatonic scale, rings break with a glass shatter, and an airy riser leads into the last escape (no booms or drums). Open **Modules, Ring Escape, Watch a
+pentatonic scale, rings break with a glass shatter, and an airy riser leads into the last escape (no booms or drums). Open **Games, Ring Escape, Watch a
 sample game** to play random games with sound and export one by hand.
 
 ### Growing Ball
@@ -244,7 +268,7 @@ shove each other around, big ones get boxed in, and small ones keep finding the 
 The meter shows how full the arena is; when it is full, the biggest flag wins. The leader wears a crown, banners
 call every new leader and "ALMOST FULL", and the finish plays in slow motion. Shorts are one game of 3 to 6 flags;
 long videos are a knockout of 9 to 16 flags in 3 or 4 heats and a final. Every growing bounce plays a water-drop
-"bloop" that gets deeper as the ball grows, and bumping balls go boing. Open **Modules, Growing Ball, Watch a sample game** to try it.
+"bloop" that gets deeper as the ball grows, and bumping balls go boing. Open **Games, Growing Ball, Watch a sample game** to try it.
 
 ### Paper Land
 
@@ -259,24 +283,14 @@ fades away and it bursts into cubes. The flag with the most land wears a crown, 
 and "10 SECONDS LEFT", and when the clock runs out the most land wins (or the last flag left). Early on the flags
 build; the hunting starts as the clock runs down. Shorts are one game of 4 to 7 flags; long videos are a knockout of
 9 to 16 flags in 3 or 4 heats and a final. Claims ring a marimba that climbs with the size of the claim, cuts snip
-like scissors, and the last five seconds tick. Open **Modules, Paper Land, Watch a sample game** to try it.
+like scissors, and the last five seconds tick. Open **Games, Paper Land, Watch a sample game** to try it.
 
-### Studio and modules
+### Games
 
-<table>
-<tr>
-<td width="50%"><img src="docs/images/studio.jpg" alt="The studio: roster, rules and look on the left, live preview on the right" /></td>
-<td width="50%"><img src="docs/images/modules.jpg" alt="Modules: Flag Battle, Marble Race and Ring Escape with the channels each one posts on, and the upcoming games" /></td>
-</tr>
-<tr>
-<td align="center"><sub>Studio: build and export a battle by hand</sub></td>
-<td align="center"><sub>Modules: choose which channels each game posts on</sub></td>
-</tr>
-</table>
+<img src="docs/images/modules.jpg" alt="The Games page: each game with the channels it posts on, a button to watch a sample, and the upcoming games" width="100%" />
 
-Open **Modules, Flag Battle, Open studio** to make a video yourself: pick countries (or upload your own images), set
-the rules and look, preview it, and **Export** an MP4. Handy shortcuts: <kbd>Space</kbd> play or pause,
-<kbd>R</kbd> restart, <kbd>E</kbd> export, <kbd>Ctrl</kbd>+<kbd>K</kbd> add countries.
+Every game has a **Watch a sample** page: play a fresh game with sound (Short or long video, a new one each time),
+the same way the autopilot makes them, and export it as an MP4.
 
 | Module | Status | The game |
 | --- | :-: | --- |
@@ -289,7 +303,7 @@ the rules and look, preview it, and **Export** an MP4. Handy shortcuts: <kbd>Spa
 | Black Hole | 🔜 Next | Like Hole.io: country holes swallow a city, then each other. The biggest hole wins. |
 
 Every upcoming game has a plan (how it plays, the simulation, the video formats and the build steps): open
-**Modules** and click **See the plan** on its card. The short version:
+**Games** and click **See the plan** on its card. The short version:
 
 <details>
 <summary><b>Game plans</b></summary>
@@ -312,25 +326,25 @@ thumbnails; their own schedule on the shared timeline.
 
 | Setting | Default | Range |
 | --- | :-: | :-: |
-| Planned ahead | **7 days** | rolling, every day |
-| Flag Battle: Shorts per day, long videos per week | **3** and **2** | 0 to 10, 0 to 14 |
-| Marble Race: Shorts per day, long videos per week | **2** and **2** | 0 to 10, 0 to 14 |
-| Ring Escape: Shorts per day, long videos per week | **3** and **2** | 0 to 10, 0 to 14 |
-| Growing Ball: Shorts per day, long videos per week | **2** and **2** | 0 to 10, 0 to 14 |
-| Paper Land: Shorts per day, long videos per week | **2** and **2** | 0 to 10, 0 to 14 |
-| Games per channel | **2** (new channels get unused games) | any |
+| Planned ahead | **7 days** (up to 30 when preparing ahead) | rolling, every day |
+| Shorts a day, per game | **1** | 0 to 10 |
+| Long videos a day (the games take turns) | **1** | 0 to 3 |
+| Games per channel | **every game** | any |
+| Prepare ahead automatically | **Off** | every day or every week, at a set time |
+| Hands-off mode | **Off** | 1 to 30 days ahead |
+| Review before upload | **Off** | on or off |
 | Posting hours | **9:00 to 23:00** | any |
 | Post at peak hours | **On** | on or off |
 | Where most viewers live | **Same as this computer** | 18 regions |
-| Minimum gap between posts | **1 h 15 min** | 30 min to 4 h |
-| Organic variation | **On** | on or off |
-| Daily upload limit (per channel) | **6** | 1 to 20 |
-| Uploads a day, all channels | **6** (your Google quota) | 1 to 30 |
+| Minimum gap between posts | **1 h** | 30 min to 4 h |
+| Organic variation | **Off** | on or off |
+| Daily upload limit (per channel) | **15** | 1 to 50 |
+| Uploads a day, all channels | **100** (your Google project's upload quota) | 1 to 100 |
 | Made for kids | **On** | on or off |
 
-- **One timeline per channel.** Each game keeps its own pace, and a channel's games share the posting hours, the
-  minimum gap and the channel's daily upload limit, so its posts never overlap. Games alternate through the day, and each game's
-  long videos land on different days of the week. If the games together ask for more than the daily limit, posts
+- **One timeline per channel.** Every game posts its Shorts each day, and the long video of the day takes turns
+  between the games, so each game's long video comes round regularly. A channel's games share the posting hours,
+  the minimum gap and the daily upload limit, so its posts never overlap, and games alternate through the day. If the games together ask for more than the daily limit, posts
   are trimmed fairly from the busiest game.
 - **A week ahead.** Every connected channel always has the next 7 days planned, and the plan rolls forward a day at
   a time. Each day's plan stays fixed unless you change the schedule, so what you see in the calendar is what will
@@ -340,15 +354,12 @@ thumbnails; their own schedule on the shared timeline.
   viewers, at a random point inside it, so the times change every day and never land on round minutes. Long videos
   go to the slot where long-form viewing peaks. Set **Where most of your viewers live** to match YouTube Studio's
   *Audience, Top geographies*.
-- **Organic variation.** Some days post one more and others one fewer, balanced within each week, so every game's
-  weekly total always matches its pace.
-- **Right at the limit, not over it.** YouTube's default API quota is 10,000 units a day and each upload costs about
-  1,600, so about **6 uploads a day** fit, shared by every channel on the same Google project. **Uploads a day, all
-  channels** (Channels page, or the Autopilot schedule) keeps the total there: each day's posts are shared fairly
-  between channels (the odd one rotates), and within a channel between its games. With two channels that is about
-  3 a day each. If Google approves more quota, raise it.
-- **On time, every time.** Each post renders up to 3 hours ahead, uploads as private with a publish time, and
-  YouTube publishes it on the planned minute, even if your PC is asleep by then.
+- **Organic variation** (off by default): some days post one more and others one fewer, balanced within each week.
+- **Plenty of quota.** A Google project can upload 100 videos a day, so a whole month can be prepared in two nights.
+  **Uploads a day, all channels** keeps the total under what you set, shared fairly between channels.
+- **On time, every time.** Each post renders ahead (3 hours before it at the latest, or days ahead when you prepare
+  ahead), uploads as private with a publish time, and YouTube publishes it on the planned minute, even if your PC
+  is off by then.
 - **Never repeats itself.** Flag Clash remembers what it posted. A country that already won doesn't win again until
   every other country in the lineup has had a turn, the same final two never meet twice, the number of flags
   differs from the last 15 posts, and lineups, regions, themes, modes and title styles avoid recent ones. (Country
@@ -356,7 +367,8 @@ thumbnails; their own schedule on the shared timeline.
 - **Spoiler-free thumbnails.** Each post uploads its own cover made from the start of the battle with a big
   question. Titles never name the winner either.
 - **Resilient.** Uploads resume after network drops, failed posts retry after 5, 20 and 60 minutes, quota errors
-  wait for the daily reset, and posts missed while the PC was off are skipped instead of posted in a burst.
+  pause every upload until the daily reset (midnight Pacific), and posts missed while the PC was off are skipped
+  instead of posted in a burst.
 
 <table>
 <tr>
@@ -463,8 +475,9 @@ week carries on either way.
 <details>
 <summary><b>Posts fail with "quotaExceeded" or "uploadLimitExceeded"</b></summary>
 
-The daily API quota or YouTube's own upload limit was reached. Flag Clash waits and retries after the daily reset.
-Lower the daily upload limit, or request more quota in Google Cloud.
+The daily upload quota (100 uploads per Google project) or YouTube's own per-channel upload limit was reached.
+Flag Clash pauses uploads and carries on after the daily reset (midnight Pacific time). Lower the daily upload limit
+if it keeps happening.
 </details>
 
 <details>
@@ -533,9 +546,8 @@ src/
   modules/            module registry, shared no-repeat rules and thumbnails (common.ts, thumbnail.ts),
                       flagBattle/, marbleRace/, ringEscape/, growingBall/, paperLand/ (content planning and autopilot rendering per game)
   dashboard/          channel data (youtube.ts), insights math (insights.ts), snapshots and cache (store.ts)
-  app/desktop/        Setup guide, Dashboard, Autopilot, Calendar, Modules, Channels and Settings screens;
+  app/desktop/        Setup guide, Dashboard, Autopilot, Videos, Calendar, Games, Channels and Settings screens;
                       posts.tsx (the live post timeline)
-  app/                Studio and Preview screens
   engine/             deterministic simulation: rng, physics, sim, timeline, tuning
   engine/race/        Marble Race: track generator, rolling-sphere physics, finish placement
   engine/rings/       Ring Escape: ring generator, bounce physics, ring-count fitting and knockout heats
@@ -560,7 +572,7 @@ Add an entry to `src/modules/registry.ts` with `status: 'ready'` and a `render(j
 It receives `{ format: 'short' | 'video', seed, recent }`, where `recent` is the channel's content history, and
 returns `{ bytes, ext, meta: { title, description, tags } }` plus, optionally, a JPEG `thumbnail` and a `content`
 record (count, roster, winner…) that later posts use to avoid repeats. Add its default pace to `DEFAULT_PACE`
-in `src/autopilot/types.ts`. The Channels and Modules pages, schedule cards, calendar and scheduler pick it up
+in `src/autopilot/types.ts`. The Channels and Games pages, schedule cards, calendar and scheduler pick it up
 automatically; the next channel you connect gets it (or add it to a channel on the Channels page).
 `src/modules/ringEscape/` and `src/modules/marbleRace/` are the most complete references; reuse `src/modules/common.ts` for fresh
 lineups and winners, and `src/export/production.ts` to plug the game's renderer into the MP4 exporter.

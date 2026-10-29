@@ -1,13 +1,21 @@
 /**
- * Autopilot runtime. Keeps every connected channel's plan for the coming week, renders each
- * post shortly before its slot, uploads it, retries failures with backoff, and skips slots missed
- * while the computer was off (posting them late in a burst would look unnatural).
+ * Autopilot runtime. Keeps every connected channel's plan for the coming days, renders each post
+ * before its slot, uploads it, retries failures with backoff, and skips slots missed while the
+ * computer was off (posting them late in a burst would look unnatural).
+ *
+ * Videos can also be prepared well ahead: rendered and uploaded as scheduled YouTube videos,
+ * so they go out at their planned time even when the computer is off. That happens every day or
+ * week at a set time, continuously in hands-off mode (always N days ahead), or for a date range
+ * on demand (a batch, with an optional sleep or shutdown when it is done).
  *
  * All side effects go through a Backend, so the logic is testable without Tauri.
  */
-import { dayKey, planChannelsDay } from './planner';
+import { dayKey, parseDayKey, planChannelsDay } from './planner';
 import {
   channelGames,
+  DEFAULT_PREPARE,
+  MAX_AHEAD_DAYS,
+  type AfterAction,
   type AutopilotState,
   type ContentFormat,
   type ContentRecord,
@@ -67,8 +75,11 @@ export const SCHEDULED_RENDER_LEAD_MS = 3 * 3_600_000;
 export const MISSED_GRACE_MS = 2 * 3_600_000;
 const RETRY_DELAYS_MIN = [5, 20, 60];
 const MAX_ATTEMPTS = RETRY_DELAYS_MIN.length + 1;
-/** How many days ahead (today included) the plan is queued, so the whole week is visible and skippable. */
+/** How many days ahead (today included) the plan is queued at least, so the week is visible and editable. */
 export const PLAN_DAYS = 7;
+const DAY_MS = 86_400_000;
+/** A batch counts as done for now when what is left waits longer than this (quota, retries). */
+const BATCH_WAIT_MS = 30 * 60_000;
 const HISTORY_DAYS = 45;
 const CONTENT_LOG_MAX = 500;
 const SLOT_LOG_MAX = 30;
@@ -82,9 +93,23 @@ function startOfDay(ms: number): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-function nextMidnight(ms: number): number {
-  const d = startOfDay(ms);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 7).getTime();
+function endOfDay(d: Date, plusDays = 0): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + plusDays + 1).getTime() - 1;
+}
+
+const pacific = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/Los_Angeles',
+  hour: 'numeric',
+  minute: 'numeric',
+  hourCycle: 'h23',
+});
+
+/** YouTube's daily quota resets at midnight Pacific time; a few minutes after that. */
+export function nextQuotaReset(ms: number): number {
+  const parts = pacific.formatToParts(new Date(ms));
+  const h = Number(parts.find((p) => p.type === 'hour')?.value ?? 0);
+  const m = Number(parts.find((p) => p.type === 'minute')?.value ?? 0);
+  return ms + (24 * 60 - (h * 60 + m) + 7) * 60_000;
 }
 
 function note(s: Slot, t: number, text: string, error = false): void {
@@ -155,6 +180,164 @@ export class Autopilot {
     await this.persist();
   }
 
+  /** Is this slot part of the batch being prepared? */
+  private inBatch(s: Pick<Slot, 'at'>): boolean {
+    const b = this.state?.batch;
+    if (!b || b.finishedAt) return false;
+    const key = dayKey(new Date(s.at));
+    return key >= b.from && key <= b.to;
+  }
+
+  /**
+   * Up to when videos get rendered, and up to when they get uploaded (scheduled on YouTube): just
+   * in time, plus whatever the daily or weekly preparation, hands-off mode or a batch asks for.
+   */
+  horizons(now = this.backend.now()): { render: number; upload: number } {
+    const st = this.state!;
+    const p = st.prepare ?? DEFAULT_PREPARE;
+    const today = startOfDay(now);
+    let ahead = now + this.renderLead();
+    if (st.running) {
+      if (p.handsOffDays > 0)
+        ahead = Math.max(ahead, endOfDay(today, Math.min(p.handsOffDays, MAX_AHEAD_DAYS)));
+      const trigger = (d: Date) => d.getTime() + p.atMin * 60_000;
+      if (p.auto === 'daily') ahead = Math.max(ahead, endOfDay(today, now >= trigger(today) ? 1 : 0));
+      if (p.auto === 'weekly') {
+        // The most recent preparation day (this week's, or last week's if it is still to come).
+        let back = (((today.getDay() + 6) % 7) - p.weekday + 7) % 7;
+        let day = new Date(today.getFullYear(), today.getMonth(), today.getDate() - back);
+        if (now < trigger(day)) {
+          back += 7;
+          day = new Date(today.getFullYear(), today.getMonth(), today.getDate() - back);
+        }
+        ahead = Math.max(ahead, endOfDay(day, 7));
+      }
+    }
+    let render = ahead;
+    let upload = ahead;
+    const b = st.batch;
+    if (b && !b.finishedAt) {
+      const end = endOfDay(parseDayKey(b.to));
+      render = Math.max(render, end);
+      if (b.upload) upload = Math.max(upload, end);
+    }
+    return { render, upload };
+  }
+
+  /** Renders (and, with `upload`, schedules on YouTube) every post from `from` to `to` now. */
+  async startBatch(opts: { from: string; to: string; upload: boolean; after: AfterAction }): Promise<void> {
+    if (!this.state) return;
+    const [from, to] = opts.from <= opts.to ? [opts.from, opts.to] : [opts.to, opts.from];
+    this.state.batch = { ...opts, from, to, startedAt: this.backend.now() };
+    await this.persist();
+    await this.tick();
+  }
+
+  async cancelBatch(): Promise<void> {
+    if (!this.state?.batch) return;
+    this.state.batch = null;
+    await this.persist();
+  }
+
+  /** The after-action of a finished batch was carried out (or cancelled). */
+  async batchHandled(): Promise<void> {
+    if (!this.state?.batch) return;
+    this.state.batch.afterHandled = true;
+    await this.persist();
+  }
+
+  private slot(id: string): Slot | undefined {
+    return this.state?.slots.find((x) => x.id === id);
+  }
+
+  /** Throws away a video that is not on YouTube yet and makes a new one for the same slot. */
+  async rerender(slotId: string): Promise<void> {
+    const s = this.slot(slotId);
+    if (!s || ['posted', 'rendering', 'uploading'].includes(s.status)) return;
+    await this.removeFiles(s);
+    s.seed = (Math.floor(Math.random() * 999_999) + 1) >>> 0;
+    s.status = 'planned';
+    s.attempts = 0;
+    s.error = undefined;
+    s.nextAttemptAt = undefined;
+    s.meta = undefined;
+    s.title = undefined;
+    s.approved = undefined;
+    s.uploadAhead = undefined;
+    this.state!.contentLog = this.state!.contentLog.filter((r) => r.slotId !== s.id);
+    note(s, this.backend.now(), 'Sent back for a new video');
+    await this.persist();
+  }
+
+  /** Edits a post that is not on YouTube yet: its title, description, or planned time. */
+  async editSlot(
+    slotId: string,
+    patch: { title?: string; description?: string; at?: number },
+  ): Promise<void> {
+    const s = this.slot(slotId);
+    if (!s || ['posted', 'uploading'].includes(s.status)) return;
+    if (s.meta && (patch.title !== undefined || patch.description !== undefined)) {
+      s.meta = {
+        ...s.meta,
+        title: (patch.title ?? s.meta.title).slice(0, 100),
+        description: patch.description ?? s.meta.description,
+      };
+      s.title = s.meta.title;
+      note(s, this.backend.now(), 'Title or description edited');
+    }
+    if (patch.at !== undefined && patch.at !== s.at) {
+      s.at = patch.at;
+      if (s.status === 'skipped' || s.status === 'failed') s.status = s.filePath ? 'rendered' : 'planned';
+      s.error = undefined;
+      note(
+        s,
+        this.backend.now(),
+        `Moved to ${new Date(patch.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`,
+      );
+      this.state!.slots.sort((a, b) => a.at - b.at);
+    }
+    await this.persist();
+  }
+
+  /** Approves rendered videos for upload (with "review before upload" on). */
+  async approve(slotIds: string[]): Promise<void> {
+    const now = this.backend.now();
+    for (const id of slotIds) {
+      const s = this.slot(id);
+      if (!s || s.approved) continue;
+      s.approved = true;
+      note(s, now, 'Approved for upload');
+    }
+    await this.persist();
+    await this.tick();
+  }
+
+  /** Brings a skipped post back into the plan. */
+  async restore(slotId: string): Promise<void> {
+    const s = this.slot(slotId);
+    if (!s || s.status !== 'skipped') return;
+    s.status = s.filePath ? 'rendered' : 'planned';
+    s.error = undefined;
+    note(s, this.backend.now(), 'Back in the plan');
+    await this.persist();
+  }
+
+  /** Publishes a post right away instead of at its planned time. */
+  async publishNow(slotId: string): Promise<void> {
+    const s = this.slot(slotId);
+    if (!s || !['planned', 'rendered', 'failed'].includes(s.status)) return;
+    const now = this.backend.now();
+    s.manual = true;
+    s.at = now;
+    s.approved = true;
+    s.nextAttemptAt = undefined;
+    if (s.status === 'failed') s.status = s.filePath ? 'rendered' : 'planned';
+    note(s, now, 'Publishing now');
+    this.state!.slots.sort((a, b) => a.at - b.at);
+    await this.persist();
+    await this.tick();
+  }
+
   /** Drops planned (not started) automatic slots and plans the coming week again. */
   replanFuture(): void {
     const st = this.state!;
@@ -171,7 +354,11 @@ export class Autopilot {
     const active = st.channels.filter((c) => c.enabled);
     const done = new Map(active.map((ch) => [ch.id, new Set(st.plannedDays[ch.id] ?? [])]));
     const today = startOfDay(now);
-    for (let offset = 0; offset < PLAN_DAYS; offset++) {
+    const days = Math.min(
+      MAX_AHEAD_DAYS + 1,
+      Math.max(PLAN_DAYS, Math.ceil((this.horizons(now).render - today.getTime()) / DAY_MS)),
+    );
+    for (let offset = 0; offset < days; offset++) {
       const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
       const key = dayKey(day);
       const todo = active.filter((ch) => !done.get(ch.id)!.has(key));
@@ -204,7 +391,9 @@ export class Autopilot {
         changed = true;
       }
     }
-    for (const ch of active) st.plannedDays[ch.id] = [...done.get(ch.id)!].sort().slice(-(PLAN_DAYS + 7));
+    const yesterday = dayKey(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1));
+    for (const ch of active)
+      st.plannedDays[ch.id] = [...done.get(ch.id)!].filter((k) => k >= yesterday).sort();
     if (changed) st.slots.sort((a, b) => a.at - b.at);
     return changed;
   }
@@ -254,7 +443,12 @@ export class Autopilot {
     const now = this.backend.now();
     let changed = false;
 
-    if (st.running) changed = this.ensurePlans() || changed;
+    const batching = !!st.batch && !st.batch.finishedAt;
+    if (st.running || batching) changed = this.ensurePlans() || changed;
+    if (st.uploadPausedUntil && st.uploadPausedUntil <= now) {
+      st.uploadPausedUntil = undefined;
+      changed = true;
+    }
 
     // Skip automatic slots missed while the app was off.
     for (const s of st.slots) {
@@ -272,12 +466,12 @@ export class Autopilot {
     st.slots = st.slots.filter((s) => !(DONE.includes(s.status) && s.at < cutoff));
     if (st.slots.length !== before) changed = true;
 
-    // Delete rendered files past the retention period.
+    // Delete rendered files past the retention period (counted from when the post goes out).
     for (const s of st.slots) {
       if (
         s.status === 'posted' &&
         (s.filePath || s.thumbPath) &&
-        (s.postedAt ?? 0) < now - st.keepDays * 86_400_000
+        Math.max(s.postedAt ?? 0, s.at) < now - st.keepDays * DAY_MS
       ) {
         await this.removeFiles(s);
         changed = true;
@@ -285,7 +479,7 @@ export class Autopilot {
     }
 
     if (changed) await this.persist();
-    if (!st.running && !st.slots.some((s) => s.manual && !DONE.includes(s.status))) return;
+    if (!st.running && !batching && !st.slots.some((s) => s.manual && !DONE.includes(s.status))) return;
 
     this.busy = true;
     try {
@@ -303,6 +497,28 @@ export class Autopilot {
       this.abort = null;
       this.emit();
     }
+    if (this.checkBatch(this.backend.now())) await this.persist();
+  }
+
+  /** Marks the batch done once everything in it that can be done now is done. */
+  private checkBatch(now: number): boolean {
+    const st = this.state!;
+    const b = st.batch;
+    if (!b || b.finishedAt) return false;
+    const review = (st.prepare ?? DEFAULT_PREPARE).review;
+    const paused = !!st.uploadPausedUntil && st.uploadPausedUntil > now;
+    const left = st.slots.filter((s) => {
+      if (!this.inBatch(s) || !this.channelUsable(s)) return false;
+      const waitsLong = !!s.nextAttemptAt && s.nextAttemptAt > now + BATCH_WAIT_MS;
+      if (s.status === 'planned' || s.status === 'rendering') return !waitsLong;
+      if (s.status === 'uploading') return true;
+      if (s.status === 'rendered')
+        return b.upload && !waitsLong && !paused && !(review && !s.approved && !s.manual);
+      return false;
+    });
+    if (left.length) return false;
+    b.finishedAt = now;
+    return true;
   }
 
   /** Disabled channels keep their history but only take "Post now" jobs. */
@@ -313,12 +529,13 @@ export class Autopilot {
 
   private nextJob(now: number): Slot | null {
     const st = this.state!;
+    const h = this.horizons(now);
     const candidates = st.slots.filter((s) => {
       if (!this.channelUsable(s)) return false;
-      if (!st.running && !s.manual) return false;
+      if (!st.running && !s.manual && !this.inBatch(s)) return false;
       if (s.nextAttemptAt && s.nextAttemptAt > now) return false;
-      if (s.status === 'planned') return s.manual || s.at - this.renderLead() <= now;
-      if (s.status === 'rendered') return s.manual || this.canUploadNow(s, now);
+      if (s.status === 'planned') return s.manual || s.at <= h.render;
+      if (s.status === 'rendered') return this.canUploadNow(s, now, h.upload);
       return false;
     });
     // Uploads first (they are time-critical), then renders, earliest slot first.
@@ -338,20 +555,30 @@ export class Autopilot {
     s.thumbPath = undefined;
   }
 
-  private canUploadNow(s: Slot, now: number): boolean {
-    const { post } = this.state!;
-    if (post.privacy === 'public' && post.publishViaYouTube && s.at - now > MIN_SCHEDULE_AHEAD_MS)
-      return true;
-    return s.at <= now;
+  private canUploadNow(s: Slot, now: number, horizon: number): boolean {
+    const st = this.state!;
+    if (s.manual) return true;
+    if (st.uploadPausedUntil && st.uploadPausedUntil > now) return false;
+    if ((st.prepare ?? DEFAULT_PREPARE).review && !s.approved) return false;
+    if (s.at <= now) return true;
+    // Uploading ahead: scheduled on YouTube when public (or already unlisted/private anyway).
+    const ahead = st.post.privacy !== 'public' || st.post.publishViaYouTube;
+    return ahead && s.at - now > MIN_SCHEDULE_AHEAD_MS && (s.uploadAhead || s.at <= horizon);
   }
 
   private fail(s: Slot, message: string): void {
     const now = this.backend.now();
     s.error = message;
     if (isQuotaError(message)) {
-      // Out of quota: try again after the daily reset without burning an attempt.
-      s.nextAttemptAt = nextMidnight(now);
-      note(s, now, 'YouTube daily upload limit reached; will retry after midnight', true);
+      // Out of quota: every upload waits for the daily reset, without burning an attempt.
+      s.nextAttemptAt = nextQuotaReset(now);
+      this.state!.uploadPausedUntil = s.nextAttemptAt;
+      note(
+        s,
+        now,
+        `YouTube's daily upload limit reached; uploads continue at ${new Date(s.nextAttemptAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
+        true,
+      );
       return;
     }
     s.attempts += 1;
@@ -392,6 +619,8 @@ export class Autopilot {
       s.title = out.meta.title;
       s.status = 'rendered';
       s.nextAttemptAt = undefined;
+      // Rendered to be uploaded ahead: it stays that way even if the batch ends first.
+      if (s.at <= this.horizons().upload) s.uploadAhead = true;
       if (out.content) {
         const record: ContentRecord = {
           ...out.content,

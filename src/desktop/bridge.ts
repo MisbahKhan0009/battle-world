@@ -90,5 +90,13 @@ export const desktop = {
   setAutostart: (enabled: boolean) => invoke<void>('autostart_set', { enabled }),
   setCloseToTray: (enabled: boolean) => invoke<void>('close_to_tray_set', { enabled }),
   openUrl: (url: string) => invoke<void>('open_url', { url }),
+  /** Brings the app window forward. */
+  showWindow: () => invoke<void>('window_show'),
+  /** Lets the window play files from this folder. */
+  allowMedia: (dir: string) => invoke<void>('media_allow', { dir }),
+  /** A URL the window can play a local video file from. */
+  mediaUrl: async (path: string) => (await import('@tauri-apps/api/core')).convertFileSrc(path),
+  /** Shuts the computer down or puts it to sleep (Windows). */
+  powerAction: (kind: 'shutdown' | 'sleep') => invoke<void>('power_action', { kind }),
   openPath: (path: string) => invoke<void>('open_path', { path }),
 };

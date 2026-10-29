@@ -130,3 +130,15 @@ export function compact(n: number): string {
   if (Math.abs(n) >= 1e3) return `${(n / 1e3).toFixed(n >= 1e4 ? 0 : 1)}K`;
   return String(Math.round(n));
 }
+
+/**
+ * Uploads that should be public by now but are still private: YouTube locks every upload from an
+ * unaudited Google project as private, so scheduled videos never go live on their own.
+ */
+export function lockedPrivate(videos: VideoStat[], slots: Slot[], now: number): string[] {
+  const byId = new Map(videos.map((v) => [v.id, v]));
+  return slots
+    .filter((s) => s.status === 'posted' && s.videoId && s.at < now - 20 * 60_000)
+    .filter((s) => byId.get(s.videoId!)?.privacy === 'private')
+    .map((s) => s.videoId!);
+}

@@ -65,6 +65,51 @@ fn client_log(level: String, message: String) {
     );
 }
 
+/// Brings the window forward (for example to show the shutdown countdown after a batch).
+#[tauri::command]
+fn window_show(app: AppHandle) {
+    show_main(&app);
+}
+
+/// Lets the window play videos from this folder (the rendered videos folder) through the asset protocol.
+#[tauri::command]
+fn media_allow(app: AppHandle, dir: String) -> Result<(), String> {
+    app.asset_protocol_scope()
+        .allow_directory(&dir, true)
+        .map_err(|e| e.to_string())
+}
+
+/// Shuts the computer down or puts it to sleep (after a batch, once the countdown in the app ran out).
+#[tauri::command]
+fn power_action(kind: String) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let mut cmd = match kind.as_str() {
+            "shutdown" => {
+                let mut c = std::process::Command::new("shutdown");
+                c.args(["/s", "/t", "0"]);
+                c
+            }
+            "sleep" => {
+                let mut c = std::process::Command::new("rundll32.exe");
+                c.args(["powrprof.dll,SetSuspendState", "0,1,0"]);
+                c
+            }
+            other => return Err(format!("Unknown power action: {other}")),
+        };
+        cmd.creation_flags(CREATE_NO_WINDOW)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(windows))]
+    {
+        Err(format!("{kind} is only available on Windows"))
+    }
+}
+
 #[tauri::command]
 fn open_path(app: AppHandle, path: String) -> Result<(), String> {
     app.opener()
@@ -142,6 +187,9 @@ pub fn run() {
             open_url,
             open_path,
             client_log,
+            window_show,
+            media_allow,
+            power_action,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Flag Clash");

@@ -4,8 +4,8 @@
  * - times are spread across the active window with random offsets, never on round minutes; with
  *   peak hours on, they follow the audience's activity curve (more posts when more people watch);
  * - a minimum gap separates posts; long videos go to the slots where long-form viewing peaks;
- * - every game has its own pace (Shorts a day, long videos a week, spread over the week per
- *   game); all games share one timeline, so their posts never overlap and keep the minimum gap;
+ * - every game has its own number of Shorts a day; long videos are a set number a day that take
+ *   turns between the games (or, on older settings, a weekly pace per game); all games share one timeline, so their posts never overlap and keep the minimum gap;
  * - the daily count wobbles by one per game when enabled, balanced within each week so weekly
  *   totals always match the pace;
  * - the daily upload cap is shared and always wins, trimmed fairly from the busiest game.
@@ -106,9 +106,19 @@ export function planDay(
     const pace = paceFor(settings, m);
     const base = Math.max(0, Math.round(pace.shortsPerDay));
     const shorts = base + (settings.varyDaily ? weeklyWobble(`${channelId}:${m}`, day, base) : 0);
-    const videos = videosOnDay(`${channelId}:${m}`, day, Math.round(pace.videosPerWeek));
+    const videos =
+      settings.longPerDay === undefined
+        ? videosOnDay(`${channelId}:${m}`, day, Math.round(pace.videosPerWeek))
+        : 0;
     return { m, shorts, videos };
   });
+  // Long videos a day, taking turns between the games (each game's long video comes round regularly).
+  if (settings.longPerDay !== undefined) {
+    const dayNo = Math.round(Date.UTC(y, mo - 1, d) / 86_400_000);
+    const per = Math.max(0, Math.round(settings.longPerDay));
+    const offset = strHash(channelId) % mods.length;
+    for (let j = 0; j < per; j++) want[(dayNo * per + j + offset) % mods.length].videos++;
+  }
   const count = () => want.reduce((sum, w) => sum + w.shorts + w.videos, 0);
   // Over the limit: take one post at a time from the game with the most, Shorts first.
   const trimTo = (limit: number) => {

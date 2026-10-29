@@ -7,10 +7,10 @@ import { Dialog } from '../../components/ui/Dialog';
 import {
   connectedChannel,
   DEFAULT_PACE,
-  GAMES_PER_CHANNEL,
   PROJECT_UPLOADS_PER_DAY,
   type AutopilotState,
   type Channel,
+  type ScheduleSettings,
 } from '../../autopilot/types';
 import { desktop, isDesktop } from '../../desktop/bridge';
 import { cn } from '../../lib/utils';
@@ -20,14 +20,16 @@ import { navigate } from '../router';
 import { Card, DesktopLayout, DesktopOnly } from './Layout';
 
 /** Uploads a day the channels' paces ask for (within each channel's own limit). */
-export function askedPerDay(channels: Channel[]): number {
+export function askedPerDay(channels: Channel[], schedule: ScheduleSettings): number {
   return channels
     .filter((c) => c.enabled)
     .reduce((sum, c) => {
-      const asked = Object.values(c.games ?? {}).reduce(
-        (a, p) => a + p.shortsPerDay + p.videosPerWeek / 7,
-        0,
-      );
+      const games = Object.values(c.games ?? {});
+      const asked =
+        games.reduce(
+          (a, p) => a + p.shortsPerDay + (schedule.longPerDay === undefined ? p.videosPerWeek / 7 : 0),
+          0,
+        ) + (schedule.longPerDay !== undefined && games.length ? schedule.longPerDay : 0);
       return sum + Math.min(c.dailyCap, asked);
     }, 0);
 }
@@ -35,7 +37,7 @@ export function askedPerDay(channels: Channel[]): number {
 function QuotaCard({ state, onCap }: { state: AutopilotState; onCap: (cap: number) => void }) {
   const active = state.channels.filter((c) => c.enabled);
   const cap = state.schedule.projectCap ?? PROJECT_UPLOADS_PER_DAY;
-  const asked = askedPerDay(state.channels);
+  const asked = askedPerDay(state.channels, state.schedule);
   const trimmed = asked > cap + 0.01;
   return (
     <div className="panel space-y-3 p-5">
@@ -44,7 +46,7 @@ function QuotaCard({ state, onCap }: { state: AutopilotState; onCap: (cap: numbe
         hint="shared by every channel"
         value={cap}
         min={1}
-        max={30}
+        max={PROJECT_UPLOADS_PER_DAY}
         unit="a day"
         onChange={onCap}
       />
@@ -55,15 +57,10 @@ function QuotaCard({ state, onCap }: { state: AutopilotState; onCap: (cap: numbe
         {trimmed
           ? `The limit keeps the total at ${cap} a day, shared fairly between the channels (about ${(cap / Math.max(1, active.length)).toFixed(1)} each) and, within each channel, between its games.`
           : `That is within the limit of ${cap} a day.`}{' '}
-        All channels use one Google project, whose free quota allows about {PROJECT_UPLOADS_PER_DAY} uploads a
-        day (10,000 API units, about 1,600 per upload). Raise this only after Google approves more quota.
+        All channels use one Google project, which can upload {PROJECT_UPLOADS_PER_DAY} videos a day
+        (YouTube's upload quota). Custom thumbnails come out of a separate 10,000-unit pool, 50 each. That is
+        plenty to prepare days or weeks ahead.
       </p>
-      {cap > PROJECT_UPLOADS_PER_DAY && (
-        <p className="rounded-xl bg-hp-mid/10 p-3 text-xs text-hp-mid ring-1 ring-hp-mid/30">
-          Above {PROJECT_UPLOADS_PER_DAY} a day, uploads fail with a quota error and wait for the daily reset
-          unless Google has raised your quota.
-        </p>
-      )}
     </div>
   );
 }
@@ -124,10 +121,27 @@ function ChannelCard({
       <div>
         <div className="mb-2 flex items-baseline justify-between gap-3">
           <span className="text-[13px] font-medium">Games on this channel</span>
-          <span className={cn('text-xs', count === GAMES_PER_CHANNEL ? 'text-muted' : 'text-hp-mid')}>
-            {count === GAMES_PER_CHANNEL
-              ? `${count} games`
-              : `${count} game${count === 1 ? '' : 's'}, ${GAMES_PER_CHANNEL} per channel works best`}
+          <span className="flex items-center gap-3 text-xs text-muted">
+            {count} game{count === 1 ? '' : 's'}
+            {count < readyModuleIds().length && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() =>
+                  onChange({
+                    ...c,
+                    games: Object.fromEntries(
+                      readyModuleIds().map((id) => [
+                        id,
+                        games[id] ?? { ...(DEFAULT_PACE[id] ?? { shortsPerDay: 1, videosPerWeek: 1 }) },
+                      ]),
+                    ),
+                  })
+                }
+              >
+                Post every game here
+              </Button>
+            )}
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -161,8 +175,8 @@ function ChannelCard({
           })}
         </div>
         <p className="mt-2 text-xs text-muted">
-          Set how often each game posts on the Autopilot page. Giving every channel its own games keeps each
-          channel's identity clear for viewers and YouTube.
+          Every game on this channel posts its Shorts each day, and the long video of the day takes turns
+          between them. Set how many Shorts each game posts on the Autopilot page.
         </p>
       </div>
 
@@ -172,7 +186,7 @@ function ChannelCard({
             label="Daily upload limit"
             value={c.dailyCap}
             min={1}
-            max={20}
+            max={50}
             unit="a day"
             onChange={(dailyCap) => onChange({ ...c, dailyCap })}
           />

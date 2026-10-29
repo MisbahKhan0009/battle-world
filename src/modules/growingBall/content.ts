@@ -36,7 +36,7 @@ export type GrowingBallPlan = {
 const SHORT_TITLES = [
   'Which Country Grows the Biggest? 🎈',
   'Every Bounce Makes It Bigger 🎈 {n} Countries',
-  'Can {fav} Grow the Biggest? 🎈',
+  'Pick the Ball That Grows Biggest 🎈',
   '{group} Growing Ball Battle 🌍 ({n} Countries)',
   'Guess Who Grows Biggest 👀 {n} Countries',
   'Growing Ball: {n} Countries 🔥 Watch Till the End',
@@ -58,18 +58,17 @@ export function buildGrowMeta(
     n: number;
     heats: number;
     group: string;
-    fav: string;
     avoidTemplates?: string[];
     kids?: boolean;
   },
 ): VideoMeta & { template: string } {
-  const { format, n, group, fav } = args;
+  const { format, n, group } = args;
   const template = pickFresh(
     rng,
     format === 'short' ? SHORT_TITLES : VIDEO_TITLES,
     args.avoidTemplates ?? [],
   );
-  let title = fill(template, { n: String(n), group, fav, h: String(args.heats) });
+  let title = fill(template, { n: String(n), group, h: String(args.heats) });
   if (format === 'short') title = `${title} #shorts`;
   title = title.slice(0, 100);
   const hashtags = ['#growingball', '#satisfying', '#countries', '#flags'];
@@ -132,13 +131,11 @@ export function planGrowingBall(
     GAME_THEMES['growing-ball'],
     same.slice(-1).map((r) => r.theme as Look['theme']),
   );
-  const fav = pick(rng, fighters).name;
   const { template, ...meta } = buildGrowMeta(rng, {
     format: job.format,
     n: fighters.length,
     heats: heats?.length ?? 0,
     group,
-    fav,
     avoidTemplates: mine.slice(-6).map((r) => r.template ?? ''),
     kids: job.kids,
   });

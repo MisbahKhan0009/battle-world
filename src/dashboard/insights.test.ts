@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import type { Slot } from '../autopilot/types';
-import { addSnapshot, byGame, byHour, change, enrich, median } from './insights';
+import { addSnapshot, byGame, byHour, change, enrich, lockedPrivate, median } from './insights';
 import { parseDuration, type VideoStat } from './youtube';
 
 const NOW = Date.UTC(2026, 9, 29, 12);
@@ -59,5 +59,41 @@ describe('dashboard insights', () => {
     expect(pts.length).toBe(11);
     expect(change(pts, 'subs', 7, NOW)).toBe(71);
     expect(median([5, 1, 3])).toBe(3);
+  });
+});
+
+describe('locked private uploads', () => {
+  test('flags uploads still private after their time, not ones still scheduled', () => {
+    const now = Date.UTC(2026, 9, 29, 12);
+    const slot = (videoId: string, at: number): Slot => ({
+      id: videoId,
+      channelId: 'UC1',
+      at,
+      format: 'short',
+      moduleId: 'flag-battle',
+      seed: 1,
+      status: 'posted',
+      attempts: 0,
+      videoId,
+    });
+    const video = (id: string, privacy: string): VideoStat => ({
+      id,
+      title: id,
+      publishedAt: now - 86_400_000,
+      durationSec: 40,
+      views: 0,
+      likes: 0,
+      comments: 0,
+      thumbnail: '',
+      privacy,
+      madeForKids: true,
+    });
+    const slots = [
+      slot('late', now - 3_600_000),
+      slot('soon', now + 3_600_000),
+      slot('live', now - 3_600_000),
+    ];
+    const videos = [video('late', 'private'), video('soon', 'private'), video('live', 'public')];
+    expect(lockedPrivate(videos, slots, now)).toEqual(['late']);
   });
 });

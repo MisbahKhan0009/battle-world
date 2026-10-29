@@ -33,7 +33,7 @@ const ESCAPE_SHORT_TITLES = [
   'Last Country Inside Wins 🌍 ({n} Flags)',
   'Which Flag Stays Inside the Longest? 🔥',
   '{n} Countries, One Rotating Exit 😱',
-  'Can {fav} Survive the Spinning Circle? 🌀',
+  'Can Your Flag Survive the Spinning Circle? 🌀',
   '{group} Flags Escape Challenge 🌍',
   'Only One Flag Can Stay Inside 👀',
   'Guess the Last Flag Inside 🤔 ({n} Countries)',
@@ -41,7 +41,7 @@ const ESCAPE_SHORT_TITLES = [
 const ROYALE_SHORT_TITLES = [
   '{n} Countries Battle Royale ⚔️ Who Wins?',
   'Last Flag Standing Wins 🏆 ({group})',
-  'Can {fav} Win the Flag Battle? ⚔️',
+  'Pick Your Flag Before the Battle Starts ⚔️',
   'Country Ball Battle Royale 🌍 {n} Flags',
 ];
 const ESCAPE_VIDEO_TITLES = [
@@ -61,13 +61,12 @@ export function buildMeta(
     mode: Rules['mode'];
     n: number;
     group: string;
-    fav: string;
     avoidTemplates?: string[];
     /** Made for kids: comments are disabled, so no comment prompts. */
     kids?: boolean;
   },
 ): VideoMeta & { template: string } {
-  const { format, mode, n, group, fav } = args;
+  const { format, mode, n, group } = args;
   const titles =
     format === 'short'
       ? mode === 'escape'
@@ -76,7 +75,7 @@ export function buildMeta(
       : mode === 'escape'
         ? ESCAPE_VIDEO_TITLES
         : ROYALE_VIDEO_TITLES;
-  const vars = { n: String(n), group: group === 'World' ? 'World' : group, fav };
+  const vars = { n: String(n), group: group === 'World' ? 'World' : group };
   const template = pickFresh(rng, titles, args.avoidTemplates ?? []);
   let title = fill(template, vars);
   if (format === 'short') title = `${title} #shorts`;
@@ -163,13 +162,11 @@ export function planFlagBattle(
     GAME_THEMES['flag-battle'],
     same.slice(-1).map((r) => r.theme as Look['theme']),
   );
-  const fav = pick(rng, fighters).name;
   const { template, ...meta } = buildMeta(rng, {
     format: job.format,
     mode,
     n: fighters.length,
     group,
-    fav,
     avoidTemplates: mine.slice(-6).map((r) => r.template ?? ''),
     kids: job.kids,
   });

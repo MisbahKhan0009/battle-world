@@ -1,7 +1,7 @@
 import { Download, Pause, Play, Shuffle, Volume2, VolumeX } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Mixer, type Cue } from '../../audio/mix';
+import { buildCues, Mixer, type Cue } from '../../audio/mix';
 import { buildRaceCues } from '../../audio/raceCues';
 import { buildRingsCues } from '../../audio/ringCues';
 import { buildGrowCues } from '../../audio/growCues';
@@ -22,7 +22,12 @@ import { RaceClient } from '../../lib/raceClient';
 import { RingsClient } from '../../lib/ringsClient';
 import { GrowClient } from '../../lib/growClient';
 import { PaperClient } from '../../lib/paperClient';
+import { planFlagBattle } from '../../modules/flagBattle/content';
 import { planMarbleRace } from '../../modules/marbleRace/content';
+import { SimClient } from '../../lib/simClient';
+import { simFighters } from '../../store/app';
+import { BattleRenderer } from '../../render/renderer';
+import { buildScene } from '../../render/scene';
 import { planRingEscape } from '../../modules/ringEscape/content';
 import { planGrowingBall } from '../../modules/growingBall/content';
 import { planPaperLand } from '../../modules/paperLand/content';
@@ -67,6 +72,40 @@ async function art(fighters: Fighter[], winner: number) {
   const winnerImage = w ? (await loadFlagSafe(w.imageSrc, WINNER_RASTER)).bitmap : null;
   return { scene, winnerImage };
 }
+
+const FLAG_BATTLE: PreviewGame = {
+  id: 'flag-battle',
+  title: 'Flag Battle',
+  newLabel: 'New battle',
+  busyText: 'Playing the battle…',
+  load: async (format, seed) => {
+    const plan = planFlagBattle({ format, seed }, await loadCountries(), []);
+    const client = new SimClient();
+    try {
+      const sim = await client.run({
+        fighters: simFighters(plan.fighters, false),
+        rules: plan.rules,
+        intro: plan.look.intro,
+        outro: plan.look.outro,
+      });
+      const { scene: fighters, winnerImage } = await art(plan.fighters, sim.result.winnerIndex);
+      const scene = buildScene({ result: sim.result, look: plan.look, fighters, winnerImage });
+      return {
+        meta: plan.meta,
+        look: plan.look,
+        content: { kind: 'flag-battle', config: sim.config },
+        fighters,
+        winnerImage,
+        total: scene.timeline.total,
+        renderer: (W, H) => new BattleRenderer(scene, W, H),
+        cues: () => buildCues(scene),
+        summary: `${fighters.length} flags. Every battle is new: the lineup, flag count, rules and winner change each time, the same way the autopilot makes them.`,
+      };
+    } finally {
+      client.dispose();
+    }
+  },
+};
 
 const MARBLE_RACE: PreviewGame = {
   id: 'marble-race',
@@ -221,6 +260,7 @@ const PAPER_LAND: PreviewGame = {
   },
 };
 
+export const BattlePage = () => <GamePreview game={FLAG_BATTLE} />;
 export const RacePage = () => <GamePreview game={MARBLE_RACE} />;
 export const GrowPage = () => <GamePreview game={GROWING_BALL} />;
 export const PaperPage = () => <GamePreview game={PAPER_LAND} />;
