@@ -5,6 +5,7 @@
  * (scene, video time), so preview and export match frame for frame.
  */
 import { bandBanner, legibleText, winnerLockup } from './overlay';
+import { paintEyes } from '../render3d/countryball';
 import type { Timeline } from '../engine/timeline';
 import type { Look } from '../engine/types';
 import {
@@ -100,6 +101,8 @@ export abstract class ShowRenderer<S extends ShowScene, O = object> {
   protected readonly tokens: TokenCache;
   private bg: AnyCanvas | null = null;
   private winnerToken: { canvas: AnyCanvas; size: number } | null = null;
+  /** The flags are countryballs: give the intro and winner discs their eyes. */
+  protected readonly countryballs: boolean = false;
 
   constructor(
     readonly scene: S,
@@ -356,6 +359,7 @@ export abstract class ShowRenderer<S extends ShowScene, O = object> {
       const cx = gx + (i % cols) * cell + cell / 2;
       const cy = gy + Math.floor(i / cols) * cell + cell / 2;
       ctx.drawImage(tok, cx - size / 2, cy - size / 2, size, size);
+      if (this.countryballs) paintEyes(ctx, cx, cy - d * 0.04, d * 0.62, 'open');
     }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -425,6 +429,7 @@ export abstract class ShowRenderer<S extends ShowScene, O = object> {
       const tok = this.getWinnerToken(2 * R * this.px);
       const size = 2 * R * TOKEN_SCALE;
       ctx.drawImage(tok, -size / 2, -size / 2, size, size);
+      if (this.countryballs) paintEyes(ctx, 0, -R * 0.08, R * 1.24, 'happy');
       ctx.restore();
     }
     const tp = easeOut((u - 0.8) / 0.45);
@@ -462,6 +467,7 @@ export abstract class ShowRenderer<S extends ShowScene, O = object> {
     const tok = this.getWinnerToken(2 * R * this.px);
     const size = 2 * R * TOKEN_SCALE * (0.9 + 0.1 * easeOut(u / 0.6));
     ctx.drawImage(tok, W / 2 - size / 2, discY - size / 2, size, size);
+    if (this.countryballs) paintEyes(ctx, W / 2, discY - R * 0.08, R * 1.24, 'happy');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineJoin = 'round';

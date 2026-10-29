@@ -1,331 +1,458 @@
 /**
- * Paper Land renderer. A square board seen from above: each flag's land is tiled with its flag
- * and stands a little off the paper, trails are drawn in the flag's color, and the head is the
- * flag's disc. Claims flash, wiped-out land fades, knock-outs burst into paper scraps, and the
- * flag with the most land wears a crown. Titles, banners, the intro, winner card and outro come
- * from the shared show frame.
+ * Paper Land in 3D, styled after Paper.io 2. The board is a thick slab; land is painted on it in
+ * one solid color per country with a raised lip, trails are ribbons in a lighter shade, and every
+ * flag is a countryball rolling over the board with a pointer showing where it is steering and its
+ * name above. Claims pop a ring, knock-outs burst into cubes, and the flag with the most land wears
+ * a crown. Titles, banners, the intro, winner card and outro come from the shared show frame.
  */
+import * as THREE from 'three';
+import { TRAIL_R } from '../../engine/paper/sim';
 import { hashFloat } from '../../engine/rng';
-import { context2d, createCanvas, FONT_DISPLAY, type AnyCanvas, type Ctx2D } from '../canvas';
+import { blinking, Countryball, type Expression } from '../../render3d/countryball';
+import { landPaths } from '../../render3d/contour';
+import { drawScene } from '../../render3d/gl';
+import { addLights, frameCamera, project, type Frame } from '../../render3d/rig';
+import { context2d, createCanvas, FONT_DISPLAY, FONT_SANS, type AnyCanvas, type Ctx2D } from '../canvas';
 import { easeOut } from '../effects';
 import { ShowRenderer, type BoardRow } from '../show';
-import { TOKEN_SCALE } from '../tokens';
 import {
-  boardAt,
+  frameAt,
+  groupAt,
   headAt,
   lastBefore,
   leaderAt,
   roundOf,
   sharesAt,
   stateAt,
-  tickAt,
   trailAt,
   type PaperScene,
 } from './scene';
 
-const TAU = Math.PI * 2;
-/** Seconds a fresh claim flashes, wiped land fades, and a knock-out bursts. */
-const FLASH = 0.45;
+/** Texture pixels per land cell. */
+const TEX = 4;
+/** Ball radius (share of the board side) and slab thickness (board units). */
+const BALL_R = 0.028;
+const SLAB = 7;
+/** Seconds a claim ring pops, wiped land fades, a knock-out bursts. */
+const POP = 0.55;
 const WIPE = 0.6;
-const BURST = 0.8;
+const BURST = 0.9;
+const MAX_TRAIL = 1600;
+const CUBES = 18;
 
-/** A #rrggbb color scaled toward black (f < 1). */
-function shade(hex: string, f: number): string {
+/** A #rrggbb color mixed toward white (f > 0) or black (f < 0). */
+function tint(hex: string, f: number): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex);
   if (!m) return hex;
   const v = parseInt(m[1], 16);
-  const c = (s: number) => Math.round(((v >> s) & 255) * f);
-  return `rgb(${c(16)},${c(8)},${c(0)})`;
+  const ch = (s: number) => {
+    const c = (v >> s) & 255;
+    return Math.round(f >= 0 ? c + (255 - c) * f : c * (1 + f));
+  };
+  return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
 }
 
 const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
-type Diff = { k: number; s: number; gain: Path2D; wipes: { i: number; path: Path2D }[] };
+type Wipe = { t: number; color: string; path: Path2D };
+
+/** One round's board: its slab, land texture, trails, balls and pointers. */
+type Board = {
+  k: number;
+  size: number;
+  group: THREE.Group;
+  tex: THREE.CanvasTexture;
+  canvas: AnyCanvas;
+  ctx: Ctx2D;
+  /** Land as of change group `g`, and the paths drawn for it. */
+  grid: Uint8Array;
+  g: number;
+  paths: Path2D[];
+  wipes: Wipe[];
+  balls: Countryball[];
+  pointers: THREE.Mesh[];
+  trails: { mesh: THREE.Mesh; pos: Float32Array; geo: THREE.BufferGeometry }[];
+  rings: THREE.Mesh[];
+  cubes: THREE.InstancedMesh;
+  drawnKey: string;
+};
 
 export class PaperRenderer extends ShowRenderer<PaperScene> {
-  private layer: { canvas: AnyCanvas; ctx: Ctx2D; key: string } | null = null;
-  private patterns = new Map<string, CanvasPattern | null>();
-  private diffs: Diff[] = [];
-  private grid = new Map<number, Path2D>();
+  protected readonly countryballs = true;
+  private scene3 = new THREE.Scene();
+  private camera = new THREE.PerspectiveCamera(30, 1, 1, 4000);
+  private board: Board | null = null;
 
-  /** Board geometry for a round: side in cells, cell size and top-left corner (design px). */
-  private geo(size: number) {
-    const side = 2 * this.L.P;
-    return { side, cs: side / size, x0: this.L.cx - this.L.P, y0: this.L.cy - this.L.P };
+  /** World position (board centered on the origin) of a sim point. */
+  private world(size: number, x: number, y: number, h = 0): THREE.Vector3 {
+    return new THREE.Vector3(x - size / 2, h, y - size / 2);
   }
 
-  /** The flag tiled in a brick pattern for fighter f (null without a flag image). */
-  private pattern(ctx: Ctx2D, f: number, cs: number): CanvasPattern | null {
-    const key = `${f}:${cs.toFixed(2)}`;
-    if (this.patterns.has(key)) return this.patterns.get(key)!;
-    const fighter = this.scene.fighters[f];
-    let pat: CanvasPattern | null = null;
-    if (fighter.image) {
-      const t = Math.max(40, cs * 2.6) * this.px;
-      const g = t * 0.16;
-      const step = t + g;
-      const c = createCanvas(Math.round(2 * step), Math.round(2 * step));
-      const tc = context2d(c);
-      // Dark grout between the tiles keeps each flag readable.
-      tc.fillStyle = shade(fighter.accent, 0.35);
-      tc.fillRect(0, 0, 2 * step, 2 * step);
-      tc.imageSmoothingQuality = 'high';
-      const flag = (x: number, y: number) => {
-        tc.save();
-        tc.beginPath();
-        tc.roundRect(x, y, t, t, t * 0.12);
-        tc.clip();
-        tc.drawImage(fighter.image!, x, y, t, t);
-        tc.restore();
-      };
-      for (let j = 0; j < 2; j++) flag(g / 2 + j * step, g / 2);
-      for (let j = -1; j < 2; j++) flag(g / 2 + step / 2 + j * step, step + g / 2);
-      pat = ctx.createPattern(c, 'repeat');
-      pat?.setTransform(new DOMMatrix().scale(1 / this.px));
-    }
-    this.patterns.set(key, pat);
-    return pat;
+  private get frame(): Frame {
+    return { W: this.L.W, H: this.L.H, cx: this.L.cx, cy: this.L.cy, P: this.L.P };
   }
 
-  /** Every flag's land on board s of round k, drawn once into an offscreen layer. */
-  private landLayer(k: number, s: number): AnyCanvas {
-    const round = this.scene.result.rounds[k];
-    const { grids, size } = round.rec!;
-    const { side, cs } = this.geo(size);
-    const key = `${k}:${s}`;
-    const dim = Math.round(side * this.px);
-    if (!this.layer) {
-      // A little taller than the board, for the lip under the bottom row.
-      const canvas = createCanvas(dim, Math.round(side * 1.03 * this.px));
-      this.layer = { canvas, ctx: context2d(canvas), key: '' };
+  private buildBoard(k: number): Board {
+    if (this.board) {
+      this.scene3.remove(this.board.group);
+      this.board.balls.forEach((b) => b.dispose());
+      this.board.tex.dispose();
     }
-    if (this.layer.key === key) return this.layer.canvas;
-    const { ctx: c, canvas } = this.layer;
-    this.layer.key = key;
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.clearRect(0, 0, canvas.width, canvas.height);
-    c.setTransform(this.px, 0, 0, this.px, 0, 0);
-    const N = size * size;
-    const off = s * N;
-    const ids = this.scene.result.show.entrants[k];
-    const paths = ids.map(() => new Path2D());
-    const edges = ids.map(() => new Path2D());
-    const own = (x: number, y: number) =>
-      x < 0 || y < 0 || x >= size || y >= size ? 0 : grids[off + y * size + x];
-    for (let y = 0; y < size; y++) {
-      let x = 0;
-      while (x < size) {
-        const o = grids[off + y * size + x];
-        let e = x + 1;
-        while (e < size && grids[off + y * size + e] === o) e++;
-        if (o) paths[o - 1].rect(x * cs, y * cs, (e - x) * cs, cs);
-        x = e;
-      }
-      for (let x2 = 0; x2 < size; x2++) {
-        const o = grids[off + y * size + x2];
-        if (!o) continue;
-        const p = edges[o - 1];
-        const X = x2 * cs;
-        const Y = y * cs;
-        if (own(x2, y - 1) !== o) {
-          p.moveTo(X, Y);
-          p.lineTo(X + cs, Y);
-        }
-        if (own(x2, y + 1) !== o) {
-          p.moveTo(X, Y + cs);
-          p.lineTo(X + cs, Y + cs);
-        }
-        if (own(x2 - 1, y) !== o) {
-          p.moveTo(X, Y);
-          p.lineTo(X, Y + cs);
-        }
-        if (own(x2 + 1, y) !== o) {
-          p.moveTo(X + cs, Y);
-          p.lineTo(X + cs, Y + cs);
-        }
-      }
+    const { scene, theme: th } = this;
+    const round = scene.result.rounds[k];
+    const size = round.config.size;
+    const ids = scene.result.show.entrants[k];
+    const group = new THREE.Group();
+    if (!this.scene3.children.length)
+      addLights(this.scene3, size * 0.75, { sky: '#FFFFFF', ground: th.bgOuter, sun: 2.0 });
+
+    // The slab: a land texture on top, darker sides.
+    const canvas = createCanvas(size * TEX, size * TEX);
+    const ctx = context2d(canvas);
+    const tex = new THREE.CanvasTexture(canvas as HTMLCanvasElement);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
+    const top = new THREE.Mesh(
+      new THREE.PlaneGeometry(size, size),
+      new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }),
+    );
+    top.rotation.x = -Math.PI / 2;
+    top.receiveShadow = true;
+    const slab = new THREE.Mesh(
+      new THREE.BoxGeometry(size, SLAB, size),
+      new THREE.MeshStandardMaterial({ color: new THREE.Color(th.floorOuter), roughness: 0.85 }),
+    );
+    slab.position.y = -SLAB / 2 - 0.02;
+    slab.receiveShadow = true;
+    group.add(top, slab);
+
+    const balls = ids.map((f) => {
+      const b = new Countryball(scene.fighters[f].image, scene.colors[f]);
+      group.add(b.root);
+      return b;
+    });
+    const arrow = new THREE.Shape();
+    arrow.moveTo(0, 1.4);
+    arrow.lineTo(1.1, -0.6);
+    arrow.lineTo(0, -0.15);
+    arrow.lineTo(-1.1, -0.6);
+    arrow.closePath();
+    const arrowGeo = new THREE.ShapeGeometry(arrow);
+    const pointers = ids.map((f) => {
+      const m = new THREE.Mesh(
+        arrowGeo,
+        new THREE.MeshStandardMaterial({
+          color: new THREE.Color(tint(scene.colors[f], -0.15)),
+          roughness: 0.6,
+        }),
+      );
+      group.add(m);
+      return m;
+    });
+    const trails = ids.map((f) => {
+      const pos = new Float32Array(MAX_TRAIL * 2 * 3);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
+      const normals = new Float32Array(MAX_TRAIL * 2 * 3);
+      for (let q = 1; q < normals.length; q += 3) normals[q] = 1;
+      geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+      const idx: number[] = [];
+      for (let q = 0; q + 1 < MAX_TRAIL; q++)
+        idx.push(2 * q, 2 * q + 1, 2 * q + 2, 2 * q + 1, 2 * q + 3, 2 * q + 2);
+      geo.setIndex(idx);
+      const mesh = new THREE.Mesh(
+        geo,
+        new THREE.MeshBasicMaterial({
+          color: new THREE.Color(tint(scene.colors[f], 0.35)),
+          transparent: true,
+          opacity: 0.95,
+          side: THREE.DoubleSide,
+        }),
+      );
+      mesh.frustumCulled = false;
+      group.add(mesh);
+      return { mesh, pos, geo };
+    });
+    const ringGeo = new THREE.RingGeometry(0.82, 1, 48);
+    const rings = Array.from({ length: 10 }, () => {
+      const m = new THREE.Mesh(
+        ringGeo,
+        new THREE.MeshBasicMaterial({ transparent: true, toneMapped: false }),
+      );
+      m.rotation.x = -Math.PI / 2;
+      m.visible = false;
+      group.add(m);
+      return m;
+    });
+    const cubes = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(1, 1, 1),
+      new THREE.MeshStandardMaterial({ roughness: 0.5 }),
+      CUBES * 4,
+    );
+    cubes.castShadow = true;
+    cubes.frustumCulled = false;
+    cubes.count = 0;
+    group.add(cubes);
+    this.scene3.add(group);
+    const board: Board = {
+      k,
+      size,
+      group,
+      tex,
+      canvas,
+      ctx,
+      grid: new Uint8Array(size * size),
+      g: -1,
+      paths: [],
+      wipes: [],
+      balls,
+      pointers,
+      trails,
+      rings,
+      cubes,
+      drawnKey: '',
+    };
+    this.board = board;
+    return board;
+  }
+
+  /** Brings the board's land up to change group g (replaying from the start when seeking back). */
+  private advance(b: Board, g: number): void {
+    if (g === b.g) return;
+    const round = this.scene.result.rounds[b.k];
+    const { changeStart, changeT, cells, owners } = round.rec!;
+    if (g < b.g) {
+      b.grid.fill(0);
+      b.g = -1;
+      b.wipes = [];
     }
-    const counts = this.scene.counts[k][s];
-    // The land stands off the paper: a darker lip under every piece first, then the tops.
-    const lip = cs * 0.34;
+    const ids = this.scene.result.show.entrants[b.k];
+    for (let q = b.g + 1; q <= g; q++) {
+      let wiped: Path2D | null = null;
+      let victim = 0;
+      for (let c = changeStart[q]; c < changeStart[q + 1]; c++) {
+        const cell = cells[c];
+        if (!owners[c] && b.grid[cell]) {
+          victim = b.grid[cell];
+          wiped ??= new Path2D();
+          wiped.rect((cell % b.size) * TEX, Math.floor(cell / b.size) * TEX, TEX, TEX);
+        }
+        b.grid[cell] = owners[c];
+      }
+      if (wiped) b.wipes.push({ t: changeT[q], color: this.scene.colors[ids[victim - 1]], path: wiped });
+    }
+    b.g = g;
+    b.paths = landPaths(b.grid, b.size, ids.length, TEX);
+  }
+
+  /** Paints the board texture: paper, land with a raised lip, and land fading after a knock-out. */
+  private paint(b: Board, local: number): void {
+    const live = b.wipes.filter((w) => local >= w.t && local - w.t < WIPE);
+    const key = `${b.g}:${live.map((w) => Math.round((local - w.t) * 30)).join(',')}`;
+    if (key === b.drawnKey) return;
+    b.drawnKey = key;
+    const { ctx, size } = b;
+    const th = this.theme;
+    const ids = this.scene.result.show.entrants[b.k];
+    const S = size * TEX;
+    ctx.fillStyle = th.floorInner;
+    ctx.fillRect(0, 0, S, S);
+    // A faint paper grid.
+    ctx.strokeStyle = th.grid;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let q = 16; q < size; q += 16) {
+      ctx.moveTo(q * TEX, 0);
+      ctx.lineTo(q * TEX, S);
+      ctx.moveTo(0, q * TEX);
+      ctx.lineTo(S, q * TEX);
+    }
+    ctx.stroke();
+    for (const w of live) {
+      ctx.globalAlpha = 1 - (local - w.t) / WIPE;
+      ctx.fillStyle = w.color;
+      ctx.fill(w.path);
+    }
+    ctx.globalAlpha = 1;
+    const lip = TEX * 1.1;
     ids.forEach((f, i) => {
-      if (!counts[i]) return;
-      c.save();
-      c.translate(0, lip);
-      c.fillStyle = shade(this.scene.fighters[f].accent, 0.5);
-      c.fill(paths[i]);
-      c.restore();
+      ctx.save();
+      ctx.translate(0, lip);
+      ctx.fillStyle = tint(this.scene.colors[f], -0.32);
+      ctx.fill(b.paths[i]);
+      ctx.restore();
     });
     ids.forEach((f, i) => {
-      if (!counts[i]) return;
-      const accent = this.scene.fighters[f].accent;
-      c.fillStyle = this.pattern(c, f, cs) ?? accent;
-      c.fill(paths[i]);
-      c.strokeStyle = accent;
-      c.lineWidth = Math.max(2, cs * 0.2);
-      c.lineCap = 'round';
-      c.stroke(edges[i]);
+      ctx.fillStyle = this.scene.colors[f];
+      ctx.fill(b.paths[i]);
     });
-    return canvas;
-  }
-
-  /** Cells that changed hands on board s (claims flash) and land wiped out with a flag. */
-  private diff(k: number, s: number): Diff {
-    let d = this.diffs.find((x) => x.k === k && x.s === s);
-    if (d) return d;
-    const { grids, size } = this.scene.result.rounds[k].rec!;
-    const { cs } = this.geo(size);
-    const N = size * size;
-    const gain = new Path2D();
-    const wipes = new Map<number, Path2D>();
-    for (let c = 0; c < N; c++) {
-      const a = grids[(s - 1) * N + c];
-      const b = grids[s * N + c];
-      if (a === b) continue;
-      const x = (c % size) * cs;
-      const y = Math.floor(c / size) * cs;
-      if (b) gain.rect(x, y, cs, cs);
-      else {
-        if (!wipes.has(a - 1)) wipes.set(a - 1, new Path2D());
-        wipes.get(a - 1)!.rect(x, y, cs, cs);
-      }
-    }
-    d = { k, s, gain, wipes: [...wipes].map(([i, path]) => ({ i, path })) };
-    this.diffs.push(d);
-    if (this.diffs.length > 8) this.diffs.shift();
-    return d;
+    b.tex.needsUpdate = true;
   }
 
   protected drawArena(ctx: Ctx2D, t: number, opts: { thumbnail?: boolean }): void {
-    const { scene, theme: th } = this;
+    const { scene } = this;
     const { k, local, round } = roundOf(scene, t);
-    const rec = round.rec!;
-    const { side, cs, x0, y0 } = this.geo(rec.size);
+    const b = this.board?.k === k ? this.board : this.buildBoard(k);
+    const size = b.size;
     const ids = scene.result.show.entrants[k];
+    this.advance(b, groupAt(round, local));
+    this.paint(b, local);
 
-    // The sheet: a soft shadow, the paper and a faint cell grid.
-    ctx.fillStyle = th.dark ? 'rgba(0,0,0,0.45)' : 'rgba(70,45,20,0.16)';
-    ctx.beginPath();
-    ctx.roundRect(x0 - 4, y0 + 10, side + 8, side + 8, 18);
-    ctx.fill();
-    ctx.fillStyle = th.floorInner;
-    ctx.beginPath();
-    ctx.roundRect(x0 - 10, y0 - 10, side + 20, side + 20, 16);
-    ctx.fill();
-    let grid = this.grid.get(rec.size);
-    if (!grid) {
-      grid = new Path2D();
-      for (let q = 1; q < rec.size; q++) {
-        grid.moveTo(q * cs, 0);
-        grid.lineTo(q * cs, side);
-        grid.moveTo(0, q * cs);
-        grid.lineTo(side, q * cs);
-      }
-      this.grid.set(rec.size, grid);
-    }
-    ctx.save();
-    ctx.translate(x0, y0);
-    ctx.strokeStyle = th.grid;
-    ctx.lineWidth = 1.5;
-    ctx.stroke(grid);
-    ctx.restore();
-
-    // Land.
-    const ft = tickAt(round, local);
-    const tick = Math.floor(ft);
-    const s = boardAt(round, tick);
-    const layer = this.landLayer(k, s);
-    ctx.drawImage(layer, x0, y0, layer.width / this.px, layer.height / this.px);
-    ctx.save();
-    ctx.translate(x0, y0);
-    for (let q = s; q > 0; q--) {
-      const u = local - rec.gridTicks[q] / rec.hz;
-      if (u > WIPE) break;
-      const d = this.diff(k, q);
-      for (const w of d.wipes) {
-        ctx.globalAlpha = 1 - u / WIPE;
-        ctx.fillStyle = scene.fighters[ids[w.i]].accent;
-        ctx.fill(w.path);
-      }
-      if (u < FLASH) {
-        ctx.globalAlpha = 0.6 * (1 - u / FLASH);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fill(d.gain);
-      }
-    }
-    ctx.globalAlpha = 1;
-
-    // Trails.
-    const cell = (x: number, y: number): [number, number] => [(x + 0.5) * cs, (y + 0.5) * cs];
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    ids.forEach((f, i) => {
-      const pts = trailAt(round, i, tick);
-      if (!pts.length) return;
-      ctx.beginPath();
-      pts.forEach(([x, y], j) => (j ? ctx.lineTo(...cell(x, y)) : ctx.moveTo(...cell(x, y))));
-      ctx.lineTo(...cell(...headAt(round, i, ft)));
-      ctx.strokeStyle = scene.fighters[f].accent;
-      ctx.globalAlpha = 0.85;
-      ctx.lineWidth = cs * 0.72;
-      ctx.stroke();
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.globalAlpha = 0.4;
-      ctx.lineWidth = cs * 0.16;
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    });
-
-    // Knock-outs: a ring and paper scraps in the flag's colors.
+    frameCamera(this.camera, this.frame, new THREE.Vector3(0, 0, size * 0.02), size * 0.52, 0.66);
+    const toCam = this.camera.position.clone().normalize();
+    const ft = frameAt(round, local);
+    const fi = Math.floor(ft);
     const cuts = scene.cuts[k];
-    for (let q = lastBefore(cuts, local); q >= 0 && local - cuts[q].t < BURST; q--) {
-      const c = cuts[q];
-      const u = (local - c.t) / BURST;
-      const [cx, cy] = cell(c.x, c.y);
-      const f = scene.fighters[ids[c.i]];
-      ctx.strokeStyle = f.accent;
-      ctx.globalAlpha = 0.9 * (1 - u);
-      ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.arc(cx, cy, cs * (1.2 + 5 * easeOut(u)), 0, TAU);
-      ctx.stroke();
-      const colors = f.palette.length ? f.palette : [f.accent];
-      for (let j = 0; j < 14; j++) {
-        const a = hashFloat(scene.seed, q * 31 + j, 71) * TAU;
-        const sp = cs * (3 + 5 * hashFloat(scene.seed, q * 31 + j, 72));
-        const r = sp * easeOut(u);
-        const w = cs * (0.5 + 0.5 * hashFloat(scene.seed, q * 31 + j, 73));
-        ctx.save();
-        ctx.translate(cx + Math.cos(a) * r, cy + Math.sin(a) * r + cs * 2 * u * u);
-        ctx.rotate(a + u * 6);
-        ctx.fillStyle = colors[j % colors.length];
-        ctx.globalAlpha = 1 - u;
-        ctx.fillRect(-w / 2, -w * 0.35, w, w * 0.7);
-        ctx.restore();
-      }
-      ctx.globalAlpha = 1;
-    }
+    const done = local >= round.winnerT;
 
-    // Heads, with a crown on the flag holding the most land (none on the thumbnail).
-    const lead = local >= round.winnerT ? round.winnerIndex : leaderAt(scene, k, local);
-    const d = Math.max(cs * 2.2, 50);
-    ids.forEach((f, i) => {
-      let scale = 1;
-      if (stateAt(round, i, tick) === 0) {
-        const c = cuts.find((x) => x.i === i);
-        const u = c ? (local - c.t) / 0.3 : 1;
-        if (u >= 1) return;
-        scale = 1 - easeOut(u);
+    // Trails as ribbons on the board.
+    ids.forEach((_, i) => {
+      const tr = b.trails[i];
+      const pts = trailAt(round, i, fi);
+      if (!pts.length) {
+        tr.geo.setDrawRange(0, 0);
+        return;
       }
-      const [x, y] = cell(...headAt(round, i, ft));
-      const dd = d * scale;
-      const tok = this.tokens.get(f, dd * this.px);
-      const size = dd * TOKEN_SCALE;
-      ctx.drawImage(tok, x - size / 2, y - size / 2, size, size);
-      if (i === lead && ids.length > 1 && scale === 1 && !opts.thumbnail)
-        this.crown(ctx, x, y - dd / 2 - 6, Math.max(26, dd * 0.55));
+      const h = headAt(round, i, ft);
+      pts.push([h.x, h.y]);
+      const m = Math.min(pts.length, MAX_TRAIL);
+      const w = TRAIL_R * 1.7;
+      for (let q = 0; q < m; q++) {
+        const [ax, ay] = pts[Math.max(0, q - 1)];
+        const [bx, by] = pts[Math.min(m - 1, q + 1)];
+        const dx = bx - ax;
+        const dy = by - ay;
+        const l = Math.hypot(dx, dy) || 1;
+        const nx = (-dy / l) * w;
+        const ny = (dx / l) * w;
+        const [px, py] = pts[q];
+        const o = q * 6;
+        tr.pos[o] = px + nx - size / 2;
+        tr.pos[o + 1] = 0.12;
+        tr.pos[o + 2] = py + ny - size / 2;
+        tr.pos[o + 3] = px - nx - size / 2;
+        tr.pos[o + 4] = 0.12;
+        tr.pos[o + 5] = py - ny - size / 2;
+      }
+      tr.geo.attributes.position.needsUpdate = true;
+      tr.geo.setDrawRange(0, Math.max(0, (m - 1) * 6));
     });
-    ctx.restore();
+
+    // Countryballs and their pointers.
+    const lead = done ? round.winnerIndex : leaderAt(scene, k, local);
+    const labels: { x: number; y: number; name: string; lead: boolean }[] = [];
+    ids.forEach((f, i) => {
+      const ball = b.balls[i];
+      const ptr = b.pointers[i];
+      let scale = 1;
+      let expression: Expression = blinking(scene.seed, f, local) ? 'blink' : 'open';
+      const h = headAt(round, i, ft);
+      if (stateAt(round, i, fi) === 0) {
+        const c = cuts.find((x) => x.i === i);
+        const u = c ? (local - c.t) / 0.35 : 1;
+        if (u >= 1) {
+          ball.set({ x: 0, y: 0, z: 0, r: 1, facing: toCam, visible: false });
+          ptr.visible = false;
+          return;
+        }
+        scale = 1 - easeOut(u);
+        expression = 'dead';
+      } else if (done) expression = i === round.winnerIndex ? 'happy' : 'blink';
+      else if (stateAt(round, i, fi) === 2) {
+        // Out on a trail with a rival close by: scared.
+        for (let q = 0; q < ids.length; q++) {
+          if (q === i || stateAt(round, q, fi) === 0) continue;
+          const o = headAt(round, q, ft);
+          if (Math.hypot(o.x - h.x, o.y - h.y) < 22) expression = 'scared';
+        }
+      }
+      const R = BALL_R * size;
+      const r = R * scale;
+      const pos = this.world(size, h.x, h.y, r);
+      const facing = toCam
+        .clone()
+        .multiplyScalar(1.4)
+        .add(new THREE.Vector3(h.dx, 0, h.dy))
+        .normalize();
+      ball.set({ x: pos.x, y: pos.y, z: pos.z, r, facing, look: [h.dx * 0.8, -h.dy * 0.5], expression });
+      ptr.visible = scale === 1 && !done;
+      ptr.position.copy(this.world(size, h.x + h.dx * R * 1.9, h.y + h.dy * R * 1.9, 0.25));
+      // Lay the arrow flat, pointing along the heading.
+      ptr.rotation.set(-Math.PI / 2, 0, Math.atan2(-h.dx, -h.dy));
+      ptr.scale.setScalar(R * 0.42);
+      if (scale === 1) {
+        const p = project(this.camera, this.frame, this.world(size, h.x, h.y, r * 2.3));
+        labels.push({
+          x: p.x,
+          y: p.y,
+          name: scene.fighters[f].name,
+          lead: i === lead && ids.length > 1 && !opts.thumbnail,
+        });
+      }
+    });
+
+    // Claim rings.
+    let ring = 0;
+    for (const e of round.events) {
+      if (e.type !== 'claim' || e.t > local) continue;
+      const u = (local - e.t) / POP;
+      if (u >= 1 || ring >= b.rings.length) continue;
+      const m = b.rings[ring++];
+      m.visible = true;
+      m.position.copy(this.world(size, e.x, e.y, 0.3));
+      m.scale.setScalar(4 + Math.sqrt(e.cells) * 0.9 * easeOut(u));
+      const mat = m.material as THREE.MeshBasicMaterial;
+      mat.color.set(tint(scene.colors[ids[e.i]], 0.5));
+      mat.opacity = 0.85 * (1 - u);
+    }
+    for (; ring < b.rings.length; ring++) b.rings[ring].visible = false;
+
+    // Knock-outs burst into cubes of the flag's color.
+    let n = 0;
+    const mtx = new THREE.Matrix4();
+    const quat = new THREE.Quaternion();
+    for (let c = lastBefore(cuts, local); c >= 0 && local - cuts[c].t < BURST; c--) {
+      const cut = cuts[c];
+      const tt = local - cut.t;
+      const u = tt / BURST;
+      const color = new THREE.Color(scene.colors[ids[cut.i]]);
+      for (let j = 0; j < CUBES && n < CUBES * 4; j++) {
+        const a = hashFloat(scene.seed, c * 37 + j, 81) * Math.PI * 2;
+        const sp = 10 + 16 * hashFloat(scene.seed, c * 37 + j, 82);
+        const up = 18 + 22 * hashFloat(scene.seed, c * 37 + j, 83);
+        const p = this.world(
+          size,
+          cut.x + Math.cos(a) * sp * tt,
+          cut.y + Math.sin(a) * sp * tt,
+          Math.max(0.6, 2 + up * tt - 45 * tt * tt),
+        );
+        quat.setFromEuler(new THREE.Euler(tt * 9 + j, tt * 7, 0));
+        const s = 1.6 * (1 - u * u);
+        mtx.compose(p, quat, new THREE.Vector3(s, s, s));
+        b.cubes.setMatrixAt(n, mtx);
+        b.cubes.setColorAt(n, color);
+        n++;
+      }
+    }
+    b.cubes.count = n;
+    b.cubes.instanceMatrix.needsUpdate = true;
+    if (b.cubes.instanceColor) b.cubes.instanceColor.needsUpdate = true;
+
+    drawScene(ctx, this.scene3, this.camera, this.width, this.height, this.L.W, this.L.H);
+
+    // Names over the balls, and a crown over the leader.
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `700 ${Math.round(Math.min(this.L.W, this.L.H) * 0.026)}px ${FONT_SANS}`;
+    for (const l of labels) {
+      ctx.save();
+      ctx.shadowColor = 'rgba(255,255,255,0.95)';
+      ctx.shadowBlur = 6 * this.px;
+      ctx.fillStyle = '#1D2A30';
+      ctx.fillText(l.name, l.x, l.y);
+      ctx.restore();
+      if (l.lead) this.crown(ctx, l.x, l.y - 24, 38);
+    }
   }
 
   protected drawCounter(ctx: Ctx2D, t: number): void {
@@ -369,8 +496,8 @@ export class PaperRenderer extends ShowRenderer<PaperScene> {
     const { k, local, round } = roundOf(this.scene, t);
     const ids = this.scene.result.show.entrants[k];
     const shares = sharesAt(this.scene, k, local);
-    const tick = Math.floor(tickAt(round, local));
-    const out = ids.map((_, i) => stateAt(round, i, tick) === 0);
+    const fi = Math.floor(frameAt(round, local));
+    const out = ids.map((_, i) => stateAt(round, i, fi) === 0);
     const lead = local >= round.winnerT ? round.winnerIndex : leaderAt(this.scene, k, local);
     return ids
       .map((_, i) => i)
@@ -450,17 +577,17 @@ export class PaperRenderer extends ShowRenderer<PaperScene> {
     };
   }
 
-  /** Squares of land spreading out from the winner. */
+  /** Rounded squares of land spreading out from the winner, in its color. */
   protected drawWinnerHalo(ctx: Ctx2D, R: number, u: number): void {
-    const w = this.scene.fighters[this.scene.result.winnerIndex];
+    const color = this.scene.colors[this.scene.result.winnerIndex];
     for (let j = 0; j < 3; j++) {
       const q = (u * 0.6 + j / 3) % 1;
       const h = R + 18 + q * 90;
-      ctx.strokeStyle = w.accent;
+      ctx.strokeStyle = color;
       ctx.globalAlpha = 0.6 * (1 - q);
       ctx.lineWidth = 8;
       ctx.beginPath();
-      ctx.roundRect(-h, -h, 2 * h, 2 * h, h * 0.18);
+      ctx.roundRect(-h, -h, 2 * h, 2 * h, h * 0.4);
       ctx.stroke();
     }
   }

@@ -57,11 +57,16 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
   game ends at 55% fill, biggest wins; no stealing, which made leads snowball), `show.ts` (growth rate chosen by
   playing a range in full; knockout like Ring Escape). Rendering in `src/render/grow/`, cues in
   `src/audio/growCues.ts`. The round-based games extend `src/render/show.ts` (title, banners, intro, winner, outro).
-- `src/engine/paper/` – Paper Land (Paper.io): `sim.ts` (grid board, 10 moves/s, trails, flood-fill claims from the
-  board edge, cuts wipe the victim's land, seeded steering AI that only hunts late in the clock), `show.ts` (runs on a
-  clock of the target length; picks the liveliest of a few starts; knockout like Ring Escape). Land is recorded only
-  when it changes (`rec.grids` + `gridTicks`). Rendering in `src/render/paper/` (land drawn once per board change into
-  an offscreen layer, tiled with the flag), cues in `src/audio/paperCues.ts`.
+- `src/engine/paper/` – Paper Land (Paper.io 2): `sim.ts` (continuous movement at 60 steps/s with a limited turn rate,
+  land on a fine grid, trails stamped as discs, flood-fill claims from the board edge, cuts wipe the victim's land;
+  seeded steering AI tests headings by flying the real turning arc, only hunts after `CALM`), `show.ts` (runs on a
+  clock of the target length; picks the liveliest of a few starts; knockout like Ring Escape). Land is recorded as
+  change groups (`changeT`/`changeStart`/`cells`/`owners`). 3D rendering in `src/render/paper/` (one solid color per
+  country from `assignColors`, smooth land outlines from `src/render3d/contour.ts`), cues in `src/audio/paperCues.ts`.
+- `src/render3d/` – three.js toolkit: `gl.ts` (one shared WebGLRenderer per thread, transparent, copied into the 2D
+  frame so overlays draw on top; works in the export worker), `countryball.ts` (flag ball with expressive eyes,
+  `paintEyes` for 2D), `rig.ts` (camera framing onto the 2D layout's arena, lights, `project`). Games are moving to 3D
+  one by one; a `ShowRenderer` with `countryballs = true` paints eyes on the intro and winner discs.
 - `src/dashboard/` – channel dashboard data: read-only YouTube calls via the `youtube_api_get` command
   (channels, playlistItems, videos), pure insight math (`insights.ts`, tested), and channel snapshots saved to
   `state.stats` every 3 hours (the growth charts). UI in `src/app/desktop/DashboardPage.tsx` + `charts.tsx`.

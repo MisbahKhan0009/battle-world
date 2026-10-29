@@ -189,20 +189,20 @@ export const THEMES: Record<Look['theme'], Theme> = {
     danger: '#C2410C',
     dark: false,
   },
-  // Paper Land: mint on deep jade, and deep green on kraft paper.
-  jade: {
-    bgInner: '#0F2A24',
-    bgOuter: '#04100D',
-    glow: 'rgba(61,255,176,0.10)',
-    grid: 'rgba(61,255,176,0.07)',
-    floorInner: '#123029',
-    floorOuter: '#0A1F1A',
-    border: '#3DFFB0',
-    text: '#EEFFF7',
-    subtext: '#8FBFAE',
-    hudBg: 'rgba(3,14,11,0.8)',
-    accent: '#3DFFB0',
-    danger: '#FF5A5F',
+  // Paper Land: a pale board floating on bright aqua (like Paper.io 2), and kraft paper.
+  mint: {
+    bgInner: '#86ECDD',
+    bgOuter: '#25A99B',
+    glow: 'rgba(255,255,255,0.3)',
+    grid: 'rgba(40,90,80,0.07)',
+    floorInner: '#F4FBF8',
+    floorOuter: '#C9E4DC',
+    border: '#FFFFFF',
+    text: '#FFFFFF',
+    subtext: '#E8FFFA',
+    hudBg: 'rgba(6,60,55,0.45)',
+    accent: '#FFD23D',
+    danger: '#FF4D5E',
     dark: true,
   },
   kraft: {
@@ -228,7 +228,7 @@ export const GAME_THEMES: Record<string, Look['theme'][]> = {
   'marble-race': ['circuit', 'asphalt', 'daylight'],
   'ring-escape': ['plum', 'aurora'],
   'growing-ball': ['ember', 'peach'],
-  'paper-land': ['jade', 'kraft'],
+  'paper-land': ['mint', 'kraft'],
 };
 
 export const HP_HIGH = [74, 222, 128] as const;

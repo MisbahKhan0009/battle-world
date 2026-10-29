@@ -250,14 +250,16 @@ long videos are a knockout of 9 to 16 flags in 3 or 4 heats and a final. Every g
 
 <img src="docs/images/paper-land.jpg" alt="Four frames from a Paper Land Short: the countdown with every flag, flags drawing trails out of their first squares of land, the board covered in flag-tiled land with the leader's crown and the clock running down, and the winner card" width="100%" />
 
-Like Paper.io. Every flag starts on a small square of land on a grid board. Outside its land it leaves a trail in
-its color; when it gets back home, the trail and everything it encloses become its land, taken from whoever owned
-it. Crossing a rival's trail knocks that rival out and wipes its land off the board. Land is tiled with the flag,
-the flag with the most land wears a crown, banners call every cut, new leader and "10 SECONDS LEFT", and when the
-clock runs out the most land wins (or the last flag left, if everyone else was cut). Early on the flags build;
-the hunting starts as the clock runs down. Shorts are one game of 4 to 7 flags; long videos are a knockout of 9 to
-16 flags in 3 or 4 heats and a final. Claims ring a marimba that climbs with the size of the claim, cuts snip like
-scissors, and the last five seconds tick. Open **Modules, Paper Land, Watch a sample game** to try it.
+Like Paper.io 2, in 3D. Every country is a **countryball** (a glossy flag ball with cartoon eyes that look where
+it's heading, blink, get scared when a rival is close and smile when it wins) rolling over a pale board floating on
+aqua water. Flags steer smoothly in curves, with an arrow showing where each one is heading and its name above. Outside
+its land a flag leaves a ribbon trail; when it gets back home, the trail and everything it encloses become its land, in
+one solid color per country, taken from whoever owned it. Crossing a rival's trail knocks that rival out: its land
+fades away and it bursts into cubes. The flag with the most land wears a crown, banners call every cut, new leader
+and "10 SECONDS LEFT", and when the clock runs out the most land wins (or the last flag left). Early on the flags
+build; the hunting starts as the clock runs down. Shorts are one game of 4 to 7 flags; long videos are a knockout of
+9 to 16 flags in 3 or 4 heats and a final. Claims ring a marimba that climbs with the size of the claim, cuts snip
+like scissors, and the last five seconds tick. Open **Modules, Paper Land, Watch a sample game** to try it.
 
 ### Studio and modules
 
@@ -601,11 +603,14 @@ lineups and winners, and `src/export/production.ts` to plug the game's renderer 
   percent and the lead changes several times. The game ends when the balls fill 55% of the arena; length is fitted
   by playing a range of growth rates in full and keeping the closest, liveliest game. Tests check balls stay inside
   the arena, never overlap, and the biggest wins.
-- **Paper Land rules.** A grid board (30 to 64 cells a side, about 400 cells per flag) and 10 moves a second.
-  Claiming flood-fills from the board's edges: whatever the flag's land and trail cut off from the edge becomes its
-  land. Steering is a seeded AI with the same rules for every flag: plan a loop out of its land (bigger when
-  behind), head home along the shortest path when a rival gets close to its trail, and go for a rival's trail it can
-  reach before the rival gets home (only late in the game). The game runs on a clock of the target length; a few
+- **Paper Land rules.** Flags move continuously at a fixed speed with a limited turn rate (smooth curves); land is
+  kept on a fine grid (120 to 256 cells a side). Claiming flood-fills from the board's edges: whatever the flag's
+  land and trail cut off from the edge becomes its land. Steering is a seeded AI with the same rules for every flag:
+  plan a loop out of its land (bigger when behind), test each heading by flying the arc it can really turn (so flags
+  don't run into walls or their own trail), head home along the shortest path when a rival gets close to its trail,
+  and go for a rival's trail it can reach before the rival gets home (only in the second half). Land outlines are
+  drawn with marching squares on a softened field, so they read as smooth blobs. The board is rendered in 3D with
+  three.js (also inside the export worker), with the 2D titles and banners on top. The game runs on a clock of the target length; a few
   starts are played in full and the liveliest is kept (lead changes, a few cuts, a well-covered board, a close
   finish). Land is recorded only when it changes. Tests check the board always matches every flag's land, a cut
   flag's land is wiped, and the most land wins.

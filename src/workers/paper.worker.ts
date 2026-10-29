@@ -25,7 +25,17 @@ scope.onmessage = (e) => {
     const config = planShow(input, input.heats ? 2 : 4);
     const result = runShow(config, { record: true });
     const transfer = result.rounds.flatMap((r) =>
-      r.rec ? [r.rec.pos.buffer, r.rec.state.buffer, r.rec.gridTicks.buffer, r.rec.grids.buffer] : [],
+      r.rec
+        ? [
+            r.rec.pos,
+            r.rec.dir,
+            r.rec.state,
+            r.rec.changeT,
+            r.rec.changeStart,
+            r.rec.cells,
+            r.rec.owners,
+          ].map((a) => a.buffer)
+        : [],
     );
     scope.postMessage({ id, ok: true, config, result }, transfer);
   } catch (err) {

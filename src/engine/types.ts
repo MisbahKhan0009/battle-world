@@ -45,7 +45,7 @@ export type Look = {
     | 'aurora'
     | 'ember'
     | 'peach'
-    | 'jade'
+    | 'mint'
     | 'kraft';
   title: string;
   subtitle: string;

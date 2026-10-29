@@ -41,7 +41,8 @@ export function buildPaperCues(scene: PaperScene): Cue[] {
       }
       if (at - prev < MIN_GAP) continue;
       while (recent.length && at - recent[0] > 1) recent.shift();
-      const f = Math.min(1, ev.cells / 80);
+      // A claim of 3% of the board rings the highest note.
+      const f = Math.min(1, ev.cells / (size * size * 0.03));
       if (recent.length >= MAX_PER_SEC && f < 0.5) continue;
       recent.push(at);
       prev = at;

@@ -1,11 +1,14 @@
-/** Paper Land: world types. The board is a square grid of cells, (0, 0) top left. */
+/**
+ * Paper Land: world types. The board is a square of `size` units; land is kept on a grid of one
+ * cell per unit, (0, 0) top left. Flags move continuously and steer with a limited turn rate.
+ */
 
 /** Fully resolved, serializable game input. */
 export type PaperConfig = {
   seed: number;
   /** Flag ids, one per competitor (labels only: every flag plays by the same rules). */
   ids: string[];
-  /** Board side in cells. */
+  /** Board side in land cells. */
   size: number;
   /** Game clock in sim seconds; the game ends sooner if only one flag is left. */
   limit: number;
@@ -22,7 +25,7 @@ export type PaperEvent =
       /** Cells gained, and how many of them were a rival's land. */
       cells: number;
       stolen: number;
-      /** Center of the claimed area (cells). */
+      /** Center of the claimed area. */
       x: number;
       y: number;
     }
@@ -38,19 +41,24 @@ export type PaperEvent =
     };
 
 /**
- * Recorded game at one frame per move tick. `pos` is [tick][flag][x, y] in cells, `state` is
- * [tick][flag] (0 out of the game, 1 inside its land, 2 outside drawing a trail). The land map is
- * stored only when it changes: `grids` holds one board (owner + 1, 0 = nobody) per `gridTicks`.
+ * Recorded game. Flags are sampled at `hz`: `pos` and `dir` are [frame][flag][x, y] (position,
+ * and the unit heading), `state` is [frame][flag] (0 out of the game, 1 inside its land, 2 outside
+ * drawing a trail). Land is stored as changes: change group g happens at `changeT[g]` and sets
+ * cells `cells[changeStart[g] .. changeStart[g + 1])` to `owners` (owner + 1, 0 = nobody). Group 0
+ * is the starting land.
  */
 export type PaperTrack = {
   hz: number;
-  ticks: number;
+  frames: number;
   n: number;
   size: number;
-  pos: Int16Array;
+  pos: Float32Array;
+  dir: Float32Array;
   state: Uint8Array;
-  gridTicks: Int32Array;
-  grids: Uint8Array;
+  changeT: Float32Array;
+  changeStart: Int32Array;
+  cells: Int32Array;
+  owners: Uint8Array;
 };
 
 export type PaperResult = {

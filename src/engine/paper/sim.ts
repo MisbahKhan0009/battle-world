@@ -1,36 +1,63 @@
 /**
- * Paper Land rules and steering, like Paper.io. Every flag starts on a small square of land on a
- * grid board and moves one cell per tick. Outside its land it leaves a trail; coming home closes
- * the loop and everything the trail encloses becomes its land (taken from whoever owned it).
- * Running into a rival's trail knocks that rival out (its land is wiped); running into your own
- * trail or off the board knocks you out. When the clock runs out the most land wins, or the last
- * flag left wins early.
+ * Paper Land rules and steering, like Paper.io 2. Every flag starts on a round patch of land and
+ * moves at a constant speed, steering smoothly (a limited turn rate, so paths curve). Outside its
+ * land it leaves a trail; coming home closes the loop and everything the trail encloses becomes
+ * its land (taken from whoever owned it). Running into a rival's trail knocks that rival out (its
+ * land is wiped); running into your own trail or off the board knocks you out. When the clock
+ * runs out the most land wins, or the last flag left wins early.
  *
- * Integer grid logic and a seeded RNG keep it deterministic: the same config is the same game.
+ * Land lives on a grid of one cell per board unit. Fixed steps, a seeded RNG and dsin/dcos keep it
+ * deterministic: the same config is the same game.
  */
+import { dcos, dsin } from '../physics';
 import { hash32, Rng } from '../rng';
 import type { PaperCause, PaperConfig, PaperEvent, PaperTrack } from './types';
 
-/** Cells moved per second. */
-export const MOVE_HZ = 10;
-/** Starting land is a square of (2 * START_R + 1) cells a side. */
-export const START_R = 2;
+export const STEP = 1 / 60;
+/** Board units moved per second, and the fastest turn (radians per second). */
+export const SPEED = 40;
+const TURN = 4.2;
+/** Starting land is a disc of this radius. */
+export const START_R = 6;
+/** A trail is this wide either side of the flag's path. */
+export const TRAIL_R = 1.7;
+/** A flag only hits its own trail where it was laid more than this many steps ago. */
+const RECENT = 10;
+/** Recorded frames per second. */
+const REC_HZ = 30;
+/** The steering flies ARC moves of ARC_STEPS steps ahead to test a heading, and re-plans this often. */
+const ARC = 20;
+const ARC_STEPS = 2;
+const DECIDE_EVERY = 3;
+/** Until this share of the clock, flags build and keep clear of each other. */
+const CALM = 0.45;
+/** Coarse grid factor for the "way home" distance field. */
+const K = 4;
 /** A flag counts as the new leader once it has this much more land (no flicker on near-ties). */
 const LEAD_MARGIN = 1.05;
 const INF = 0x3fffffff;
 
-/** Directions: right, down, left, up. */
-const DX = [1, 0, -1, 0];
-const DY = [0, 1, 0, -1];
-const back = (d: number) => (d + 2) & 3;
-
-/** Board side for n flags: a few hundred cells of room each. */
+/** Board side for n flags: a few thousand cells of room each. */
 export function boardSize(n: number): number {
-  return Math.max(30, Math.min(64, Math.round(Math.sqrt(n * 400))));
+  return 4 * Math.max(30, Math.min(64, Math.round(Math.sqrt(n * 400))));
 }
 
-/** One excursion: out along d0 for D cells past the land, across W cells, then back home. */
-type Plan = { d0: number; side: number; D: number; W: number; phase: 0 | 1 | 2 | 3; cnt: number };
+const STEP_C = dcos(TURN * STEP);
+const STEP_S = dsin(TURN * STEP);
+const ARC_C = dcos(TURN * STEP * ARC_STEPS);
+const ARC_S = dsin(TURN * STEP * ARC_STEPS);
+/** Swerves the steering may take instead of the wanted heading (radians from the current one). */
+const SWERVES = [0.45, -0.45, 0.95, -0.95, 1.6, -1.6, 2.3, -2.3, 3.0, -3.0].map(
+  (a) => [dcos(a), dsin(a)] as const,
+);
+/** Directions a loop may set out in. */
+const COMPASS = Array.from(
+  { length: 16 },
+  (_, k) => [dcos((k * Math.PI) / 8), dsin((k * Math.PI) / 8)] as const,
+);
+
+/** One excursion: out to each waypoint in turn, then home by the shortest way. */
+type Plan = { wps: [number, number][]; idx: number };
 
 export type PaperSimOut = {
   events: PaperEvent[];
@@ -45,94 +72,223 @@ export type PaperSimOut = {
 };
 
 export function simulatePaper(config: PaperConfig, opts: { record: boolean; holdSec: number }): PaperSimOut {
-  const { size } = config;
+  const G = config.size;
   const n = config.ids.length;
-  const N = size * size;
+  const N = G * G;
+  const CG = Math.ceil(G / K);
   const owner = new Int8Array(N).fill(-1);
   const trail = new Int8Array(N).fill(-1);
+  const stamp = new Int32Array(N);
   const trails: number[][] = config.ids.map(() => []);
+  const trailPts: [number, number][][] = config.ids.map(() => []);
+  const ctrail = config.ids.map(() => new Uint8Array(CG * CG));
   const land = new Int32Array(n);
-  const hx = new Int32Array(n);
-  const hy = new Int32Array(n);
-  const dir = new Int32Array(n);
+  const x = new Float64Array(n);
+  const y = new Float64Array(n);
+  const hx = new Float64Array(n);
+  const hy = new Float64Array(n);
+  const wx = new Float64Array(n);
+  const wy = new Float64Array(n);
   const alive = new Uint8Array(n).fill(1);
   const plan: (Plan | null)[] = config.ids.map(() => null);
-  const dist = config.ids.map(() => new Int32Array(N));
-  const homeDist = new Int32Array(n);
-  const queue = new Int32Array(N);
+  const dist = config.ids.map(() => new Int32Array(CG * CG));
+  const homeDist = new Float64Array(n).fill(0);
+  const queue = new Int32Array(Math.max(N, CG * CG));
   const seen = new Uint8Array(N);
-  const rng = new Rng(hash32(config.seed, 0x9a9e));
+  const rng = new Rng(hash32(config.seed, 0x9a9f));
 
   // Each flag gets its own temperament (how far it roams, how early it turns back, how keen it is
   // to cut). Winners are relabelled after the game, so this only adds variety.
   const greed = config.ids.map(() => 0.75 + 0.5 * rng.next());
-  const caution = config.ids.map(() => 2 + rng.int(3));
+  const caution = config.ids.map(() => 6 + 10 * rng.next());
   const aggro = config.ids.map(() => 0.3 + 0.7 * rng.next());
 
-  // Spawns: the best spread of a few random spots, away from the edges.
-  const lo = START_R + 3;
-  const hi = size - START_R - 4;
+  const chCells: number[] = [];
+  const chOwners: number[] = [];
+  const chT: number[] = [];
+  const chStart: number[] = [];
+  const setOwner = (c: number, o: number) => {
+    if (owner[c] === o) return;
+    owner[c] = o;
+    chCells.push(c);
+    chOwners.push(o + 1);
+  };
+
+  // Spawns: the best spread of a few random spots, away from the edges, each on a disc of land.
+  const lo = START_R + 14;
+  const hi = G - START_R - 14;
   for (let p = 0; p < n; p++) {
-    let bx = lo;
-    let by = lo;
     let best = -1;
     for (let k = 0; k < 40; k++) {
-      const x = lo + rng.int(hi - lo + 1);
-      const y = lo + rng.int(hi - lo + 1);
-      let m = INF;
-      for (let q = 0; q < p; q++) m = Math.min(m, Math.abs(x - hx[q]) + Math.abs(y - hy[q]));
+      const px = lo + rng.next() * (hi - lo);
+      const py = lo + rng.next() * (hi - lo);
+      let m = Infinity;
+      for (let q = 0; q < p; q++) m = Math.min(m, Math.hypot(px - x[q], py - y[q]));
       if (m > best) {
         best = m;
-        bx = x;
-        by = y;
+        x[p] = px;
+        y[p] = py;
       }
     }
-    hx[p] = bx;
-    hy[p] = by;
-    dir[p] = rng.int(4);
-    for (let y = by - START_R; y <= by + START_R; y++)
-      for (let x = bx - START_R; x <= bx + START_R; x++) {
-        const c = y * size + x;
+    const [ux, uy] = COMPASS[rng.int(16)];
+    hx[p] = wx[p] = ux;
+    hy[p] = wy[p] = uy;
+    for (let cy = Math.floor(y[p] - START_R); cy <= y[p] + START_R; cy++)
+      for (let cx = Math.floor(x[p] - START_R); cx <= x[p] + START_R; cx++) {
+        if ((cx + 0.5 - x[p]) ** 2 + (cy + 0.5 - y[p]) ** 2 > START_R * START_R) continue;
+        const c = cy * G + cx;
         if (owner[c] >= 0) land[owner[c]]--;
-        owner[c] = p;
+        setOwner(c, p);
         land[p]++;
       }
   }
+  chT.push(0);
+  chStart.push(0);
+  let committed = chCells.length;
 
-  const inBoard = (x: number, y: number) => x >= 0 && y >= 0 && x < size && y < size;
+  const cellOf = (px: number, py: number) =>
+    Math.min(G - 1, Math.max(0, Math.floor(py))) * G + Math.min(G - 1, Math.max(0, Math.floor(px)));
+  const inBoard = (px: number, py: number) => px >= 0 && py >= 0 && px < G && py < G;
 
-  /** Distance from every cell to p's land without crossing p's own trail. */
+  /** The nearby coarse cell closest to home: where to head, and how far home is (board units). */
+  const homeward = (p: number): { tx: number; ty: number; d: number } => {
+    const D = dist[p];
+    const cx0 = Math.floor(x[p] / K);
+    const cy0 = Math.floor(y[p] / K);
+    let best = INF;
+    let tx = x[p] + hx[p];
+    let ty = y[p] + hy[p];
+    let bestR = Infinity;
+    for (let dy = -2; dy <= 2; dy++)
+      for (let dx = -2; dx <= 2; dx++) {
+        const cx = cx0 + dx;
+        const cy = cy0 + dy;
+        if ((!dx && !dy) || cx < 0 || cy < 0 || cx >= CG || cy >= CG) continue;
+        const d = D[cy * CG + cx];
+        const r = dx * dx + dy * dy;
+        if (d < best || (d === best && r < bestR)) {
+          best = d;
+          bestR = r;
+          tx = cx * K + K / 2;
+          ty = cy * K + K / 2;
+        }
+      }
+    return { tx, ty, d: best >= INF ? INF : (best + 1) * K };
+  };
+
+  /** Coarse distance from every coarse cell to p's land without crossing p's own trail. */
   const bfs = (p: number) => {
     const D = dist[p];
+    const ct = ctrail[p];
     D.fill(INF);
     let qh = 0;
     let qt = 0;
-    for (let c = 0; c < N; c++)
-      if (owner[c] === p) {
-        D[c] = 0;
-        queue[qt++] = c;
+    for (let cy = 0; cy < CG; cy++)
+      for (let cx = 0; cx < CG; cx++) {
+        const c = Math.min(G - 1, cy * K + 2) * G + Math.min(G - 1, cx * K + 2);
+        if (owner[c] === p && !ct[cy * CG + cx]) {
+          D[cy * CG + cx] = 0;
+          queue[qt++] = cy * CG + cx;
+        }
       }
     while (qh < qt) {
       const c = queue[qh++];
-      const x = c % size;
-      const y = (c / size) | 0;
-      for (let d = 0; d < 4; d++) {
-        const nx = x + DX[d];
-        const ny = y + DY[d];
-        if (!inBoard(nx, ny)) continue;
-        const nc = ny * size + nx;
-        if (D[nc] !== INF || trail[nc] === p) continue;
-        D[nc] = D[c] + 1;
-        queue[qt++] = nc;
+      const cx = c % CG;
+      const d = D[c] + 1;
+      if (cx > 0 && D[c - 1] === INF && !ct[c - 1]) {
+        D[c - 1] = d;
+        queue[qt++] = c - 1;
+      }
+      if (cx < CG - 1 && D[c + 1] === INF && !ct[c + 1]) {
+        D[c + 1] = d;
+        queue[qt++] = c + 1;
+      }
+      if (c >= CG && D[c - CG] === INF && !ct[c - CG]) {
+        D[c - CG] = d;
+        queue[qt++] = c - CG;
+      }
+      if (c < CG * (CG - 1) && D[c + CG] === INF && !ct[c + CG]) {
+        D[c + CG] = d;
+        queue[qt++] = c + CG;
       }
     }
-    let best = INF;
-    for (let d = 0; d < 4; d++) {
-      const nx = hx[p] + DX[d];
-      const ny = hy[p] + DY[d];
-      if (inBoard(nx, ny)) best = Math.min(best, dist[p][ny * size + nx] + 1);
+    homeDist[p] = homeward(p).d;
+  };
+
+  /**
+   * How long (look-ahead moves) p can fly turning toward (vx, vy) at its real turn rate before it
+   * meets the edge or its own trail; ARC + 1 when the way is clear or reaches home.
+   */
+  const clearance = (p: number, vx: number, vy: number, step: number, calm: boolean): number => {
+    let ax = x[p];
+    let ay = y[p];
+    let bx = hx[p];
+    let by = hy[p];
+    const out = owner[cellOf(ax, ay)] !== p;
+    for (let k = 1; k <= ARC; k++) {
+      const cross = bx * vy - by * vx;
+      if (bx * vx + by * vy >= ARC_C) {
+        bx = vx;
+        by = vy;
+      } else {
+        const s = cross >= 0 ? ARC_S : -ARC_S;
+        const nx = bx * ARC_C - by * s;
+        const ny = bx * s + by * ARC_C;
+        const l = Math.sqrt(nx * nx + ny * ny);
+        bx = nx / l;
+        by = ny / l;
+      }
+      ax += bx * SPEED * STEP * ARC_STEPS;
+      ay += by * SPEED * STEP * ARC_STEPS;
+      if (ax < 2 || ay < 2 || ax > G - 2 || ay > G - 2) return k;
+      const c = cellOf(ax, ay);
+      if (out && owner[c] === p) return ARC + 1;
+      const tr = trail[c];
+      if (tr === p && (stamp[c] < step - RECENT || (ax - x[p]) ** 2 + (ay - y[p]) ** 2 > 12)) return k;
+      if (calm) {
+        if (tr >= 0 && tr !== p) return k;
+        for (let q = 0; q < n; q++)
+          if (q !== p && alive[q] && (x[q] - ax) ** 2 + (y[q] - ay) ** 2 < 16) return k;
+      }
     }
-    homeDist[p] = best;
+    return ARC + 1;
+  };
+
+  /** The wanted heading, or the clearest swerve near it. */
+  const steerSafe = (p: number, vx: number, vy: number, step: number, calm: boolean) => {
+    if (clearance(p, vx, vy, step, calm) > ARC) {
+      wx[p] = vx;
+      wy[p] = vy;
+      return;
+    }
+    let bx = vx;
+    let by = vy;
+    let bs = -Infinity;
+    const cands: [number, number][] = [
+      [vx, vy],
+      ...SWERVES.map(([c, s]) => [hx[p] * c - hy[p] * s, hx[p] * s + hy[p] * c] as [number, number]),
+    ];
+    for (const [cx, cy] of cands) {
+      const score = clearance(p, cx, cy, step, calm) * 2 + (cx * vx + cy * vy) * 3;
+      if (score > bs) {
+        bs = score;
+        bx = cx;
+        by = cy;
+      }
+    }
+    wx[p] = bx;
+    wy[p] = by;
+  };
+
+  /** Steps (board units) from a point along a direction until `until` holds or the edge is near. */
+  const march = (px: number, py: number, vx: number, vy: number, until: (c: number) => boolean) => {
+    for (let d = 0; d < 2 * G; d++) {
+      const qx = px + vx * d;
+      const qy = py + vy * d;
+      if (qx < 3 || qy < 3 || qx > G - 3 || qy > G - 3) return { d, edge: true };
+      if (until(cellOf(qx, qy))) return { d, edge: false };
+    }
+    return { d: 2 * G, edge: true };
   };
 
   const makePlan = (p: number): Plan | null => {
@@ -146,151 +302,120 @@ export function simulatePaper(config: PaperConfig, opts: { record: boolean; hold
       }
     const avg = total / Math.max(1, count);
     const g = greed[p] * (land[p] < avg * 0.7 ? 1.3 : land[p] > avg * 1.6 ? 0.85 : 1);
-    const maxD = Math.max(3, Math.round(size * 0.17 * g));
-    const maxW = Math.max(3, Math.round(size * 0.2 * g));
+    const maxD = G * 0.17 * g;
+    const maxW = G * 0.2 * g;
     let best: Plan | null = null;
     let bestScore = -Infinity;
-    for (let d0 = 0; d0 < 4; d0++) {
-      if (d0 === back(dir[p])) continue;
-      let x = hx[p];
-      let y = hy[p];
-      let s = 0;
-      while (inBoard(x, y) && owner[y * size + x] === p) {
-        x += DX[d0];
-        y += DY[d0];
-        s++;
-      }
-      if (!inBoard(x, y)) continue;
-      const free = d0 === 0 ? size - 1 - x : d0 === 1 ? size - 1 - y : d0 === 2 ? x : y;
-      if (free < 3) continue;
-      const room = (d: number) => (d === 0 ? size - 1 - x : d === 1 ? size - 1 - y : d === 2 ? x : y);
-      const l = (d0 + 3) & 3;
-      const r = (d0 + 1) & 3;
-      let side = room(l) > room(r) ? l : r;
-      if (rng.next() < 0.3) side = side === l ? r : l;
-      if (room(side) < 3) side = side === l ? r : l;
-      if (room(side) < 3) continue;
-      const D = Math.min(free - 1, 2 + rng.int(maxD - 1));
-      const W = Math.min(room(side) - 1, 2 + rng.int(maxW - 1));
-      const score = rng.next() * 1.2 - s * 0.08 + Math.min(free, 12) * 0.04;
+    for (const [ux, uy] of COMPASS) {
+      const exit = march(x[p], y[p], ux, uy, (c) => owner[c] !== p);
+      if (exit.edge) continue;
+      const ex = x[p] + ux * exit.d;
+      const ey = y[p] + uy * exit.d;
+      const free = march(ex, ey, ux, uy, () => false).d;
+      if (free < 14) continue;
+      const room = (vx: number, vy: number) => march(ex, ey, vx, vy, () => false).d;
+      let [sx, sy] = room(-uy, ux) > room(uy, -ux) ? [-uy, ux] : [uy, -ux];
+      if (rng.next() < 0.3) [sx, sy] = [-sx, -sy];
+      if (room(sx, sy) < 14) [sx, sy] = [-sx, -sy];
+      const side = room(sx, sy);
+      if (side < 14) continue;
+      const D = Math.min(free - 6, 8 + rng.next() * maxD);
+      const W = Math.min(side - 6, 8 + rng.next() * maxW);
+      const score = rng.next() * 1.2 - exit.d * 0.02 + Math.min(free, 48) * 0.01;
       if (score > bestScore) {
         bestScore = score;
-        best = { d0, side, D, W, phase: 0, cnt: 0 };
+        const keep = (v: number) => Math.min(G - 16, Math.max(16, v));
+        const p1: [number, number] = [keep(ex + ux * D), keep(ey + uy * D)];
+        best = { wps: [p1, [keep(p1[0] + sx * W), keep(p1[1] + sy * W)]], idx: 0 };
       }
     }
     return best;
   };
 
-  /** The closest cell of a rival's trail p can reach before that rival gets home, or -1. */
-  const attackTarget = (p: number, progress: number): number => {
-    if (trails[p].length > 6) return -1;
+  /** The closest point of a rival's trail p can reach before that rival gets home, or null. */
+  const attackTarget = (p: number, progress: number): [number, number] | null => {
+    if (trails[p].length > 60) return null;
     // Early on everyone builds; the hunting starts as the clock runs down.
-    const R = Math.round(1 + 5 * aggro[p] * progress * progress);
-    let best = -1;
-    let bestD = INF;
+    if (progress < CALM) return null;
+    const R = 6 + 26 * aggro[p] * progress * progress;
+    let best: [number, number] | null = null;
+    let bestD = Infinity;
     for (let q = 0; q < n; q++) {
-      if (q === p || !alive[q] || !trails[q].length) continue;
-      for (const c of trails[q]) {
-        const m = Math.abs((c % size) - hx[p]) + Math.abs(((c / size) | 0) - hy[p]);
+      if (q === p || !alive[q] || !trailPts[q].length) continue;
+      for (const pt of trailPts[q]) {
+        const m = Math.hypot(pt[0] - x[p], pt[1] - y[p]);
         if (m <= R && m < homeDist[q] && m < bestD) {
           bestD = m;
-          best = c;
+          best = pt;
         }
       }
     }
     return best;
   };
 
-  const decide = (p: number, progress: number): number => {
-    const d = dir[p];
-    const x = hx[p];
-    const y = hy[p];
-    const next = (nd: number) => (y + DY[nd]) * size + x + DX[nd];
-    const ok: number[] = [];
-    for (const nd of [d, (d + 3) & 3, (d + 1) & 3]) {
-      if (inBoard(x + DX[nd], y + DY[nd]) && trail[next(nd)] !== p) ok.push(nd);
-    }
-    if (!ok.length) return d;
-    const out = trails[p].length > 0;
-    const D = dist[p];
-    let pool = out ? ok.filter((nd) => D[next(nd)] < INF) : ok;
-    if (!pool.length) pool = ok;
-    // Early on, flags build rather than fight: they steer clear of rival trails and heads.
-    if (progress < 0.35) {
-      const calm = pool.filter((nd) => {
-        const c = next(nd);
-        if (trail[c] >= 0) return false;
-        for (let q = 0; q < n; q++)
-          if (q !== p && alive[q] && Math.abs(hx[q] - x - DX[nd]) + Math.abs(hy[q] - y - DY[nd]) <= 1)
-            return false;
-        return true;
-      });
-      if (calm.length) pool = calm;
-    }
-    const homeward = () => {
-      let b = pool[0];
-      for (const nd of pool) if (D[next(nd)] < D[next(b)]) b = nd;
-      return b;
+  const decide = (p: number, step: number, progress: number) => {
+    const out = owner[cellOf(x[p], y[p])] !== p;
+    const calm = progress < CALM;
+    const toward = (tx: number, ty: number) => {
+      const dx = tx - x[p];
+      const dy = ty - y[p];
+      const l = Math.hypot(dx, dy) || 1;
+      steerSafe(p, dx / l, dy / l, step, calm);
     };
-    if (out) {
-      let threat = INF;
+    const goHome = () => {
+      const h = homeward(p);
+      toward(h.tx, h.ty);
+    };
+    if (out && trailPts[p].length) {
+      let threat = Infinity;
       for (let q = 0; q < n; q++) {
         if (q === p || !alive[q]) continue;
-        for (const c of trails[p])
-          threat = Math.min(threat, Math.abs((c % size) - hx[q]) + Math.abs(((c / size) | 0) - hy[q]));
+        for (const pt of trailPts[p]) threat = Math.min(threat, Math.hypot(pt[0] - x[q], pt[1] - y[q]));
       }
-      const maxTrail = Math.round(size * (0.6 + 0.5 * greed[p]));
-      if (threat <= homeDist[p] + caution[p] || trails[p].length > maxTrail || plan[p]?.phase === 3) {
-        if (plan[p]) plan[p]!.phase = 3;
-        return homeward();
+      const maxTrail = G * (1.5 + greed[p]);
+      if (threat <= homeDist[p] + caution[p] || trails[p].length > maxTrail) {
+        plan[p] = null;
+        return goHome();
       }
     }
     const target = attackTarget(p, progress);
-    if (target >= 0) {
+    if (target) {
       plan[p] = null;
-      const tx = target % size;
-      const ty = (target / size) | 0;
-      let b = pool[0];
-      let bd = INF;
-      for (const nd of pool) {
-        const m = Math.abs(x + DX[nd] - tx) + Math.abs(y + DY[nd] - ty);
-        if (m < bd) {
-          bd = m;
-          b = nd;
-        }
-      }
-      return b;
+      return toward(target[0], target[1]);
     }
     if (!plan[p]) {
-      if (out) return homeward();
+      if (out) return goHome();
       plan[p] = makePlan(p);
-      if (!plan[p]) return pool[rng.int(pool.length)];
+      if (!plan[p]) return steerSafe(p, hx[p], hy[p], step, calm);
     }
     const pl = plan[p]!;
-    const want = pl.phase === 0 ? pl.d0 : pl.phase === 1 ? pl.side : back(pl.d0);
-    if (pool.includes(want)) return want;
-    if (out) {
-      pl.phase = 3;
-      return homeward();
+    while (pl.idx < pl.wps.length && Math.hypot(pl.wps[pl.idx][0] - x[p], pl.wps[pl.idx][1] - y[p]) < 4)
+      pl.idx++;
+    if (pl.idx >= pl.wps.length) {
+      if (!out) plan[p] = null;
+      return goHome();
     }
-    plan[p] = null;
-    return pool[0];
+    toward(pl.wps[pl.idx][0], pl.wps[pl.idx][1]);
   };
 
   const events: PaperEvent[] = [];
-  let gridChanged = true;
   let cuts = 0;
+
+  const clearTrail = (p: number) => {
+    for (const c of trails[p]) if (trail[c] === p) trail[c] = -1;
+    trails[p] = [];
+    trailPts[p] = [];
+    ctrail[p].fill(0);
+  };
 
   const kill = (p: number, cause: PaperCause, by: number, t: number) => {
     alive[p] = 0;
-    for (const c of trails[p]) if (trail[c] === p) trail[c] = -1;
-    trails[p] = [];
-    for (let c = 0; c < N; c++) if (owner[c] === p) owner[c] = -1;
+    clearTrail(p);
+    for (let c = 0; c < N; c++) if (owner[c] === p) setOwner(c, -1);
     land[p] = 0;
     plan[p] = null;
-    gridChanged = true;
     if (by >= 0) cuts++;
-    events.push({ t, type: 'cut', i: p, by, cause, x: hx[p], y: hy[p] });
+    events.push({ t, type: 'cut', i: p, by, cause, x: x[p], y: y[p] });
   };
 
   /** p is home: its trail and everything it encloses becomes p's land. */
@@ -299,26 +424,24 @@ export function simulatePaper(config: PaperConfig, opts: { record: boolean; hold
     let qh = 0;
     let qt = 0;
     const wall = (c: number) => owner[c] === p || trail[c] === p;
-    for (let k = 0; k < size; k++) {
-      for (const c of [k, (size - 1) * size + k, k * size, k * size + size - 1]) {
-        if (seen[c] || wall(c)) continue;
-        seen[c] = 1;
-        queue[qt++] = c;
-      }
+    const visit = (c: number) => {
+      if (seen[c] || wall(c)) return;
+      seen[c] = 1;
+      queue[qt++] = c;
+    };
+    for (let k = 0; k < G; k++) {
+      visit(k);
+      visit((G - 1) * G + k);
+      visit(k * G);
+      visit(k * G + G - 1);
     }
     while (qh < qt) {
       const c = queue[qh++];
-      const x = c % size;
-      const y = (c / size) | 0;
-      for (let d = 0; d < 4; d++) {
-        const nx = x + DX[d];
-        const ny = y + DY[d];
-        if (!inBoard(nx, ny)) continue;
-        const nc = ny * size + nx;
-        if (seen[nc] || wall(nc)) continue;
-        seen[nc] = 1;
-        queue[qt++] = nc;
-      }
+      const cx = c % G;
+      if (cx > 0) visit(c - 1);
+      if (cx < G - 1) visit(c + 1);
+      if (c >= G) visit(c - G);
+      if (c < N - G) visit(c + G);
     }
     let gained = 0;
     let stolen = 0;
@@ -330,125 +453,147 @@ export function simulatePaper(config: PaperConfig, opts: { record: boolean; hold
         land[owner[c]]--;
         stolen++;
       }
-      owner[c] = p;
+      setOwner(c, p);
       land[p]++;
       gained++;
-      sx += c % size;
-      sy += (c / size) | 0;
+      sx += (c % G) + 0.5;
+      sy += ((c / G) | 0) + 0.5;
     }
-    for (const c of trails[p]) if (trail[c] === p) trail[c] = -1;
-    trails[p] = [];
+    clearTrail(p);
     plan[p] = null;
-    gridChanged = true;
-    events.push({ t, type: 'claim', i: p, cells: gained, stolen, x: sx / gained, y: sy / gained });
+    if (gained)
+      events.push({ t, type: 'claim', i: p, cells: gained, stolen, x: sx / gained, y: sy / gained });
     // Anyone left without land is out.
     for (let q = 0; q < n; q++) if (q !== p && alive[q] && land[q] <= 0) kill(q, 'land', p, t);
   };
 
+  /** Lays p's trail around its position (only off its own land). */
+  const layTrail = (p: number, step: number) => {
+    const c0x = Math.floor(x[p]);
+    const c0y = Math.floor(y[p]);
+    for (let cy = c0y - 2; cy <= c0y + 2; cy++)
+      for (let cx = c0x - 2; cx <= c0x + 2; cx++) {
+        if (!inBoard(cx, cy)) continue;
+        if ((cx + 0.5 - x[p]) ** 2 + (cy + 0.5 - y[p]) ** 2 > TRAIL_R * TRAIL_R) continue;
+        const c = cy * G + cx;
+        if (owner[c] === p || trail[c] >= 0) continue;
+        trail[c] = p;
+        stamp[c] = step;
+        trails[p].push(c);
+        ctrail[p][Math.floor(cy / K) * CG + Math.floor(cx / K)] = 1;
+      }
+    const pts = trailPts[p];
+    const last = pts[pts.length - 1];
+    if (!last || Math.hypot(last[0] - x[p], last[1] - y[p]) > 2.5) pts.push([x[p], y[p]]);
+  };
+
   // ------------------------------------------------------------------ recording
 
-  const limitTicks = Math.max(1, Math.round(config.limit * MOVE_HZ));
-  const pos = opts.record ? new Int16Array((limitTicks + 1) * n * 2) : null;
-  const state = opts.record ? new Uint8Array((limitTicks + 1) * n) : null;
-  const gridTicks: number[] = [];
-  const grids: Uint8Array[] = [];
-  const snap = (tick: number) => {
-    if (!pos || !state) return;
+  const limitSteps = Math.max(1, Math.round(config.limit / STEP));
+  const recEvery = Math.round(1 / STEP / REC_HZ);
+  const maxFrames = Math.floor(limitSteps / recEvery) + 2;
+  const pos = opts.record ? new Float32Array(maxFrames * n * 2) : null;
+  const dirs = opts.record ? new Float32Array(maxFrames * n * 2) : null;
+  const state = opts.record ? new Uint8Array(maxFrames * n) : null;
+  let frames = 0;
+  const snap = () => {
+    if (!pos || !dirs || !state) return;
     for (let p = 0; p < n; p++) {
-      pos[(tick * n + p) * 2] = hx[p];
-      pos[(tick * n + p) * 2 + 1] = hy[p];
-      state[tick * n + p] = !alive[p] ? 0 : trails[p].length ? 2 : 1;
+      const o = (frames * n + p) * 2;
+      pos[o] = x[p];
+      pos[o + 1] = y[p];
+      dirs[o] = hx[p];
+      dirs[o + 1] = hy[p];
+      state[frames * n + p] = !alive[p] ? 0 : owner[cellOf(x[p], y[p])] === p ? 1 : 2;
     }
-    if (gridChanged) {
-      const g = new Uint8Array(N);
-      for (let c = 0; c < N; c++) g[c] = owner[c] + 1;
-      gridTicks.push(tick);
-      grids.push(g);
-    }
-    gridChanged = false;
+    frames++;
   };
-  snap(0);
+  snap();
 
   // ------------------------------------------------------------------ play
 
   let leader = -1;
   let leadChanges = 0;
-  let tick = 0;
+  let step = 0;
   let winnerIndex = -1;
   let lastStanding = false;
   let landBefore: number[] = Array.from(land);
   while (winnerIndex < 0) {
-    tick++;
-    const t = tick / MOVE_HZ;
-    for (let p = 0; p < n; p++) if (alive[p] && trails[p].length) bfs(p);
-    const nd = new Int32Array(n);
-    for (let p = 0; p < n; p++) if (alive[p]) nd[p] = decide(p, tick / limitTicks);
+    step++;
+    const t = step * STEP;
+    const progress = step / limitSteps;
+    if (step % DECIDE_EVERY === 1) {
+      for (let p = 0; p < n; p++) if (alive[p] && trails[p].length) bfs(p);
+      for (let p = 0; p < n; p++) if (alive[p]) decide(p, step, progress);
+    }
     landBefore = Array.from(land);
 
-    // Move; leaving the board is a knock-out.
-    const moved: number[] = [];
+    // Turn toward the wanted heading (at most TURN per second), then move.
     for (let p = 0; p < n; p++) {
       if (!alive[p]) continue;
-      dir[p] = nd[p];
-      const x = hx[p] + DX[nd[p]];
-      const y = hy[p] + DY[nd[p]];
-      if (!inBoard(x, y)) {
-        kill(p, 'wall', -1, t);
-        continue;
+      const cross = hx[p] * wy[p] - hy[p] * wx[p];
+      const dot = hx[p] * wx[p] + hy[p] * wy[p];
+      if (dot >= STEP_C) {
+        hx[p] = wx[p];
+        hy[p] = wy[p];
+      } else {
+        const s = cross >= 0 ? STEP_S : -STEP_S;
+        const nx = hx[p] * STEP_C - hy[p] * s;
+        const ny = hx[p] * s + hy[p] * STEP_C;
+        const l = Math.sqrt(nx * nx + ny * ny);
+        hx[p] = nx / l;
+        hy[p] = ny / l;
       }
-      hx[p] = x;
-      hy[p] = y;
-      moved.push(p);
+      x[p] += hx[p] * SPEED * STEP;
+      y[p] += hy[p] * SPEED * STEP;
     }
 
-    // Trails cut: your own, a rival's, or a head-on meeting outside both lands.
+    // Knock-outs: off the board, your own trail, a rival's trail, or a head-on meeting.
     const victims = new Map<number, { cause: PaperCause; by: number }>();
-    for (const p of moved) {
-      const c = hy[p] * size + hx[p];
+    for (let p = 0; p < n; p++) {
+      if (!alive[p]) continue;
+      if (x[p] < 0.5 || y[p] < 0.5 || x[p] > G - 0.5 || y[p] > G - 0.5) {
+        x[p] = Math.min(G - 0.5, Math.max(0.5, x[p]));
+        y[p] = Math.min(G - 0.5, Math.max(0.5, y[p]));
+        victims.set(p, { cause: 'wall', by: -1 });
+        continue;
+      }
+      const c = cellOf(x[p], y[p]);
       const tr = trail[c];
       if (tr === p) {
-        if (!victims.has(p)) victims.set(p, { cause: 'self', by: -1 });
-      } else if (tr >= 0 && alive[tr]) {
-        if (!victims.has(tr)) victims.set(tr, { cause: 'trail', by: p });
-      }
-      for (const q of moved) {
-        if (q <= p || hx[q] !== hx[p] || hy[q] !== hy[p]) continue;
-        const o = owner[c];
-        const loser =
-          o === p
-            ? [q]
-            : o === q
-              ? [p]
-              : trails[p].length === trails[q].length
-                ? [p, q]
-                : trails[p].length > trails[q].length
-                  ? [p]
-                  : [q];
+        if (stamp[c] < step - RECENT && !victims.has(p)) victims.set(p, { cause: 'self', by: -1 });
+      } else if (tr >= 0 && alive[tr] && !victims.has(tr)) victims.set(tr, { cause: 'trail', by: p });
+      for (let q = p + 1; q < n; q++) {
+        if (!alive[q] || Math.hypot(x[q] - x[p], y[q] - y[p]) > 1.6) continue;
+        const pHome = owner[c] === p;
+        const qHome = owner[cellOf(x[q], y[q])] === q;
+        if (pHome && qHome) continue;
+        const loser = pHome
+          ? [q]
+          : qHome
+            ? [p]
+            : trails[p].length === trails[q].length
+              ? [p, q]
+              : trails[p].length > trails[q].length
+                ? [p]
+                : [q];
         for (const v of loser) if (!victims.has(v)) victims.set(v, { cause: 'head', by: v === p ? q : p });
       }
     }
     for (const [v, k] of victims) if (alive[v]) kill(v, k.cause, k.by, t);
 
-    // Home closes a loop; outside grows the trail. A different flag goes first each tick.
+    // Home closes a loop; outside grows the trail. A different flag goes first each step.
     for (let k = 0; k < n; k++) {
-      const p = (tick + k) % n;
+      const p = (step + k) % n;
       if (!alive[p]) continue;
-      const c = hy[p] * size + hx[p];
-      if (owner[c] === p) {
+      if (owner[cellOf(x[p], y[p])] === p) {
         if (trails[p].length) claim(p, t);
-      } else {
-        trail[c] = p;
-        trails[p].push(c);
-      }
+      } else layTrail(p, step);
     }
-    for (let p = 0; p < n; p++) {
-      const pl = plan[p];
-      if (!alive[p] || !pl) continue;
-      const outside = owner[hy[p] * size + hx[p]] !== p;
-      if (pl.phase === 0 && outside && ++pl.cnt >= pl.D) {
-        pl.phase = 1;
-        pl.cnt = 0;
-      } else if (pl.phase === 1 && ++pl.cnt >= pl.W) pl.phase = 2;
+    if (chCells.length > committed) {
+      chT.push(t);
+      chStart.push(committed);
+      committed = chCells.length;
     }
 
     // Who leads (with a margin), and is the game over?
@@ -466,32 +611,34 @@ export function simulatePaper(config: PaperConfig, opts: { record: boolean; hold
         leader = big;
       }
     }
-    if (left <= 1 || tick >= limitTicks) {
-      lastStanding = left <= 1 && tick < limitTicks;
+    if (left <= 1 || step >= limitSteps) {
+      lastStanding = left <= 1 && step < limitSteps;
       if (big >= 0) winnerIndex = big;
       else {
-        // Everyone went out on the same tick: the most land a moment before wins.
+        // Everyone went out on the same step: the most land a moment before wins.
         winnerIndex = 0;
         for (let p = 1; p < n; p++) if (landBefore[p] > landBefore[winnerIndex]) winnerIndex = p;
       }
     }
-    snap(tick);
+    if (step % recEvery === 0 || winnerIndex >= 0) snap();
   }
 
-  const winnerT = tick / MOVE_HZ;
+  const winnerT = step * STEP;
   let rec: PaperTrack | null = null;
-  if (pos && state) {
-    const data = new Uint8Array(grids.length * N);
-    grids.forEach((g, k) => data.set(g, k * N));
+  if (pos && dirs && state) {
+    chStart.push(chCells.length);
     rec = {
-      hz: MOVE_HZ,
-      ticks: tick + 1,
+      hz: REC_HZ,
+      frames,
       n,
-      size,
-      pos: pos.slice(0, (tick + 1) * n * 2),
-      state: state.slice(0, (tick + 1) * n),
-      gridTicks: Int32Array.from(gridTicks),
-      grids: data,
+      size: G,
+      pos: pos.slice(0, frames * n * 2),
+      dir: dirs.slice(0, frames * n * 2),
+      state: state.slice(0, frames * n),
+      changeT: Float32Array.from(chT),
+      changeStart: Int32Array.from(chStart),
+      cells: Int32Array.from(chCells),
+      owners: Uint8Array.from(chOwners),
     };
   }
   const final = Array.from(land);
