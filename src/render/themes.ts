@@ -220,6 +220,37 @@ export const THEMES: Record<Look['theme'], Theme> = {
     danger: '#C2410C',
     dark: false,
   },
+  // Territory Wars: amber on a night-blue war map (slate land, deep sea), and an old paper atlas.
+  atlas: {
+    bgInner: '#13233A',
+    bgOuter: '#050B14',
+    glow: 'rgba(255,178,61,0.10)',
+    grid: 'rgba(255,178,61,0.05)',
+    floorInner: '#3A4A5E',
+    floorOuter: '#0B1A2C',
+    border: '#FFB23D',
+    text: '#F5F1E8',
+    subtext: '#A9B4C2',
+    hudBg: 'rgba(5,11,20,0.8)',
+    accent: '#FFB23D',
+    danger: '#FF4D5E',
+    dark: true,
+  },
+  parchment: {
+    bgInner: '#F4E9D2',
+    bgOuter: '#DCC9A3',
+    glow: 'rgba(255,255,255,0.4)',
+    grid: 'rgba(60,40,20,0.06)',
+    floorInner: '#D9C49A',
+    floorOuter: '#9FC3CF',
+    border: '#3B2A17',
+    text: '#2B1E10',
+    subtext: '#6E5A40',
+    hudBg: 'rgba(250,243,228,0.92)',
+    accent: '#C2410C',
+    danger: '#B91C1C',
+    dark: false,
+  },
 };
 
 /** The color worlds each game draws from (first is the game's signature look). */
@@ -229,6 +260,7 @@ export const GAME_THEMES: Record<string, Look['theme'][]> = {
   'ring-escape': ['plum', 'aurora'],
   'growing-ball': ['ember', 'peach'],
   'paper-land': ['mint', 'kraft'],
+  'territory-wars': ['atlas', 'parchment'],
 };
 
 export const HP_HIGH = [74, 222, 128] as const;
