@@ -1,12 +1,8 @@
 # Flag Clash
 
-Viral game videos for YouTube, made and posted for you. Flag Clash renders physics game videos (Shorts and
-long videos) on your own computer and, in the desktop app, posts them to your YouTube channel on an organic
-schedule while it sits in the system tray.
-
-- **Web app:** build and export videos by hand in the browser (https://misbahkhan0009.github.io/battle-world/).
-- **Desktop app (Windows, macOS, Linux):** everything in the web app plus the **Autopilot**: connect your
-  YouTube channel once and it keeps posting on its own.
+Viral game videos for YouTube, made and posted for you. Flag Clash is a Windows app that renders physics
+game videos (Shorts and long videos) on your computer and posts them to your YouTube channel on an organic
+schedule while it sits in the system tray. You can also build and export videos by hand in its studio.
 
 Videos carry sound effects only (no background music).
 
@@ -24,18 +20,18 @@ Each module is a game that renders complete videos from a seed. The autopilot pi
 
 New modules plug into `src/modules/registry.ts` with a `render(job)` function.
 
-## Desktop app
+## Windows app
 
 ### Install
 
-- **Releases:** push a tag like `v1.0.0` and the **Desktop app** workflow publishes a draft GitHub release with
-  installers. Or open the latest **Desktop app** workflow run under the repo's Actions tab and download the
-  artifact for your system (`.msi`/`.exe` for Windows, `.dmg` for macOS, `.deb`/`.AppImage` for Linux).
+- **Download:** open the latest **Windows app** run under the repo's Actions tab and download the
+  `flag-clash-windows` artifact (it contains `Flag Clash_x.y.z_x64-setup.exe`). Pushing a tag like `v1.0.0`
+  also creates a draft GitHub release with the installer attached.
 - **From source:** `npm install`, then `npm run desktop:dev` (needs Rust and the
-  [Tauri prerequisites](https://tauri.app/start/prerequisites/)). `npm run desktop:build` makes installers.
+  [Tauri prerequisites](https://tauri.app/start/prerequisites/)). `npm run desktop:build` makes the installer.
 
-The installers are not code-signed yet, so Windows SmartScreen and macOS Gatekeeper ask for confirmation the
-first time ("More info, Run anyway" on Windows; right-click, Open on macOS).
+The installer is not code-signed yet, so Windows SmartScreen asks for confirmation the first time: click
+**More info**, then **Run anyway**.
 
 ### First-time setup (about five minutes)
 
@@ -71,16 +67,12 @@ your project. Until it is approved, posts land as private videos you can publish
   and awake for posts to render.
 - **Variety:** each post gets a fresh seed, so rosters (world, regions, G20, most populous, South Asia), mode,
   theme, opening speed and title all rotate. Titles never spoil the winner.
-- **Security:** your channel login (refresh token) is stored in the OS credential store (Windows Credential
-  Manager, macOS Keychain, Secret Service on Linux). Sign-in uses the system browser with PKCE.
+- **Security:** your channel login (refresh token) is stored in Windows Credential Manager. Sign-in uses
+  the system browser with PKCE.
 
 Rendered videos are saved to `Videos/Flag Clash` (configurable) and deleted a few days after posting.
 
-**Platform note:** Windows (WebView2) and macOS render H.264 at the chosen bitrate. On Linux the system
-webview (WebKitGTK) encodes VP9 and ignores bitrate targets, so files come out much larger (about 85 Mbps).
-They upload and play fine, just more slowly.
-
-### Desktop architecture
+### App architecture
 
 ```
 src-tauri/        Rust shell (Tauri 2)
@@ -118,16 +110,6 @@ Requires Node 20 or newer. Use the latest Chrome or Edge on desktop for MP4 expo
 | `npm test`           | Vitest: determinism, physics, timeline and duration-tuning tests     |
 | `npm run lint`       | ESLint (includes a rule banning `Math.random`/clock reads in the sim) |
 | `npm run format`     | Prettier                                                             |
-
-## Deploying
-
-The site is fully static and uses relative paths plus hash routing, so `dist/` works on any static host
-(GitHub Pages, Netlify, Vercel, Cloudflare Pages, S3).
-
-**GitHub Pages:** `.github/workflows/deploy.yml` lints, tests, builds and deploys on every push to `main`.
-If the first run's deploy step fails with "Pages not enabled", open the repository's
-**Settings → Pages** and set **Source** to **GitHub Actions** once, then re-run the workflow.
-The site is then served at `https://<user>.github.io/<repo>/`.
 
 ## How it works
 
