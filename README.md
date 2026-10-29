@@ -28,7 +28,7 @@ human-looking schedule, while it sits quietly in the system tray.
 
 | | |
 | --- | --- |
-| 🎬 **Makes the videos** | Six games so far. **Flag Battle**: up to 64 country flags bounce inside a circle with one rotating exit; the last flag inside wins. **Marble Race**: flag marbles roll down a track of ramps, plinko pegs, spinners and bumpers; first across the line wins. **Ring Escape**: flag balls bounce inside spinning rings and shatter each one they slip through; first out of the last ring wins. **Growing Ball**: every bounce off the wall makes a flag bigger; when the arena is full, the biggest wins. **Paper Land**: like Paper.io, flags draw trails to claim land and cut each other's trails; when the clock runs out, the most land wins. **Black Hole**: like Hole.io, country holes swallow a city and then each other; when the clock runs out, the biggest hole wins. No two posts repeat a winner, a lineup or even a flag count. |
+| 🎬 **Makes the videos** | Seven games so far. **Flag Battle**: up to 64 country flags bounce inside a circle with one rotating exit; the last flag inside wins. **Marble Race**: flag marbles roll down a track of ramps, plinko pegs, spinners and bumpers; first across the line wins. **Ring Escape**: flag balls bounce inside spinning rings and shatter each one they slip through; first out of the last ring wins. **Growing Ball**: every bounce off the wall makes a flag bigger; when the arena is full, the biggest wins. **Paper Land**: like Paper.io, flags draw trails to claim land and cut each other's trails; when the clock runs out, the most land wins. **Black Hole**: like Hole.io, country holes swallow a city and then each other; when the clock runs out, the biggest hole wins. **Territory Wars**: countries start on their real land on a pixel world map and fight for every tile; the last country standing rules the map. No two posts repeat a winner, a lineup or even a flag count. |
 | 🙂 **Countryballs** | Every flag is a countryball with cartoon eyes that look where it's going and react: they blink, squint when hit, look scared in danger, determined when it counts, and smile when they win. Balls squash when they bounce. |
 | 📺 **One channel, every game** | Your channel posts every game: one Short a day from each game, plus one long video a day that takes turns between them. You can still connect more channels and split the games between them. |
 | 🖼️ **Spoiler-free thumbnails** | Every post gets its own cover ("WHO ESCAPES LAST?") made from the start of the battle, so the thumbnail never gives the winner away. |
@@ -37,10 +37,10 @@ human-looking schedule, while it sits quietly in the system tray.
 | 🎞️ **Every video under your control** | The Videos page lists every video by day: watch it, edit its title, description or time, make a new one, publish it now, skip it, or approve it first with review before upload. |
 | 📊 **Channel dashboard** | Subscribers and views over time, every upload against your typical result, which game performs best, your best hours to post, and your top videos, in one page. |
 | 🗓️ **Calendar and live tracking** | One calendar for every game and channel, color-coded with filters per game and per channel. Click any post to watch it render, upload and go live, step by step. |
-| 🔊 **Sound that fits** | Every game has its own sound and color world: Flag Battle's punchy hits and brass fanfare in lime, Marble Race's wooden clicks, start-light beeps and bell in cyan or race amber, Ring Escape's glass celesta and shatter in magenta, Growing Ball's water-drop bloops in coral, Paper Land's marimba and scissor snips in mint, Black Hole's gulps and deep whomps in violet. All timed to the action. Prefer music? Point Settings at a folder of YouTube Audio Library tracks and videos use those instead. |
+| 🔊 **Sound that fits** | Every game has its own sound and color world: Flag Battle's punchy hits and brass fanfare in lime, Marble Race's wooden clicks, start-light beeps and bell in cyan or race amber, Ring Escape's glass celesta and shatter in magenta, Growing Ball's water-drop bloops in coral, Paper Land's marimba and scissor snips in mint, Black Hole's gulps and deep whomps in violet, Territory Wars' war drums and horns in amber. All timed to the action. Prefer music? Point Settings at a folder of YouTube Audio Library tracks and videos use those instead. |
 | 🖥️ **Runs in the background** | Lives in the system tray, starts with Windows, renders each post ahead and lets YouTube publish it on the minute. |
 | 🔒 **Your account stays yours** | Uses your own free Google Cloud project. Your sign-in is stored in Windows Credential Manager, never in plain files. |
-| 🧩 **More games coming** | Flag Battle, Marble Race, Ring Escape, Growing Ball, Paper Land and Black Hole are live. Territory Wars is next, with a written plan in the app. |
+| 🧩 **More games coming** | Flag Battle, Marble Race, Ring Escape, Growing Ball, Paper Land, Black Hole and Territory Wars are live. New games plug into the same registry. |
 
 <br />
 
@@ -298,6 +298,20 @@ gentle camera. Shorts are one game of 4 to 7 holes; long videos are a knockout o
 final. Everything that falls in gulps (small things pop high, towers go down deep) and a hole eating a hole lands
 with a deep whomp. Open **Games, Black Hole, Watch a sample game** to try it.
 
+### Territory Wars
+
+A pixel world map cropped around the countries that play. Every country starts with the same small patch of its
+own real land, its flag stretched over its territory and its countryball sitting in the middle, eyes on the nearest
+rival. Every turn each border cell tries to take a neighbor: empty land falls easily, a rival's land falls by
+relative strength, which grows slowly with size and rises and falls with morale. Now and then a country rallies and
+strikes back, small ones more often, so comebacks happen. Islands fight across dotted sea crossings. Banners call
+every fall, new leader and comeback; the leader wears a crown, and the last country standing (or the biggest when
+time runs out) rules the map. Shorts are one war of 4 to 8 countries; long videos are one big war of 10 to 18
+countries over 3 to 4 minutes. War drums roll harder the more land changes hands, falls get a deep drum and a
+falling horn, and the winner gets a horn fanfare. Countries sit on their real land, so winners can't be relabelled;
+instead the planner prefers a war won by someone who hasn't won lately. Open **Games, Territory Wars, Watch a
+sample game** to try it.
+
 ### Games
 
 <img src="docs/images/modules.jpg" alt="The Games page: each game with the channels it posts on, a button to watch a sample, and the upcoming games" width="100%" />
@@ -312,27 +326,11 @@ the same way the autopilot makes them, and export it as an MP4.
 | **Ring Escape** | ✅ Ready | Flag balls bounce inside spinning rings and shatter each one they get through; first out wins. Long videos are a knockout. |
 | **Growing Ball** | ✅ Ready | Every bounce off the wall makes a flag bigger; when the arena is full, the biggest wins. Long videos are a knockout. |
 | **Paper Land** | ✅ Ready | Like Paper.io: flags draw trails to claim land and cut rivals' trails; when the clock runs out, the most land wins. Long videos are a knockout. |
-| Territory Wars | 🔜 Next | Countries conquer a pixel world map tile by tile. |
+| **Territory Wars** | ✅ Ready | Countries start on their real land on a pixel world map and fight for every tile; the last country standing rules the map. |
 | **Black Hole** | ✅ Ready | Like Hole.io: country holes swallow a city, then each other; when the clock runs out, the biggest hole wins. Long videos are a knockout. |
 
-Every upcoming game has a plan (how it plays, the simulation, the video formats and the build steps): open
-**Games** and click **See the plan** on its card. The short version:
-
-<details>
-<summary><b>Game plans</b></summary>
-
-<br />
-
-| Game | How it plays | Simulation | Videos |
-| --- | --- | --- | --- |
-| **Territory Wars** | Countries start on their real land on a pixel world map and push borders until one rules the globe. | Deterministic cellular automaton with seeded border contests; identical armies per tile. | Long time-lapse videos of 3 to 4 min; Shorts show the final 50 s. |
-
-All of them follow the same rules as the live games: same seed, same video; no repeated winners; spoiler-free
-thumbnails; their own schedule on the shared timeline.
-
-</details>
-
-<br />
+Every game is live. A new game gets a written plan first (`src/modules/plans.ts`); while it is coming, its card on
+**Games** has a **See the plan** button.
 
 ## 📅 How the autopilot posts
 
@@ -556,7 +554,7 @@ src/
                       engine.ts (render, upload, thumbnail, retry, history), types.ts (per-game paces)
   desktop/            bridge.ts (typed Tauri calls), runtime.ts (wires the engine to the UI)
   modules/            module registry, shared no-repeat rules and thumbnails (common.ts, thumbnail.ts),
-                      flagBattle/, marbleRace/, ringEscape/, growingBall/, paperLand/, blackHole/ (content planning and autopilot rendering per game)
+                      flagBattle/, marbleRace/, ringEscape/, growingBall/, paperLand/, blackHole/, territoryWars/ (content planning and autopilot rendering per game)
   dashboard/          channel data (youtube.ts), insights math (insights.ts), snapshots and cache (store.ts)
   app/desktop/        Setup guide, Dashboard, Autopilot, Videos, Calendar, Games, Channels and Settings screens;
                       posts.tsx (the live post timeline)
@@ -566,8 +564,9 @@ src/
   engine/grow/        Growing Ball: growing-ball physics, growth-rate fitting and knockout heats
   engine/paper/       Paper Land: grid rules, flood-fill claims, steering AI and knockout heats
   engine/black/       Black Hole: city generator, swallow rules, steering AI and knockout heats
+  engine/territory/   Territory Wars: world map crop, border automaton, playback-rate fitting
   render/             the renderers shared by preview and export (render/race/, render/rings/, render/grow/,
-                      render/paper/, render/black/),
+                      render/paper/, render/black/, render/territory/),
                       show.ts (the shared frame for the round-based games), effects, themes
   audio/              procedural sound effects, streaming mixer, live preview audio
   export/             WebCodecs + mp4-muxer export worker and fallback; production.ts builds any game
@@ -647,6 +646,14 @@ lineups and winners, and `src/export/production.ts` to plug the game's renderer 
   smaller ones; near a target it slows down so it turns onto it instead of circling it. The game runs on a clock; a
   few cities are played in full and the liveliest is kept. Tests check nothing larger than a hole ever falls in, only
   clearly bigger holes swallow, holes stay in the city, and the biggest wins.
+- **Territory Wars rules.** `scripts/build-world-grid.mjs` rasterizes the world-countries shapes into a 0.5° grid
+  (`src/data/worldGrid.json`, `npm run build-map`). Each war crops it around the countries' centers (square in
+  kilometers, about 120 cells across), drops tiny islands and joins every landmass by its shortest sea crossing.
+  Every turn each owned cell picks one neighbor and attacks it; empty land falls with a fixed chance, a rival's cell
+  by relative strength (cells^0.3 × morale × rally). Moves are double-buffered so the scan order doesn't bias the
+  borders. A few seeds are played in full; the playback rate (turns per second) fits the war to the target length.
+  Tests check territory always adds up to the map, the record replays to the final land, every landmass is
+  reachable, and starts are equal.
 - **Export.** Frame-by-frame rendering on an `OffscreenCanvas` in a worker, H.264 via WebCodecs (VP9/AV1 fallback),
   keyframe every 2 s, sound effects mixed in one-second chunks and encoded as AAC or Opus, muxed with `mp4-muxer`
   with the index at the front for fast YouTube processing.
