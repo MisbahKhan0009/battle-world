@@ -28,7 +28,7 @@ human-looking schedule, while it sits quietly in the system tray.
 
 | | |
 | --- | --- |
-| 🎬 **Makes the videos** | Five games so far. **Flag Battle**: up to 64 country flags bounce inside a circle with one rotating exit; the last flag inside wins. **Marble Race**: flag marbles roll down a track of ramps, plinko pegs, spinners and bumpers; first across the line wins. **Ring Escape**: flag balls bounce inside spinning rings and shatter each one they slip through; first out of the last ring wins. **Growing Ball**: every bounce off the wall makes a flag bigger; when the arena is full, the biggest wins. **Paper Land**: like Paper.io, flags draw trails to claim land and cut each other's trails; when the clock runs out, the most land wins. No two posts repeat a winner, a lineup or even a flag count. |
+| 🎬 **Makes the videos** | Six games so far. **Flag Battle**: up to 64 country flags bounce inside a circle with one rotating exit; the last flag inside wins. **Marble Race**: flag marbles roll down a track of ramps, plinko pegs, spinners and bumpers; first across the line wins. **Ring Escape**: flag balls bounce inside spinning rings and shatter each one they slip through; first out of the last ring wins. **Growing Ball**: every bounce off the wall makes a flag bigger; when the arena is full, the biggest wins. **Paper Land**: like Paper.io, flags draw trails to claim land and cut each other's trails; when the clock runs out, the most land wins. **Black Hole**: like Hole.io, country holes swallow a city and then each other; when the clock runs out, the biggest hole wins. No two posts repeat a winner, a lineup or even a flag count. |
 | 🙂 **Countryballs** | Every flag is a countryball with cartoon eyes that look where it's going and react: they blink, squint when hit, look scared in danger, determined when it counts, and smile when they win. Balls squash when they bounce. |
 | 📺 **One channel, every game** | Your channel posts every game: one Short a day from each game, plus one long video a day that takes turns between them. You can still connect more channels and split the games between them. |
 | 🖼️ **Spoiler-free thumbnails** | Every post gets its own cover ("WHO ESCAPES LAST?") made from the start of the battle, so the thumbnail never gives the winner away. |
@@ -37,10 +37,10 @@ human-looking schedule, while it sits quietly in the system tray.
 | 🎞️ **Every video under your control** | The Videos page lists every video by day: watch it, edit its title, description or time, make a new one, publish it now, skip it, or approve it first with review before upload. |
 | 📊 **Channel dashboard** | Subscribers and views over time, every upload against your typical result, which game performs best, your best hours to post, and your top videos, in one page. |
 | 🗓️ **Calendar and live tracking** | One calendar for every game and channel, color-coded with filters per game and per channel. Click any post to watch it render, upload and go live, step by step. |
-| 🔊 **Sound that fits** | Every game has its own sound and color world: Flag Battle's punchy hits and brass fanfare in lime, Marble Race's wooden clicks, start-light beeps and bell in cyan or race amber, Ring Escape's glass celesta and shatter in magenta, Growing Ball's water-drop bloops in coral, Paper Land's marimba and scissor snips in mint. All timed to the action. Prefer music? Point Settings at a folder of YouTube Audio Library tracks and videos use those instead. |
+| 🔊 **Sound that fits** | Every game has its own sound and color world: Flag Battle's punchy hits and brass fanfare in lime, Marble Race's wooden clicks, start-light beeps and bell in cyan or race amber, Ring Escape's glass celesta and shatter in magenta, Growing Ball's water-drop bloops in coral, Paper Land's marimba and scissor snips in mint, Black Hole's gulps and deep whomps in violet. All timed to the action. Prefer music? Point Settings at a folder of YouTube Audio Library tracks and videos use those instead. |
 | 🖥️ **Runs in the background** | Lives in the system tray, starts with Windows, renders each post ahead and lets YouTube publish it on the minute. |
 | 🔒 **Your account stays yours** | Uses your own free Google Cloud project. Your sign-in is stored in Windows Credential Manager, never in plain files. |
-| 🧩 **More games coming** | Flag Battle, Marble Race, Ring Escape, Growing Ball and Paper Land are live. Territory Wars and Black Hole (like Hole.io) are next, each with a written plan in the app. |
+| 🧩 **More games coming** | Flag Battle, Marble Race, Ring Escape, Growing Ball, Paper Land and Black Hole are live. Territory Wars is next, with a written plan in the app. |
 
 <br />
 
@@ -285,6 +285,19 @@ build; the hunting starts as the clock runs down. Shorts are one game of 4 to 7 
 9 to 16 flags in 3 or 4 heats and a final. Claims ring a marimba that climbs with the size of the claim, cuts snip
 like scissors, and the last five seconds tick. Open **Games, Paper Land, Watch a sample game** to try it.
 
+### Black Hole
+
+Like Hole.io. Every country is a hole in a city seen from above: a dark disc in a rim of its flag, with countryball
+eyes that look where it's heading, get scared when a bigger hole is near and smile when it swallows a rival. The city
+is a grid of blocks (parks, homes, shops, downtown towers) with cars, buses, lamps and cones on the roads. Anything
+that fits in a hole and rolls mostly over it tips in, spinning and shrinking, and the hole grows by what it eats, so
+holes work up from bushes and benches to cars, houses and finally towers. A clearly bigger hole swallows a smaller
+one. The biggest hole wears a crown, banners call every swallow, new leader and "10 SECONDS LEFT", and when the clock
+runs out the biggest hole wins (or the last one left). Long videos show the whole city; Shorts follow the leader with a
+gentle camera. Shorts are one game of 4 to 7 holes; long videos are a knockout of 9 to 16 holes in 3 or 4 heats and a
+final. Everything that falls in gulps (small things pop high, towers go down deep) and a hole eating a hole lands
+with a deep whomp. Open **Games, Black Hole, Watch a sample game** to try it.
+
 ### Games
 
 <img src="docs/images/modules.jpg" alt="The Games page: each game with the channels it posts on, a button to watch a sample, and the upcoming games" width="100%" />
@@ -300,7 +313,7 @@ the same way the autopilot makes them, and export it as an MP4.
 | **Growing Ball** | ✅ Ready | Every bounce off the wall makes a flag bigger; when the arena is full, the biggest wins. Long videos are a knockout. |
 | **Paper Land** | ✅ Ready | Like Paper.io: flags draw trails to claim land and cut rivals' trails; when the clock runs out, the most land wins. Long videos are a knockout. |
 | Territory Wars | 🔜 Next | Countries conquer a pixel world map tile by tile. |
-| Black Hole | 🔜 Next | Like Hole.io: country holes swallow a city, then each other. The biggest hole wins. |
+| **Black Hole** | ✅ Ready | Like Hole.io: country holes swallow a city, then each other; when the clock runs out, the biggest hole wins. Long videos are a knockout. |
 
 Every upcoming game has a plan (how it plays, the simulation, the video formats and the build steps): open
 **Games** and click **See the plan** on its card. The short version:
@@ -313,7 +326,6 @@ Every upcoming game has a plan (how it plays, the simulation, the video formats 
 | Game | How it plays | Simulation | Videos |
 | --- | --- | --- | --- |
 | **Territory Wars** | Countries start on their real land on a pixel world map and push borders until one rules the globe. | Deterministic cellular automaton with seeded border contests; identical armies per tile. | Long time-lapse videos of 3 to 4 min; Shorts show the final 50 s. |
-| **Black Hole** | Country holes roam a city swallowing anything smaller; bigger holes eat smaller ones; biggest wins. | Seeded steering AI per hole; objects tip in when mostly over a big enough hole; identical rules for every hole. | Shorts 40 to 58 s on the leader; long videos of 2 to 3 min. |
 
 All of them follow the same rules as the live games: same seed, same video; no repeated winners; spoiler-free
 thumbnails; their own schedule on the shared timeline.
@@ -544,7 +556,7 @@ src/
                       engine.ts (render, upload, thumbnail, retry, history), types.ts (per-game paces)
   desktop/            bridge.ts (typed Tauri calls), runtime.ts (wires the engine to the UI)
   modules/            module registry, shared no-repeat rules and thumbnails (common.ts, thumbnail.ts),
-                      flagBattle/, marbleRace/, ringEscape/, growingBall/, paperLand/ (content planning and autopilot rendering per game)
+                      flagBattle/, marbleRace/, ringEscape/, growingBall/, paperLand/, blackHole/ (content planning and autopilot rendering per game)
   dashboard/          channel data (youtube.ts), insights math (insights.ts), snapshots and cache (store.ts)
   app/desktop/        Setup guide, Dashboard, Autopilot, Videos, Calendar, Games, Channels and Settings screens;
                       posts.tsx (the live post timeline)
@@ -553,8 +565,9 @@ src/
   engine/rings/       Ring Escape: ring generator, bounce physics, ring-count fitting and knockout heats
   engine/grow/        Growing Ball: growing-ball physics, growth-rate fitting and knockout heats
   engine/paper/       Paper Land: grid rules, flood-fill claims, steering AI and knockout heats
+  engine/black/       Black Hole: city generator, swallow rules, steering AI and knockout heats
   render/             the renderers shared by preview and export (render/race/, render/rings/, render/grow/,
-                      render/paper/),
+                      render/paper/, render/black/),
                       show.ts (the shared frame for the round-based games), effects, themes
   audio/              procedural sound effects, streaming mixer, live preview audio
   export/             WebCodecs + mp4-muxer export worker and fallback; production.ts builds any game
@@ -626,6 +639,14 @@ lineups and winners, and `src/export/production.ts` to plug the game's renderer 
   starts are played in full and the liveliest is kept (lead changes, a few cuts, a well-covered board, a close
   finish). Land is recorded only when it changes. Tests check the board always matches every flag's land, a cut
   flag's land is wiped, and the most land wins.
+- **Black Hole rules.** The city is a seeded grid of blocks; every object has a size (its bounding radius) and a
+  footprint. An object falls in once it fits (size at most 85% of the hole's radius) and its center is deep enough
+  in the hole; the hole's area grows by part of the footprint. A hole 15% bigger swallows a smaller one when it covers
+  its center. Every hole has the same speed (slightly slower as it grows) and the same seeded steering: head for the
+  best food in reach (bigger and closer is better, ahead beats behind), flee bigger holes, and after the opening chase
+  smaller ones; near a target it slows down so it turns onto it instead of circling it. The game runs on a clock; a
+  few cities are played in full and the liveliest is kept. Tests check nothing larger than a hole ever falls in, only
+  clearly bigger holes swallow, holes stay in the city, and the biggest wins.
 - **Export.** Frame-by-frame rendering on an `OffscreenCanvas` in a worker, H.264 via WebCodecs (VP9/AV1 fallback),
   keyframe every 2 s, sound effects mixed in one-second chunks and encoded as AAC or Opus, muxed with `mp4-muxer`
   with the index at the front for fast YouTube processing.
