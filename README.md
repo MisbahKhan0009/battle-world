@@ -14,7 +14,7 @@ human-looking schedule, while it sits quietly in the system tray.
 ![Shorts and long videos](https://img.shields.io/badge/YouTube-Shorts%20%2B%20videos-FF0000?logo=youtube&logoColor=white)
 ![Built with Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
 
-[**Download**](#-download-and-install) &nbsp;&nbsp; [**Set up your channel**](#-set-up-your-channel-5-minutes) &nbsp;&nbsp; [**Daily use**](#%EF%B8%8F-using-flag-clash) &nbsp;&nbsp; [**Help**](#%EF%B8%8F-troubleshooting)
+[**Download**](#-download-and-install) &nbsp;&nbsp; [**Set up your channel**](#-set-up-your-channel-5-minutes) &nbsp;&nbsp; [**Daily use**](#%EF%B8%8F-using-flag-clash) &nbsp;&nbsp; [**How it posts**](#-how-the-autopilot-posts) &nbsp;&nbsp; [**Help**](#%EF%B8%8F-troubleshooting)
 
 <br />
 
@@ -30,7 +30,7 @@ human-looking schedule, while it sits quietly in the system tray.
 | --- | --- |
 | 🎬 **Makes the videos** | Up to 64 country flags bounce inside a circle with one rotating exit. Flags that slip out are eliminated; the last flag inside wins. No two posts repeat a winner, a lineup or even a flag count. |
 | 🖼️ **Spoiler-free thumbnails** | Every post gets its own cover ("WHO ESCAPES LAST?") made from the start of the battle, so the thumbnail never gives the winner away. |
-| 📅 **Posts on autopilot** | Up to 5 Shorts a day plus long videos, timed for when your audience is most active, at different times every day. Everything is adjustable. |
+| 📅 **Posts on autopilot** | Up to 5 Shorts a day plus long videos, planned a full week ahead and timed for when your audience is most active, at different times every day. Everything is adjustable. |
 | 🗓️ **Calendar and live tracking** | A month calendar of everything posted, scheduled and planned. Click any post to watch it render, upload and go live, step by step. |
 | 🔊 **Sound that fits** | Bumps, exits, eliminations and a winner fanfare, timed to the action. No background music, so no copyright claims. |
 | 🖥️ **Runs in the background** | Lives in the system tray, starts with Windows, renders each post a few hours ahead and lets YouTube publish it on the minute. |
@@ -62,7 +62,8 @@ human-looking schedule, while it sits quietly in the system tray.
 
 > [!TIP]
 > **Updating** is the same: download the newest installer and run it. It updates in place and keeps your channels,
-> schedule and history.
+> schedule, history and keys. If you ever reinstall from scratch, setup step 5 takes the same `client_secret_….json`
+> file again, so there is nothing to retype.
 
 <br />
 
@@ -89,17 +90,17 @@ You will need **a Google account that owns a YouTube channel**. No credit card i
 | 4 | **Keep the sign-in alive** | [Branding](https://console.cloud.google.com/auth/branding), then [Audience](https://console.cloud.google.com/auth/audience) | On Branding, add an **Application home page** and **Privacy policy link** (two pages on a site you own, for example a free `yourname.github.io` GitHub Pages site) and add that domain under **Authorized domains**. Then on Audience click **Publish app**, **Confirm**. (Apps left in "Testing" are signed out by Google every 7 days.) |
 | 5 | **Create the app's keys** | [Clients](https://console.cloud.google.com/auth/clients) | **Create client**, Application type **Desktop app**, name `Flag Clash`, **Create**. Click **Download JSON**, then in Flag Clash click **Choose the downloaded JSON file**. (Pasting the Client ID and secret also works.) |
 | 6 | **Connect your channel** | In Flag Clash | Click **Sign in with Google**, pick your channel's account. On "Google hasn't verified this app" click **Advanced**, then **Go to Flag Clash (unsafe)**, and allow both permissions. |
-| 7 | **Pick a pace** | In Flag Clash | Maximum (default), Steady or Light, and who can see the videos. Click **Start autopilot**. |
+| 7 | **Pick a pace** | In Flag Clash | Maximum (default), Steady or Light, where most of your viewers live, and who can see the videos. Click **Start autopilot**. The week's plan appears right away. |
 
 </details>
 
 <table>
 <tr>
-<td width="50%"><img src="docs/images/setup-keys.jpg" alt="Step 5: paste the client ID and secret" /></td>
+<td width="50%"><img src="docs/images/setup-keys.jpg" alt="Step 5: choose the downloaded JSON file or paste the client ID and secret" /></td>
 <td width="50%"><img src="docs/images/setup-connect.jpg" alt="Step 6: sign in with Google" /></td>
 </tr>
 <tr>
-<td align="center"><sub>Step 5: the keys are checked as you paste them</sub></td>
+<td align="center"><sub>Step 5: pick the downloaded JSON, or paste the keys</sub></td>
 <td align="center"><sub>Step 6: what to click on Google's warning page</sub></td>
 </tr>
 </table>
@@ -123,12 +124,17 @@ You will need **a Google account that owns a YouTube channel**. No credit card i
 
 <img src="docs/images/autopilot.jpg" alt="The Autopilot page: the current job, the week ahead grouped by day, and schedule settings" width="100%" />
 
-- **This week** lists every post planned for the next 7 days, grouped by day. **Skip** any you don't want.
+- **The top card** shows what is happening right now (rendering or uploading, with progress) or when the next post
+  goes out.
+- **This week** lists every post planned for the next 7 days, grouped by day, including ones already uploaded and
+  waiting for YouTube to publish them. **Skip** any you don't want.
 - **Click any post** to open its timeline: planned, rendering (with a live progress bar), uploading, scheduled on
   YouTube (with a countdown) and live, plus every event, error and retry along the way.
 - **Post now** renders and uploads one Short or long video immediately, outside the schedule. Great for a first test.
 - **Pause autopilot** stops new posts (also available from the tray icon).
 - **Recent posts** links each upload to YouTube and shows the reason if one failed.
+- **Schedule** (right column) changes take effect at once: posts in the week that have not started yet are
+  re-planned; anything already rendering or uploaded stays as it is.
 
 ### Calendar
 
@@ -137,6 +143,15 @@ You will need **a Google account that owns a YouTube channel**. No credit card i
 The **Calendar** shows every post by day: **live** ones in green, **scheduled** on YouTube in blue, **planned** ones
 (dashed) for the days ahead, plus anything that failed or was skipped. Shorts have a green dot, long videos a blue
 one. Click a day to list its posts, and click a post to follow it live.
+
+### Settings
+
+- **Google API credentials:** load them from the `client_secret_….json` file or paste them.
+- **Rendered videos:** the folder videos are saved to (default `Videos\Flag Clash`), and how many days to keep them
+  after posting (default 3; 0 deletes them right after upload).
+- **Background:** launch when you sign in to Windows, and keep running in the tray when the window closes (both on
+  by default).
+- **About:** the installed version. Newer versions are on the [Releases](https://github.com/MisbahKhan0009/battle-world/releases) page.
 
 ### Tray and startup
 
@@ -175,6 +190,7 @@ the rules and look, preview it, and **Export** an MP4. Handy shortcuts: <kbd>Spa
 
 | Setting | Default | Range |
 | --- | :-: | :-: |
+| Planned ahead | **7 days** | rolling, every day |
 | Shorts per day | **5** | 0 to 10 |
 | Long videos per week | **4** | 0 to 14 |
 | Posting hours | **9:00 to 23:00** | any |
@@ -184,6 +200,9 @@ the rules and look, preview it, and **Export** an MP4. Handy shortcuts: <kbd>Spa
 | Organic variation | **On** | on or off |
 | Daily upload limit | **6** | 1 to 20 |
 
+- **A week ahead.** Every connected channel always has the next 7 days planned, and the plan rolls forward a day at
+  a time. Each day's plan stays fixed unless you change the schedule, so what you see in the calendar is what will
+  go out.
 - **Peak-hour timing.** Posts follow when YouTube audiences are most active (lunch, after work, and the evening
   peak; later and longer on weekends) in your viewers' time zone. Each post gets an equal share of the day's
   viewers, at a random point inside it, so the times change every day and never land on round minutes. Long videos
@@ -201,6 +220,8 @@ the rules and look, preview it, and **Export** an MP4. Handy shortcuts: <kbd>Spa
   flags are physically identical, so this never bends the physics: it only decides which flag rides which ball.)
 - **Spoiler-free thumbnails.** Each post uploads its own cover made from the start of the battle with a big
   question. Titles never name the winner either.
+- **Resilient.** Uploads resume after network drops, failed posts retry after 5, 20 and 60 minutes, quota errors
+  wait for the daily reset, and posts missed while the PC was off are skipped instead of posted in a burst.
 
 <table>
 <tr>
@@ -213,12 +234,11 @@ the rules and look, preview it, and **Export** an MP4. Handy shortcuts: <kbd>Spa
 </tr>
 </table>
 
-- **Resilient.** Uploads resume after network drops, failed posts retry after 5, 20 and 60 minutes, quota errors
-  wait for the daily reset, and posts missed while the PC was off are skipped instead of posted in a burst.
 
 > [!NOTE]
-> The PC needs to be **on and awake** a few hours before posts go out so it can render them. Rendering a Short takes
-> about a minute on a typical laptop.
+> The PC needs to be **on and awake** in the few hours before each post so it can render and upload it; after that,
+> YouTube publishes it on time by itself. Rendering a Short takes about a minute on a typical laptop, and a long
+> video a few minutes.
 
 > [!NOTE]
 > **Community posts:** YouTube's API has no way to create Community posts (text, polls or images on the Posts tab),
@@ -253,8 +273,9 @@ account under **Test users**. Then try **Sign in with Google** again.
 <summary><b>"redirect_uri_mismatch" or "invalid_client"</b></summary>
 
 The client was created with the wrong type, or the keys were pasted incorrectly. Create a new client with
-Application type **Desktop app** in [Clients](https://console.cloud.google.com/auth/clients), and paste its Client ID
-and secret in **Settings** (or setup step 5).
+Application type **Desktop app** in [Clients](https://console.cloud.google.com/auth/clients), click **Download JSON**,
+and load that file in **Settings** (or setup step 5). Flag Clash tells you if the file is for a "Web application"
+client instead.
 </details>
 
 <details>
@@ -287,6 +308,16 @@ a Short's custom thumbnail shows in search, on your channel page and in subscrip
 Your sign-in app is still in "Testing", where Google expires logins after 7 days. Open
 [Audience](https://console.cloud.google.com/auth/audience), click **Publish app**, then reconnect the channel once in
 **Channels**.
+</details>
+
+<details>
+<summary><b>A post failed. What happened?</b></summary>
+
+<br />
+
+Click it (on the Autopilot page or in the Calendar). Its timeline shows which step failed, the exact error from
+YouTube, and when the next retry is. Failed posts retry after 5, 20 and 60 minutes before giving up; the rest of the
+week carries on either way.
 </details>
 
 <details>
@@ -333,7 +364,7 @@ npm run desktop:build   # build the Windows installer into src-tauri/target/rele
 | Script | What it does |
 | --- | --- |
 | `npm run dev` | The UI alone in a browser at http://localhost:5173 (autopilot screens show desktop-only notes) |
-| `npm test` | Vitest: physics, determinism, duration tuning, scheduler, autopilot engine, content generator |
+| `npm test` | Vitest: physics, determinism, duration tuning, peak-hour scheduler, autopilot engine, no-repeat content rules, client secret import |
 | `npm run lint` | ESLint (includes a rule that bans `Math.random` and clock reads inside the simulation) |
 | `npm run format` | Prettier |
 
@@ -351,7 +382,7 @@ Pushing a `v*` tag publishes a release under that tag instead.
 src-tauri/            Rust shell (Tauri 2)
   src/oauth.rs        Google sign-in: system browser, loopback redirect, PKCE, channel lookup
   src/tokens.rs       refresh tokens in Windows Credential Manager, access-token cache
-  src/youtube.rs      resumable 8 MiB chunked uploads that resume after errors
+  src/youtube.rs      resumable 8 MiB chunked uploads that resume after errors, custom thumbnails
   src/files.rs        state file (atomic writes), saving rendered videos (raw IPC body)
   src/tray.rs         tray menu and status
   src/lib.rs          window and tray lifecycle, launch at login, single instance, 30 s heartbeat
@@ -367,6 +398,8 @@ src/
   render/             the renderer shared by preview and export, effects, layout, themes
   audio/              procedural sound effects, streaming mixer, live preview audio
   export/             WebCodecs + mp4-muxer export worker and fallback
+scripts/setup-windows.ps1   one-time dev setup on Windows (Git, Node, Rust, MSVC, WebView2, npm packages)
+CLAUDE.md             project notes for AI coding assistants
 ```
 </details>
 
@@ -375,9 +408,11 @@ src/
 
 <br />
 
-Add an entry to `src/modules/registry.ts` with `status: 'ready'` and a `render(job, onProgress, signal)` function
-that turns `{ format: 'short' | 'video', seed }` into `{ bytes, ext, meta: { title, description, tags } }`. The
-autopilot, Modules page and scheduler pick it up automatically. `src/modules/flagBattle/` is the reference.
+Add an entry to `src/modules/registry.ts` with `status: 'ready'` and a `render(job, onProgress, signal)` function.
+It receives `{ format: 'short' | 'video', seed, recent }`, where `recent` is the channel's content history, and
+returns `{ bytes, ext, meta: { title, description, tags } }` plus, optionally, a JPEG `thumbnail` and a `content`
+record (count, roster, winner…) that later posts use to avoid repeats. The autopilot, calendar, Modules page and
+scheduler pick it up automatically. `src/modules/flagBattle/` is the reference.
 </details>
 
 <details>
