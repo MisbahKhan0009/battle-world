@@ -31,11 +31,12 @@ human-looking schedule, while it sits quietly in the system tray.
 | 🎬 **Makes the videos** | Two games so far. **Flag Battle**: up to 64 country flags bounce inside a circle with one rotating exit; the last flag inside wins. **Marble Race**: flag marbles roll down a track of ramps, plinko pegs, spinners and bumpers; first across the line wins. No two posts repeat a winner, a lineup or even a flag count. |
 | 🖼️ **Spoiler-free thumbnails** | Every post gets its own cover ("WHO ESCAPES LAST?") made from the start of the battle, so the thumbnail never gives the winner away. |
 | 📅 **Posts on autopilot** | Each game has its own schedule (about 5 Shorts a day and 4 long videos a week together by default), all on one timeline so posts never overlap, planned a full week ahead and timed for when your audience is most active. Everything is adjustable. |
+| 📊 **Channel dashboard** | Subscribers and views over time, every upload against your typical result, which game performs best, your best hours to post, and your top videos, in one page. |
 | 🗓️ **Calendar and live tracking** | One calendar for every game, color-coded with a filter per game. Click any post to watch it render, upload and go live, step by step. |
 | 🔊 **Sound that fits** | Bumps, exits, eliminations and a winner fanfare, timed to the action. No background music, so no copyright claims. |
 | 🖥️ **Runs in the background** | Lives in the system tray, starts with Windows, renders each post a few hours ahead and lets YouTube publish it on the minute. |
 | 🔒 **Your account stays yours** | Uses your own free Google Cloud project. Your sign-in is stored in Windows Credential Manager, never in plain files. |
-| 🧩 **More games coming** | Flag Battle and Marble Race are live. Ring Escape, Territory Wars and Growing Ball are next. |
+| 🧩 **More games coming** | Flag Battle and Marble Race are live. Ring Escape, Territory Wars, Growing Ball, Black Hole (like Hole.io) and Paper Land (like Paper.io) are next, each with a written plan in the app. |
 
 <br />
 
@@ -120,6 +121,23 @@ You will need **a Google account that owns a YouTube channel**. No credit card i
 
 ## 🎛️ Using Flag Clash
 
+### Dashboard
+
+<img src="docs/images/dashboard.jpg" alt="The dashboard: subscriber, view and engagement tiles, growth charts, the latest uploads colored by game against the typical Short, views by game, best hours to post, and top videos" width="100%" />
+
+Your channel at a glance, with the things YouTube Studio does not show you:
+
+- **Totals and growth:** subscribers, views and videos with their change over 7 days, and growth charts. Flag
+  Clash saves your totals every 3 hours while it runs, so the charts fill in over the first days.
+- **Latest uploads:** views of your last 30 uploads, colored by game, against your typical Short (dashed line).
+- **Which game performs best:** average views and engagement per game and format, for everything the autopilot
+  posted.
+- **Best hours to post:** median Short views by the hour they went live, with your top three hours called out.
+- **Top videos:** views, views per day, likes, comments and how many times your typical result each one got.
+
+It uses the same read-only YouTube access the app already has (a few API units per refresh), so there is nothing
+extra to set up. **Refresh** reloads it; **YouTube Studio** opens your channel there.
+
 ### Autopilot
 
 <img src="docs/images/autopilot.jpg" alt="The Autopilot page: the current job, the week ahead grouped by day, and schedule settings" width="100%" />
@@ -195,6 +213,29 @@ the rules and look, preview it, and **Export** an MP4. Handy shortcuts: <kbd>Spa
 | Ring Escape | 🔜 Next | A flag breaks out through nested rotating rings, shattering each one. |
 | Territory Wars | 🔜 Next | Countries conquer a pixel world map tile by tile. |
 | Growing Ball | 🔜 Next | Every bounce makes the flag bigger until it fills the arena. |
+| Black Hole | 🔜 Next | Like Hole.io: country holes swallow a city, then each other. The biggest hole wins. |
+| Paper Land | 🔜 Next | Like Paper.io: flags paint trails to claim land; crossing a trail knocks a flag out. |
+
+Every upcoming game has a plan (how it plays, the simulation, the video formats and the build steps): open
+**Modules** and click **See the plan** on its card. The short version:
+
+<details>
+<summary><b>Game plans</b></summary>
+
+<br />
+
+| Game | How it plays | Simulation | Videos |
+| --- | --- | --- | --- |
+| **Ring Escape** | A flag bounces out through 8 to 12 rotating rings, shattering each one; or four flags race to escape first. | Flag Battle's escape physics (solid arc + moving gap edges); length fitted by ring count and gap widths from probe runs. | Shorts 30 to 58 s; long videos as a tournament of escapes. |
+| **Territory Wars** | Countries start on their real land on a pixel world map and push borders until one rules the globe. | Deterministic cellular automaton with seeded border contests; identical armies per tile. | Long time-lapse videos of 3 to 4 min; Shorts show the final 50 s. |
+| **Growing Ball** | Every wall bounce grows the flag; first to fill half the arena wins, with notes that deepen as balls grow. | Circle collisions with growth after each wall hit and overlap resolution; growth rate fitted from probes. | Shorts 30 to 55 s; long videos as one-on-one brackets. |
+| **Black Hole** | Country holes roam a city swallowing anything smaller; bigger holes eat smaller ones; biggest wins. | Seeded steering AI per hole; objects tip in when mostly over a big enough hole; identical rules for every hole. | Shorts 40 to 58 s on the leader; long videos of 2 to 3 min. |
+| **Paper Land** | Flags leave trails outside their land and close loops to claim area; crossing a trail eliminates a flag. | Grid ticks with flood-fill claiming and trail-cut checks; seeded AI with identical rules. | Shorts 40 to 58 s; long videos of 3 min on a bigger board. |
+
+All of them follow the same rules as the live games: same seed, same video; no repeated winners; spoiler-free
+thumbnails; their own schedule on the shared timeline.
+
+</details>
 
 <br />
 
@@ -211,6 +252,7 @@ the rules and look, preview it, and **Export** an MP4. Handy shortcuts: <kbd>Spa
 | Minimum gap between posts | **1 h 15 min** | 30 min to 4 h |
 | Organic variation | **On** | on or off |
 | Daily upload limit | **6** | 1 to 20 |
+| Made for kids | **On** | on or off |
 
 - **One timeline for every game.** Each game keeps its own pace, and all of them share the posting hours, the
   minimum gap and the daily upload limit, so posts never overlap. Games alternate through the day, and each game's
@@ -255,6 +297,11 @@ the rules and look, preview it, and **Export** an MP4. Handy shortcuts: <kbd>Spa
 > The PC needs to be **on and awake** in the few hours before each post so it can render and upload it; after that,
 > YouTube publishes it on time by itself. Rendering a Short takes about a minute on a typical laptop, and a long
 > video a few minutes.
+
+> [!NOTE]
+> **Made for kids is on by default**, so the videos are marked as suitable for everyone. YouTube then turns off
+> comments, notifications and personalised ads on those videos, so the videos ask viewers to guess the winner instead
+> of commenting. Switch it off on the Autopilot page (or in the last setup step) if you want comments.
 
 > [!NOTE]
 > **Community posts:** YouTube's API has no way to create Community posts (text, polls or images on the Posts tab),
@@ -408,7 +455,8 @@ src/
   desktop/            bridge.ts (typed Tauri calls), runtime.ts (wires the engine to the UI)
   modules/            module registry, shared no-repeat rules and thumbnails (common.ts, thumbnail.ts),
                       flagBattle/ and marbleRace/ (content planning and autopilot rendering per game)
-  app/desktop/        Setup guide, Autopilot, Calendar, Modules, Channels and Settings screens;
+  dashboard/          channel data (youtube.ts), insights math (insights.ts), snapshots and cache (store.ts)
+  app/desktop/        Setup guide, Dashboard, Autopilot, Calendar, Modules, Channels and Settings screens;
                       posts.tsx (the live post timeline)
   app/                Studio and Preview screens
   engine/             deterministic simulation: rng, physics, sim, timeline, tuning

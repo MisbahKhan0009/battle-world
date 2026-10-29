@@ -88,3 +88,15 @@ describe('freshness across posts', () => {
     expect(new Set(winners).size).toBe(winners.length);
   });
 });
+
+describe('made for kids', () => {
+  test('kids videos never ask for comments (YouTube turns comments off)', () => {
+    for (let seed = 1; seed < 40; seed++) {
+      for (const format of ['short', 'video'] as const) {
+        const p = planFlagBattle({ format, seed, kids: true }, all);
+        const text = [p.look.subtitle, p.look.outroCta, p.meta.description].join(' ').toLowerCase();
+        expect(text).not.toMatch(/comment/);
+      }
+    }
+  });
+});

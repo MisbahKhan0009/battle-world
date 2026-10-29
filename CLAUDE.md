@@ -39,6 +39,11 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
   spheres with friction impulses, I = 2/5 m r²), `race.ts` (finish line placed at the section boundary closest to
   the target time; `planBestRace` keeps the most exciting of a few candidate tracks). Same determinism rules as
   `src/engine`. Rendering in `src/render/race/`, sound cues in `src/audio/raceCues.ts`.
+- `src/dashboard/` – channel dashboard data: read-only YouTube calls via the `youtube_api_get` command
+  (channels, playlistItems, videos), pure insight math (`insights.ts`, tested), and channel snapshots saved to
+  `state.stats` every 3 hours (the growth charts). UI in `src/app/desktop/DashboardPage.tsx` + `charts.tsx`.
+- `src/modules/plans.ts` – written plans for every coming-soon game (shown on the Modules page; a test requires one).
+- Videos default to made-for-kids (`post.madeForKids`); planners get `job.kids` and must not ask for comments then.
 - `src/export/production.ts` – builds the renderer + mixer for any game from its config (worker and fallback).
 - `src/modules/registry.ts` – content modules. Flag Battle and Marble Race are ready; three placeholders
   (ring-escape, territory-wars, growing-ball) are next. A new game also needs a `DEFAULT_PACE` entry. A module needs `status: 'ready'` and a `render(job, onProgress, signal)`.

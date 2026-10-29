@@ -122,7 +122,13 @@ export type AutopilotState = {
   setupDone: boolean;
   /** Recent content, newest last, used to keep every post fresh. */
   contentLog: ContentRecord[];
+  /** Channel totals over time (the dashboard's growth charts), per channel, oldest first. */
+  stats: Record<string, StatPoint[]>;
+  /** The "made for kids" default has been applied to this install. */
+  kidsDefaulted: boolean;
 };
+
+export type StatPoint = { t: number; subs: number; views: number; videos: number };
 
 /** Default pace per game: together 5 Shorts a day and 4 long videos a week. */
 export const DEFAULT_PACE: Record<string, ModulePace> = {
@@ -166,7 +172,8 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
 export const DEFAULT_POST: PostSettings = {
   privacy: 'public',
   publishViaYouTube: true,
-  madeForKids: false,
+  // Everyone can watch: videos are marked made for kids unless you change it.
+  madeForKids: true,
   categoryId: '20', // Gaming
 };
 
@@ -187,5 +194,7 @@ export function defaultState(outputDir = ''): AutopilotState {
     closeToTray: true,
     setupDone: false,
     contentLog: [],
+    stats: {},
+    kidsDefaulted: true,
   };
 }

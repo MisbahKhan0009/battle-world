@@ -51,6 +51,14 @@ export const desktop = {
     invoke<Omit<Channel, 'connectedAt' | 'enabled'>>('oauth_connect', { clientId, clientSecret }),
   disconnectChannel: (channelId: string) => invoke<void>('oauth_disconnect', { channelId }),
   upload: (req: UploadRequest) => invoke<{ videoId: string }>('youtube_upload', { req }),
+  /** Read-only YouTube Data API call (channels, playlistItems, videos); returns the JSON text. */
+  apiGet: (req: {
+    channelId: string;
+    clientId: string;
+    clientSecret: string;
+    endpoint: 'channels' | 'playlistItems' | 'videos';
+    query: [string, string][];
+  }) => invoke<string>('youtube_api_get', { req }),
   setThumbnail: (req: {
     channelId: string;
     clientId: string;

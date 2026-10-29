@@ -37,7 +37,10 @@ function mergeState(raw: string | null, outputDir: string): AutopilotState {
         ? { slots: (p.slots ?? []).filter((s) => s.status !== 'planned' || s.manual), plannedDays: {} }
         : {}),
       schedule: { ...base.schedule, ...restSchedule, perModule },
-      post: { ...base.post, ...p.post },
+      // Made for kids became the default; apply it once to existing installs too.
+      post: { ...base.post, ...p.post, ...(p.kidsDefaulted ? {} : { madeForKids: true }) },
+      kidsDefaulted: true,
+      stats: p.stats ?? {},
       google: { ...base.google, ...p.google },
       modules: { ...base.modules, ...p.modules },
       outputDir: p.outputDir || outputDir,
@@ -65,7 +68,11 @@ function backend(): Backend {
     async render(slot, onProgress, signal, recent) {
       const mod = moduleById(slot.moduleId);
       if (!mod?.render) throw new Error(`Module "${slot.moduleId}" cannot render yet.`);
-      return mod.render({ format: slot.format, seed: slot.seed, recent }, onProgress, signal);
+      return mod.render(
+        { format: slot.format, seed: slot.seed, recent, kids: !!state?.post.madeForKids },
+        onProgress,
+        signal,
+      );
     },
     saveFile: (dir, name, bytes) => desktop.saveVideo(dir, name, bytes),
     deleteFile: (path) => desktop.deleteFile(path),
@@ -131,6 +138,10 @@ export function startAutopilot(): Promise<Autopilot> {
     });
     // Fallback timer in case the heartbeat is missed.
     setInterval(() => void ap.tick(), 60_000);
+    // Channel totals every 3 hours for the dashboard's growth charts.
+    const snap = () => void import('../dashboard/store').then((m) => m.snapshotAll(ap));
+    setTimeout(snap, 30_000);
+    setInterval(snap, 3 * 3_600_000);
     void ap.tick();
     return ap;
   })();

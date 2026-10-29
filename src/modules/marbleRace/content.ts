@@ -48,7 +48,14 @@ const OVERHEAD = 8.5;
 
 export function buildRaceMeta(
   rng: Rng,
-  args: { format: ContentFormat; n: number; group: string; fav: string; avoidTemplates?: string[] },
+  args: {
+    format: ContentFormat;
+    n: number;
+    group: string;
+    fav: string;
+    avoidTemplates?: string[];
+    kids?: boolean;
+  },
 ): VideoMeta & { template: string } {
   const { format, n, group, fav } = args;
   const template = pickFresh(
@@ -64,7 +71,9 @@ export function buildRaceMeta(
   const description = [
     `${n} country marbles race down a track packed with ramps, pegs, spinners and bumpers. The first marble across the finish line wins.`,
     '',
-    'Who were you cheering for? Comment your country 👇',
+    args.kids
+      ? 'Which marble did you pick? Watch till the end to see if you were right 🏆'
+      : 'Who were you cheering for? Comment your country 👇',
     'Subscribe for a new race every day.',
     '',
     hashtags.join(' '),
@@ -85,7 +94,7 @@ export function buildRaceMeta(
 }
 
 export function planMarbleRace(
-  job: { format: ContentFormat; seed: number },
+  job: { format: ContentFormat; seed: number; kids?: boolean },
   countries: Country[],
   recent: ContentRecord[] = [],
 ): MarbleRacePlan {
@@ -111,20 +120,26 @@ export function planMarbleRace(
     group,
     fav,
     avoidTemplates: mine.slice(-6).map((r) => r.template ?? ''),
+    kids: job.kids,
   });
   const look: Look = {
     ...DEFAULT_LOOK,
     aspect: short ? '9:16' : '16:9',
     theme,
     title: 'First to the finish wins 🏁',
-    subtitle: 'Comment your country 👇',
+    subtitle: job.kids ? 'Pick your marble before the start 👀' : 'Comment your country 👇',
     showKillFeed: true,
     showCounter: true,
-    outroCta: pick(rng, [
-      'Which countries should race next? Comment below 👇',
-      'Did your country win? Tell us 👇',
-      'Subscribe for a new race every day 🔔',
-    ]),
+    outroCta: pick(
+      rng,
+      job.kids
+        ? ['Did you pick the winner? 🏆', 'Subscribe for a new race every day 🔔', 'Watch the next race! 🔁']
+        : [
+            'Which countries should race next? Comment below 👇',
+            'Did your country win? Tell us 👇',
+            'Subscribe for a new race every day 🔔',
+          ],
+    ),
   };
   return {
     fighters,

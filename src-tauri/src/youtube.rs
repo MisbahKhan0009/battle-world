@@ -337,3 +337,58 @@ pub async fn youtube_set_thumbnail(
     }
     Err("YouTube rejected the thumbnail".into())
 }
+
+const API_BASE: &str = "https://www.googleapis.com/youtube/v3/";
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiGetRequest {
+    channel_id: String,
+    client_id: String,
+    client_secret: String,
+    /// One of the read-only endpoints the dashboard uses.
+    endpoint: String,
+    query: Vec<(String, String)>,
+}
+
+/// Read-only YouTube Data API GET for the dashboard (channel stats, uploads, video stats).
+#[tauri::command]
+pub async fn youtube_api_get(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    req: ApiGetRequest,
+) -> Result<String, String> {
+    if !matches!(
+        req.endpoint.as_str(),
+        "channels" | "playlistItems" | "videos"
+    ) {
+        return Err("unsupported endpoint".into());
+    }
+    let creds = Creds {
+        channel_id: &req.channel_id,
+        client_id: &req.client_id,
+        client_secret: &req.client_secret,
+    };
+    let url = format!("{API_BASE}{}", req.endpoint);
+    let mut token = access_token(&app, &state, &creds, false).await?;
+    for attempt in 0..2 {
+        let resp = state
+            .http
+            .get(&url)
+            .query(&req.query)
+            .bearer_auth(&token)
+            .timeout(Duration::from_secs(30))
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        if resp.status().as_u16() == 401 && attempt == 0 {
+            token = access_token(&app, &state, &creds, true).await?;
+            continue;
+        }
+        if !resp.status().is_success() {
+            return Err(google_error(resp).await);
+        }
+        return resp.text().await.map_err(|e| e.to_string());
+    }
+    Err("YouTube did not answer".into())
+}

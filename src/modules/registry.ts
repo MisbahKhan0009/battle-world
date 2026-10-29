@@ -2,7 +2,13 @@ import type { RenderResult } from '../autopilot/engine';
 import type { ContentFormat, ContentRecord } from '../autopilot/types';
 
 /** What to render. `recent` is the channel's content history (oldest first) to avoid repeats. */
-export type RenderJob = { format: ContentFormat; seed: number; recent?: ContentRecord[] };
+export type RenderJob = {
+  format: ContentFormat;
+  seed: number;
+  recent?: ContentRecord[];
+  /** Made for kids: comments are off on YouTube, so the video must not ask for them. */
+  kids?: boolean;
+};
 
 export type ContentModule = {
   id: string;
@@ -80,6 +86,26 @@ export const MODULES: ContentModule[] = [
     status: 'coming-soon',
     formats: ['short'],
     accent: '#FF4D5E',
+  },
+  {
+    id: 'black-hole',
+    name: 'Black Hole',
+    tagline: 'Swallow the city, then each other',
+    description:
+      'Like Hole.io: country holes roam a city and swallow everything smaller than them. Bigger holes eat smaller ones; the biggest hole wins.',
+    status: 'coming-soon',
+    formats: ['short', 'video'],
+    accent: '#B07CFF',
+  },
+  {
+    id: 'paper-land',
+    name: 'Paper Land',
+    tagline: 'Claim land, cut the trails',
+    description:
+      'Like Paper.io: flags paint trails to claim land, and crossing a rival’s trail knocks it out. The most land wins.',
+    status: 'coming-soon',
+    formats: ['short', 'video'],
+    accent: '#3DFFB0',
   },
 ];
 

@@ -21,7 +21,7 @@ import type { AutopilotState, PostSettings } from '../../autopilot/types';
 import { DEFAULT_SCHEDULE, paceFor, splitPace } from '../../autopilot/types';
 import { MODULES } from '../../modules/registry';
 import { Button } from '../../components/ui/Button';
-import { inputClass } from '../../components/ui/controls';
+import { inputClass, Toggle } from '../../components/ui/controls';
 import { desktop, isDesktop } from '../../desktop/bridge';
 import { pickClientSecretFile } from '../../desktop/clientSecret';
 import { useAutopilot } from '../../desktop/runtime';
@@ -575,6 +575,15 @@ function PaceBody({ state, update }: StepCtx) {
           ))}
         </select>
       </label>
+
+      <div className="rounded-2xl bg-surface-2/60 p-4 ring-1 ring-line">
+        <Toggle
+          label="Made for kids (suitable for everyone)"
+          description="Recommended for these games and on by default. YouTube turns off comments, notifications and personalised ads on kids videos, so the videos ask viewers to guess the winner instead of commenting."
+          checked={state.post.madeForKids}
+          onChange={(madeForKids) => void update({ post: { ...state.post, madeForKids } })}
+        />
+      </div>
 
       <div className="space-y-3 rounded-2xl bg-surface-2/60 p-4 ring-1 ring-line">
         <div className="text-sm font-medium">Who can see the videos?</div>

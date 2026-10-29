@@ -17,6 +17,9 @@ const AutopilotPage = lazy(() =>
   import('./desktop/AutopilotPage').then((m) => ({ default: m.AutopilotPage })),
 );
 const CalendarPage = lazy(() => import('./desktop/CalendarPage').then((m) => ({ default: m.CalendarPage })));
+const DashboardPage = lazy(() =>
+  import('./desktop/DashboardPage').then((m) => ({ default: m.DashboardPage })),
+);
 const RacePage = lazy(() => import('./desktop/RacePage').then((m) => ({ default: m.RacePage })));
 const ModulesPage = lazy(() => import('./desktop/ModulesPage').then((m) => ({ default: m.ModulesPage })));
 const ChannelsPage = lazy(() => import('./desktop/ChannelsPage').then((m) => ({ default: m.ChannelsPage })));
@@ -125,6 +128,7 @@ export function App() {
             {route === 'autopilot' && <AutopilotPage />}
             {route === 'calendar' && <CalendarPage />}
             {route === 'race' && <RacePage />}
+            {route === 'dashboard' && <DashboardPage />}
             {route === 'modules' && <ModulesPage />}
             {route === 'channels' && <ChannelsPage />}
             {route === 'settings' && <SettingsPage />}

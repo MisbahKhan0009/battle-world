@@ -443,7 +443,8 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
             />
           )}
           <Toggle
-            label="Made for kids"
+            label="Made for kids (suitable for everyone)"
+            description="On by default. YouTube then turns off comments, notifications and personalised ads on these videos, so they never ask viewers to comment. Turn off to allow comments."
             checked={post.madeForKids}
             onChange={(madeForKids) => applyPost({ ...post, madeForKids })}
           />

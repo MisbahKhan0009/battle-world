@@ -1,10 +1,11 @@
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, ChevronRight } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Toggle } from '../../components/ui/controls';
 import { isDesktop } from '../../desktop/bridge';
 import { paceFor } from '../../autopilot/types';
 import { useAutopilot } from '../../desktop/runtime';
 import { cn } from '../../lib/utils';
+import { PLANS } from '../../modules/plans';
 import { MODULES, type ContentModule } from '../../modules/registry';
 import { navigate } from '../router';
 import { DesktopLayout } from './Layout';
@@ -87,6 +88,34 @@ function ModuleArt({ m }: { m: ContentModule }) {
             />
           );
         })}
+      {m.id === 'black-hole' && (
+        <>
+          {[
+            [30, 22, 10, 6],
+            [118, 20, 8, 9],
+            [128, 66, 12, 7],
+            [22, 64, 9, 10],
+            [60, 76, 6, 8],
+          ].map(([x, y, w, h], i) => (
+            <rect key={i} x={x} y={y} width={w} height={h} rx="1.5" fill="#2A3040" />
+          ))}
+          <ellipse cx="80" cy="48" rx="26" ry="20" fill="#05060A" stroke={c} strokeWidth="3" />
+          <ellipse cx="80" cy="48" rx="17" ry="12" fill="#000" />
+          <rect x="74" y="34" width="9" height="9" rx="1.5" fill="#3A4258" transform="rotate(25 78 38)" />
+          <ellipse cx="128" cy="40" rx="11" ry="8" fill="#05060A" stroke="#FF4D5E" strokeWidth="2" />
+          <ellipse cx="36" cy="44" rx="8" ry="6" fill="#05060A" stroke="#3DDCFF" strokeWidth="2" />
+        </>
+      )}
+      {m.id === 'paper-land' && (
+        <>
+          <path d="M18 18h44v30h-20v22H18z" fill={c} opacity="0.55" />
+          <path d="M96 20h46v46h-30v-16H96z" fill="#FF4D5E" opacity="0.5" />
+          <path d="M62 34 h22 v26 h-24" fill="none" stroke={c} strokeWidth="3" strokeDasharray="4 3" />
+          <circle cx="60" cy="60" r="5" fill={c} stroke="#fff" strokeWidth="1.5" />
+          <path d="M112 50 v18 h-20" fill="none" stroke="#FF4D5E" strokeWidth="3" strokeDasharray="4 3" />
+          <circle cx="92" cy="68" r="5" fill="#FF4D5E" stroke="#fff" strokeWidth="1.5" />
+        </>
+      )}
       {m.id === 'growing-ball' && (
         <>
           <circle cx="80" cy="45" r="38" fill="none" stroke="#2A3040" strokeWidth="3" />
@@ -107,7 +136,7 @@ export function ModulesPage() {
         Each module is a game that renders complete videos on its own. The autopilot picks from the modules
         you switch on, so your channel gets variety without any work.
       </p>
-      <div className="grid max-w-[1200px] gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid max-w-[1200px] items-start gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {MODULES.map((m) => {
           const ready = m.status === 'ready';
           const enabled = !!state?.modules[m.id];
@@ -133,6 +162,36 @@ export function ModulesPage() {
                 <p className="mt-3 text-xs text-muted">
                   {m.formats.map((f) => (f === 'short' ? 'Shorts' : 'Long videos')).join(' and ')}
                 </p>
+                {!ready && PLANS[m.id] && (
+                  <details className="group mt-4 border-t border-line pt-4 text-[13px]">
+                    <summary className="flex cursor-pointer list-none items-center gap-1.5 font-medium text-text">
+                      <ChevronRight size={14} className="transition-transform group-open:rotate-90" />
+                      See the plan
+                    </summary>
+                    <div className="mt-3 space-y-3 text-muted">
+                      <p className="text-text">{PLANS[m.id].pitch}</p>
+                      {(
+                        [
+                          ['How it plays', PLANS[m.id].howItPlays],
+                          ['Simulation', PLANS[m.id].simulation],
+                          ['Videos', PLANS[m.id].video],
+                          ['Build steps', PLANS[m.id].steps],
+                        ] as const
+                      ).map(([title, items]) => (
+                        <div key={title}>
+                          <div className="mb-1 text-xs font-medium tracking-wide text-text uppercase">
+                            {title}
+                          </div>
+                          <ul className="list-disc space-y-1 pl-4 leading-relaxed">
+                            {items.map((it) => (
+                              <li key={it}>{it}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
                 {ready && (
                   <div className="mt-4 space-y-3 border-t border-line pt-4">
                     {desktop && ap && state && (

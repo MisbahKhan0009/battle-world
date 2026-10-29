@@ -62,6 +62,8 @@ export function buildMeta(
     group: string;
     fav: string;
     avoidTemplates?: string[];
+    /** Made for kids: comments are disabled, so no comment prompts. */
+    kids?: boolean;
   },
 ): VideoMeta & { template: string } {
   const { format, mode, n, group, fav } = args;
@@ -108,7 +110,9 @@ export function buildMeta(
   const description = [
     hook,
     '',
-    'Who were you rooting for? Comment your country 👇',
+    args.kids
+      ? 'Which country did you pick? Watch till the end to see if you were right 🏆'
+      : 'Who were you rooting for? Comment your country 👇',
     'Subscribe for a new flag battle every day.',
     '',
     hashtags.join(' '),
@@ -120,7 +124,7 @@ const ESCAPE_HOOKS = ['WHO ESCAPES LAST?', 'WHO STAYS INSIDE?', 'LAST ONE INSIDE
 const ROYALE_HOOKS = ['WHO SURVIVES?', 'LAST FLAG STANDING', 'WHO WINS?', 'GUESS THE WINNER'];
 
 export function planFlagBattle(
-  job: { format: ContentFormat; seed: number },
+  job: { format: ContentFormat; seed: number; kids?: boolean },
   countries: Country[],
   recent: ContentRecord[] = [],
 ): FlagBattlePlan {
@@ -166,18 +170,28 @@ export function planFlagBattle(
     group,
     fav,
     avoidTemplates: mine.slice(-6).map((r) => r.template ?? ''),
+    kids: job.kids,
   });
   const look: Look = {
     ...DEFAULT_LOOK,
     aspect: short ? '9:16' : '16:9',
     theme,
     title: mode === 'escape' ? 'Last flag inside wins 🔥' : 'Last flag standing wins ⚔️',
-    subtitle: 'Comment your country 👇',
-    outroCta: pick(rng, [
-      'Which flags should battle next? Comment below 👇',
-      'Did your country make it? Tell us 👇',
-      'Subscribe for a new battle every day 🔔',
-    ]),
+    subtitle: job.kids ? 'Pick your country before it starts 👀' : 'Comment your country 👇',
+    outroCta: pick(
+      rng,
+      job.kids
+        ? [
+            'Did you pick the winner? 🏆',
+            'Subscribe for a new battle every day 🔔',
+            'Watch the next battle! 🔁',
+          ]
+        : [
+            'Which flags should battle next? Comment below 👇',
+            'Did your country make it? Tell us 👇',
+            'Subscribe for a new battle every day 🔔',
+          ],
+    ),
   };
   const thumb = {
     hook: pick(rng, mode === 'escape' ? ESCAPE_HOOKS : ROYALE_HOOKS),
