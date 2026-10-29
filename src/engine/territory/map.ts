@@ -46,7 +46,7 @@ type WorldGrid = {
   rle: string;
 };
 
-const W = world as WorldGrid;
+const W = world as unknown as WorldGrid;
 const LAT_MIN = W.lat0 - W.h * W.step;
 let source: Uint8Array | null = null;
 
