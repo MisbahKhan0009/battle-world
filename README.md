@@ -121,9 +121,9 @@ You will need **a Google account that owns a YouTube channel**. No credit card i
 
 ### Autopilot
 
-<img src="docs/images/autopilot.jpg" alt="The Autopilot page: next post, the upcoming schedule and schedule settings" width="100%" />
+<img src="docs/images/autopilot.jpg" alt="The Autopilot page: the current job, the week ahead grouped by day, and schedule settings" width="100%" />
 
-- **Up next** shows the planned posts for today and tomorrow. **Skip** any you don't want.
+- **This week** lists every post planned for the next 7 days, grouped by day. **Skip** any you don't want.
 - **Click any post** to open its timeline: planned, rendering (with a live progress bar), uploading, scheduled on
   YouTube (with a countdown) and live, plus every event, error and retry along the way.
 - **Post now** renders and uploads one Short or long video immediately, outside the schedule. Great for a first test.

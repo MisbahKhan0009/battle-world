@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AUDIENCE_ZONES } from '../../autopilot/engagement';
 import type { Autopilot } from '../../autopilot/engine';
+import { dayKey, parseDayKey } from '../../autopilot/planner';
 import type { AutopilotState, ContentFormat, PostSettings, ScheduleSettings } from '../../autopilot/types';
 import { Button } from '../../components/ui/Button';
 import { Segmented, Slider, Toggle } from '../../components/ui/controls';
@@ -13,7 +14,16 @@ import { cn } from '../../lib/utils';
 import { moduleById } from '../../modules/registry';
 import { navigate } from '../router';
 import { Card, DesktopLayout, DesktopOnly } from './Layout';
-import { FormatChip, PostDetail, STATUS_STYLE, fmtTime, statusLabel, whenLabel, youtubeUrl } from './posts';
+import {
+  FormatChip,
+  PostDetail,
+  STATUS_STYLE,
+  fmtTime,
+  isScheduledOnYouTube,
+  statusLabel,
+  whenLabel,
+  youtubeUrl,
+} from './posts';
 
 /** Opens the post detail panel. */
 type OpenPost = (slotId: string) => void;
@@ -114,46 +124,86 @@ function NowCard({ ap, state, onOpen }: { ap: Autopilot; state: AutopilotState; 
   );
 }
 
+function dayHeading(key: string): string {
+  const nice = parseDayKey(key).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+  if (key === dayKey(new Date())) return `Today, ${nice}`;
+  if (key === dayKey(new Date(Date.now() + 86_400_000))) return `Tomorrow, ${nice}`;
+  return nice;
+}
+
 function UpNext({ ap, state, onOpen }: { ap: Autopilot; state: AutopilotState; onOpen: OpenPost }) {
-  const upcoming = state.slots
-    .filter((s) => ['planned', 'rendering', 'rendered', 'uploading'].includes(s.status))
-    .slice(0, 10);
+  const now = Date.now();
+  // Everything still to come this week, including posts already uploaded and waiting for YouTube.
+  const upcoming = state.slots.filter(
+    (s) =>
+      ['planned', 'rendering', 'rendered', 'uploading'].includes(s.status) || isScheduledOnYouTube(s, now),
+  );
+  const days = new Map<string, typeof upcoming>();
+  for (const s of upcoming) {
+    const k = dayKey(new Date(s.at));
+    days.set(k, [...(days.get(k) ?? []), s]);
+  }
   const channel = (id: string) => state.channels.find((c) => c.id === id)?.title ?? 'Unknown channel';
+  const many = state.channels.length > 1;
+  const shorts = upcoming.filter((s) => s.format === 'short').length;
   return (
     <Card
-      title="Up next"
-      note="Times follow your audience's busiest hours with natural gaps. Click a post to follow it live."
+      title="This week"
+      note={
+        upcoming.length
+          ? `${shorts} Shorts and ${upcoming.length - shorts} long videos over the next 7 days, at your audience's busiest hours. Click a post to follow it live.`
+          : undefined
+      }
     >
       {upcoming.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted">Nothing scheduled.</p>
+        <p className="py-6 text-center text-sm text-muted">
+          {state.running ? 'Nothing scheduled.' : 'Start the autopilot to plan the week.'}
+        </p>
       ) : (
-        <ul className="-mx-2 divide-y divide-line">
-          {upcoming.map((s) => (
-            <li key={s.id} className="flex items-center gap-1">
-              <button type="button" className={rowClass} onClick={() => onOpen(s.id)}>
-                <span className="w-[150px] shrink-0 tabular">{whenLabel(s.at)}</span>
-                <FormatChip format={s.format} />
-                <span className="min-w-0 flex-1 truncate text-muted">
-                  {channel(s.channelId)}, {moduleById(s.moduleId)?.name ?? s.moduleId}
-                  {s.error && s.status === 'planned' && (
-                    <span className="text-danger"> (retrying: {s.error})</span>
-                  )}
-                </span>
-                <span className={cn('text-xs', STATUS_STYLE[s.status])}>{statusLabel(s)}</span>
-              </button>
-              {(s.status === 'planned' || s.status === 'rendered') && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => void ap.skip(s.id)}
-                  aria-label={`Skip post at ${whenLabel(s.at)}`}
-                >
-                  Skip
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
+        <div className="-mx-2 max-h-[560px] space-y-4 overflow-y-auto pr-1 scrollbar-thin">
+          {[...days.entries()].map(([key, list]) => {
+            const n = list.filter((s) => s.format === 'short').length;
+            return (
+              <section key={key}>
+                <h3 className="sticky top-0 z-10 flex items-baseline gap-2 bg-surface px-2 py-1 text-[13px] font-medium">
+                  {dayHeading(key)}
+                  <span className="text-xs font-normal text-muted">
+                    {n} Short{n === 1 ? '' : 's'}
+                    {list.length - n ? `, ${list.length - n} video${list.length - n === 1 ? '' : 's'}` : ''}
+                  </span>
+                </h3>
+                <ul className="divide-y divide-line">
+                  {list.map((s) => (
+                    <li key={s.id} className="flex items-center gap-1">
+                      <button type="button" className={rowClass} onClick={() => onOpen(s.id)}>
+                        <span className="w-[72px] shrink-0 tabular">{fmtTime(s.at)}</span>
+                        <FormatChip format={s.format} />
+                        <span className="min-w-0 flex-1 truncate text-muted">
+                          {s.title ??
+                            (many ? channel(s.channelId) : (moduleById(s.moduleId)?.name ?? s.moduleId))}
+                          {s.error && s.status === 'planned' && (
+                            <span className="text-danger"> (retrying: {s.error})</span>
+                          )}
+                        </span>
+                        <span className={cn('text-xs', STATUS_STYLE[s.status])}>{statusLabel(s)}</span>
+                      </button>
+                      {(s.status === 'planned' || s.status === 'rendered') && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => void ap.skip(s.id)}
+                          aria-label={`Skip post at ${whenLabel(s.at)}`}
+                        >
+                          Skip
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
       )}
     </Card>
   );
@@ -161,7 +211,7 @@ function UpNext({ ap, state, onOpen }: { ap: Autopilot; state: AutopilotState; o
 
 function History({ state, onOpen }: { state: AutopilotState; onOpen: OpenPost }) {
   const done = state.slots
-    .filter((s) => ['posted', 'failed', 'skipped'].includes(s.status))
+    .filter((s) => ['posted', 'failed', 'skipped'].includes(s.status) && !isScheduledOnYouTube(s))
     .sort((a, b) => b.at - a.at)
     .slice(0, 30);
   return (

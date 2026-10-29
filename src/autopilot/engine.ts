@@ -1,5 +1,5 @@
 /**
- * Autopilot runtime. Keeps every connected channel's plan for today and tomorrow, renders each
+ * Autopilot runtime. Keeps every connected channel's plan for the coming week, renders each
  * post shortly before its slot, uploads it, retries failures with backoff, and skips slots missed
  * while the computer was off (posting them late in a burst would look unnatural).
  *
@@ -60,6 +60,8 @@ export const SCHEDULED_RENDER_LEAD_MS = 3 * 3_600_000;
 export const MISSED_GRACE_MS = 2 * 3_600_000;
 const RETRY_DELAYS_MIN = [5, 20, 60];
 const MAX_ATTEMPTS = RETRY_DELAYS_MIN.length + 1;
+/** How many days ahead (today included) the plan is queued, so the whole week is visible and skippable. */
+export const PLAN_DAYS = 7;
 const HISTORY_DAYS = 45;
 const CONTENT_LOG_MAX = 500;
 const SLOT_LOG_MAX = 30;
@@ -153,7 +155,7 @@ export class Autopilot {
       .map(([id]) => id);
   }
 
-  /** Drops planned (not started) automatic slots and plans today and tomorrow again. */
+  /** Drops planned (not started) automatic slots and plans the coming week again. */
   replanFuture(): void {
     const st = this.state!;
     st.slots = st.slots.filter((s) => s.status !== 'planned' || s.manual);
@@ -169,7 +171,7 @@ export class Autopilot {
     for (const ch of st.channels) {
       if (!ch.enabled) continue;
       const done = new Set(st.plannedDays[ch.id] ?? []);
-      for (let offset = 0; offset < 2; offset++) {
+      for (let offset = 0; offset < PLAN_DAYS; offset++) {
         const today = startOfDay(now);
         const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
         const key = dayKey(day);
@@ -198,7 +200,7 @@ export class Autopilot {
         done.add(key);
         changed = true;
       }
-      st.plannedDays[ch.id] = [...done].sort().slice(-7);
+      st.plannedDays[ch.id] = [...done].sort().slice(-(PLAN_DAYS + 7));
     }
     if (changed) st.slots.sort((a, b) => a.at - b.at);
     return changed;

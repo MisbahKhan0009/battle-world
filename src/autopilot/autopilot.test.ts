@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'vitest';
-import { Autopilot, MISSED_GRACE_MS, RENDER_LEAD_MS, SCHEDULED_RENDER_LEAD_MS, type Backend } from './engine';
+import {
+  Autopilot,
+  MISSED_GRACE_MS,
+  PLAN_DAYS,
+  RENDER_LEAD_MS,
+  SCHEDULED_RENDER_LEAD_MS,
+  type Backend,
+} from './engine';
 import { dayKey, planDay, videosOnDay } from './planner';
 import { DEFAULT_SCHEDULE, defaultState, type AutopilotState, type ScheduleSettings } from './types';
 
@@ -171,6 +178,20 @@ describe('engine', () => {
       expect.stringMatching(/^Uploaded; YouTube publishes it at/),
       'Custom thumbnail set',
     ]);
+  });
+
+  test('queues a full week ahead', async () => {
+    const env = fakeBackend(new Date(2026, 9, 29, 6, 0).getTime());
+    const ap = new Autopilot(env.backend, () => ['flag-battle']);
+    await ap.init();
+    await ap.tick();
+    const days = new Set(ap.snapshot!.slots.map((s) => dayKey(new Date(s.at))));
+    expect(days.size).toBe(PLAN_DAYS);
+    expect(ap.snapshot!.slots.every((s) => s.status === 'planned')).toBe(true);
+    // A day later the week rolls forward by one day.
+    env.advance(86_400_000);
+    await ap.tick();
+    expect(ap.snapshot!.slots.some((s) => dayKey(new Date(s.at)) === '2026-11-05')).toBe(true);
   });
 
   test('scheduled publishing renders hours ahead so the PC can be off at post time', async () => {

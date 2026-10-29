@@ -16,7 +16,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-/** Plan previews for days that are not queued yet (the autopilot queues today and tomorrow). */
+/** Plan previews for days that are not queued yet (the autopilot queues a week ahead). */
 function previews(state: AutopilotState, from: Date, to: Date): Entry[] {
   const out: Entry[] = [];
   if (state.running) {
