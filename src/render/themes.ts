@@ -220,6 +220,38 @@ export const THEMES: Record<Look['theme'], Theme> = {
     danger: '#C2410C',
     dark: false,
   },
+  // Black Hole: violet over a city at night, and violet on a sunny lilac day.
+  dusk: {
+    bgInner: '#22163A',
+    bgOuter: '#08050F',
+    glow: 'rgba(176,124,255,0.14)',
+    grid: 'rgba(176,124,255,0.05)',
+    floorInner: '#1C1530',
+    floorOuter: '#120D20',
+    border: '#B07CFF',
+    text: '#F6F1FF',
+    subtext: '#B4A6D3',
+    hudBg: 'rgba(12,8,22,0.8)',
+    accent: '#B07CFF',
+    danger: '#FF4D5E',
+    stars: true,
+    dark: true,
+  },
+  lilac: {
+    bgInner: '#F4EEFF',
+    bgOuter: '#DCCDFA',
+    glow: 'rgba(255,255,255,0.5)',
+    grid: 'rgba(40,20,70,0.06)',
+    floorInner: '#FBF8FF',
+    floorOuter: '#E9DEFF',
+    border: '#2A1747',
+    text: '#22133D',
+    subtext: '#6A5A8A',
+    hudBg: 'rgba(251,248,255,0.92)',
+    accent: '#7B3FE4',
+    danger: '#D92D3F',
+    dark: false,
+  },
 };
 
 /** The color worlds each game draws from (first is the game's signature look). */
@@ -229,6 +261,7 @@ export const GAME_THEMES: Record<string, Look['theme'][]> = {
   'ring-escape': ['plum', 'aurora'],
   'growing-ball': ['ember', 'peach'],
   'paper-land': ['mint', 'kraft'],
+  'black-hole': ['dusk', 'lilac'],
 };
 
 export const HP_HIGH = [74, 222, 128] as const;

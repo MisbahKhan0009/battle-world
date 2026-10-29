@@ -14,7 +14,8 @@ const INK = '#111318';
 
 /**
  * Paints a pair of eyes centered at (cx, cy); `w` is the width of the pair. `look` nudges the
- * pupils of the expressions that have them (-1..1 on each axis).
+ * pupils of the expressions that have them (-1..1 on each axis). `ink` is the line color (light
+ * on a dark face, like a black hole's).
  */
 export function paintEyes(
   ctx: Ctx2D,
@@ -23,6 +24,7 @@ export function paintEyes(
   w: number,
   e: Expression,
   look: [number, number] = [0, 0],
+  ink = INK,
 ): void {
   const rx = w * 0.17;
   const ry = w * 0.21;
@@ -30,7 +32,7 @@ export function paintEyes(
   ctx.save();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = INK;
+  ctx.strokeStyle = ink;
   ctx.fillStyle = '#FFFFFF';
   ctx.lineWidth = lw;
   for (const side of [-1, 1]) {
