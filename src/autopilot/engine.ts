@@ -547,6 +547,17 @@ export class Autopilot {
       changed = true;
     }
 
+    // Skip videos of a game that was taken out of the app (they can't render any more).
+    const games = new Set(this.readyModules());
+    for (const s of st.slots) {
+      if ((s.status === 'planned' || s.status === 'failed') && !s.filePath && !games.has(s.moduleId)) {
+        s.status = 'skipped';
+        s.error = 'This game is no longer in Flag Clash';
+        note(s, now, s.error, true);
+        changed = true;
+      }
+    }
+
     // Skip automatic slots missed while the app was off.
     for (const s of st.slots) {
       if (s.status === 'planned' && !s.manual && s.at < now - MISSED_GRACE_MS) {

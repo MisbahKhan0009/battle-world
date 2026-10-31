@@ -318,6 +318,21 @@ describe('engine', () => {
     ]);
   });
 
+  test('videos of a game taken out of the app are skipped, not retried', async () => {
+    const env = fakeBackend(new Date(2026, 9, 29, 6, 0).getTime());
+    const ap = new Autopilot(env.backend, () => ['flag-battle']);
+    await ap.init();
+    await ap.tick();
+    const first = ap.snapshot!.slots[0];
+    first.moduleId = 'territory-wars'; // planned by an older version
+    await ap.tick();
+    const s = ap.snapshot!.slots.find((x) => x.id === first.id)!;
+    expect(s.status).toBe('skipped');
+    expect(
+      ap.snapshot!.slots.filter((x) => x.moduleId === 'flag-battle').every((x) => x.status === 'planned'),
+    ).toBe(true);
+  });
+
   test('queues a full week ahead', async () => {
     const env = fakeBackend(new Date(2026, 9, 29, 6, 0).getTime());
     const ap = new Autopilot(env.backend, () => ['flag-battle']);
