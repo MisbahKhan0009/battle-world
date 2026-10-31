@@ -15,7 +15,11 @@ import {
   channelGames,
   DEFAULT_PREPARE,
   MAX_AHEAD_DAYS,
+  PLATFORM_NAME,
+  platformOf,
   type AfterAction,
+  type Channel,
+  type Platform,
   type AutopilotState,
   type ContentFormat,
   type ContentRecord,
@@ -23,8 +27,12 @@ import {
   type VideoMeta,
 } from './types';
 
+/** A file the render streams into as it is made (so long videos never sit in memory). */
+export type FileSink = { path: string; write(data: Uint8Array, position: number): Promise<void> };
+
 export type RenderResult = {
-  bytes: Uint8Array;
+  /** The video, unless it was streamed into the sink. */
+  bytes?: Uint8Array;
   ext: string;
   meta: VideoMeta;
   /** Spoiler-free cover (JPEG) to upload as the YouTube thumbnail. */
@@ -43,7 +51,12 @@ export type Backend = {
     onProgress: (p: number) => void,
     signal: AbortSignal,
     recent: ContentRecord[],
+    sink?: FileSink | null,
   ): Promise<RenderResult>;
+  /** Creates an empty video file to stream a render into. */
+  openVideo?(dir: string, name: string): Promise<FileSink>;
+  /** Stops an upload in progress (it fails with a cancellation error). */
+  cancelUpload?(path: string): Promise<void>;
   saveFile(dir: string, name: string, bytes: Uint8Array): Promise<string>;
   deleteFile(path: string): Promise<void>;
   upload(
@@ -55,6 +68,7 @@ export type Backend = {
       publishAt?: string;
       madeForKids: boolean;
       categoryId: string;
+      format: Slot['format'];
     },
     onProgress: (p: number) => void,
   ): Promise<{ videoId: string }>;
@@ -78,6 +92,8 @@ const MAX_ATTEMPTS = RETRY_DELAYS_MIN.length + 1;
 /** How many days ahead (today included) the plan is queued at least, so the week is visible and editable. */
 export const PLAN_DAYS = 7;
 const DAY_MS = 86_400_000;
+/** A render or upload with no progress for this long is stopped and tried again. */
+export const STALL_MS = 10 * 60_000;
 /** A batch counts as done for now when what is left waits longer than this (quota, retries). */
 const BATCH_WAIT_MS = 30 * 60_000;
 const HISTORY_DAYS = 45;
@@ -126,6 +142,10 @@ export class Autopilot {
   private activity: Activity = null;
   private listeners = new Set<() => void>();
   private abort: AbortController | null = null;
+  /** When the current job last made progress (for the stall watchdog). */
+  private lastProgressAt = 0;
+  /** The current job is being stopped on purpose, and why. */
+  private stopping: { id: string; reason: 'paused' | 'retry' | 'stalled' } | null = null;
 
   constructor(
     private readonly backend: Backend,
@@ -312,6 +332,79 @@ export class Autopilot {
     await this.tick();
   }
 
+  /** Stops the job working on this slot, if any. */
+  private stopCurrent(s: Slot, reason: 'paused' | 'retry' | 'stalled'): void {
+    if (this.activity?.slotId !== s.id) return;
+    this.stopping = { id: s.id, reason };
+    if (this.activity.stage === 'rendering') this.abort?.abort();
+    else if (s.filePath) void this.backend.cancelUpload?.(s.filePath).catch(() => undefined);
+  }
+
+  /** Pauses one video (it is not rendered or uploaded until you resume it), or resumes it. */
+  async setPaused(slotId: string, paused: boolean): Promise<void> {
+    const s = this.slot(slotId);
+    if (!s || s.status === 'posted' || s.status === 'skipped') return;
+    s.paused = paused || undefined;
+    if (paused) this.stopCurrent(s, 'paused');
+    else s.nextAttemptAt = undefined;
+    note(s, this.backend.now(), paused ? 'Paused by you' : 'Resumed');
+    await this.persist();
+    if (!paused) await this.tick();
+  }
+
+  /** Tries a video again right away: stops it if it is stuck, and clears failures and waits. */
+  async retry(slotId: string): Promise<void> {
+    const s = this.slot(slotId);
+    if (!s || s.status === 'posted' || s.status === 'skipped') return;
+    this.stopCurrent(s, 'retry');
+    if (s.status === 'failed') s.status = s.filePath ? 'rendered' : 'planned';
+    s.attempts = 0;
+    s.nextAttemptAt = undefined;
+    s.error = undefined;
+    s.paused = undefined;
+    note(s, this.backend.now(), 'Trying again');
+    await this.persist();
+    await this.tick();
+  }
+
+  /** Stops the current job when it has made no progress for STALL_MS (it is tried again). */
+  private watchdog(now: number): void {
+    const a = this.activity;
+    if (!a || this.stopping || now - this.lastProgressAt < STALL_MS) return;
+    const s = this.slot(a.slotId);
+    if (s) this.stopCurrent(s, 'stalled');
+  }
+
+  private channelOf(s: Pick<Slot, 'channelId'>): Channel | undefined {
+    return this.state?.channels.find((c) => c.id === s.channelId);
+  }
+
+  /**
+   * A rendered YouTube video a Facebook/Instagram post can reuse: same format, within two days,
+   * not used by this channel yet, the same game first, then the closest in time.
+   */
+  private donorFor(s: Slot): Slot | null {
+    const st = this.state!;
+    const used = new Set(st.slots.filter((x) => x.channelId === s.channelId).map((x) => x.sourceSlotId));
+    const pool = st.slots.filter(
+      (x) =>
+        x.id !== s.id &&
+        platformOf(this.channelOf(x)) === 'youtube' &&
+        x.format === s.format &&
+        !!x.filePath &&
+        !!x.meta &&
+        ['rendered', 'uploading', 'posted'].includes(x.status) &&
+        !used.has(x.id) &&
+        Math.abs(x.at - s.at) <= 2 * DAY_MS,
+    );
+    pool.sort(
+      (a, b) =>
+        Number(b.moduleId === s.moduleId) - Number(a.moduleId === s.moduleId) ||
+        Math.abs(a.at - s.at) - Math.abs(b.at - s.at),
+    );
+    return pool[0] ?? null;
+  }
+
   /** Brings a skipped post back into the plan. */
   async restore(slotId: string): Promise<void> {
     const s = this.slot(slotId);
@@ -439,7 +532,11 @@ export class Autopilot {
   /** One scheduler step. Safe to call often; does at most one job stage at a time. */
   async tick(): Promise<void> {
     const st = this.state;
-    if (!st || this.busy) return;
+    if (!st) return;
+    if (this.busy) {
+      this.watchdog(this.backend.now());
+      return;
+    }
     const now = this.backend.now();
     let changed = false;
 
@@ -532,6 +629,7 @@ export class Autopilot {
     const h = this.horizons(now);
     const candidates = st.slots.filter((s) => {
       if (!this.channelUsable(s)) return false;
+      if (s.paused) return false;
       if (!st.running && !s.manual && !this.inBatch(s)) return false;
       if (s.nextAttemptAt && s.nextAttemptAt > now) return false;
       if (s.status === 'planned') return s.manual || s.at <= h.render;
@@ -549,27 +647,46 @@ export class Autopilot {
   }
 
   private async removeFiles(s: Slot): Promise<void> {
+    // A video shared with a Facebook/Instagram post stays until every post that uses it is up.
+    const needed = (path: string) =>
+      this.state!.slots.some(
+        (x) => x !== s && (x.filePath === path || x.thumbPath === path) && !DONE.includes(x.status),
+      );
     for (const path of [s.filePath, s.thumbPath])
-      if (path) await this.backend.deleteFile(path).catch(() => undefined);
+      if (path && !needed(path)) await this.backend.deleteFile(path).catch(() => undefined);
     s.filePath = undefined;
     s.thumbPath = undefined;
+  }
+
+  /** Can this platform take an upload now that goes live at the planned time? */
+  private schedulable(platform: Platform, format: Slot['format']): boolean {
+    const { post } = this.state!;
+    // Facebook schedules long videos (Reels go out when uploaded); Instagram's API publishes right
+    // away; YouTube schedules public videos with a publish time (unlisted or private ones are not
+    // public anyway).
+    if (platform === 'facebook') return format === 'video';
+    if (platform === 'instagram') return false;
+    return post.privacy !== 'public' || post.publishViaYouTube;
   }
 
   private canUploadNow(s: Slot, now: number, horizon: number): boolean {
     const st = this.state!;
     if (s.manual) return true;
-    if (st.uploadPausedUntil && st.uploadPausedUntil > now) return false;
+    const platform = platformOf(this.channelOf(s));
+    if (platform === 'youtube' && st.uploadPausedUntil && st.uploadPausedUntil > now) return false;
     if ((st.prepare ?? DEFAULT_PREPARE).review && !s.approved) return false;
     if (s.at <= now) return true;
-    // Uploading ahead: scheduled on YouTube when public (or already unlisted/private anyway).
-    const ahead = st.post.privacy !== 'public' || st.post.publishViaYouTube;
-    return ahead && s.at - now > MIN_SCHEDULE_AHEAD_MS && (s.uploadAhead || s.at <= horizon);
+    return (
+      this.schedulable(platform, s.format) &&
+      s.at - now > MIN_SCHEDULE_AHEAD_MS &&
+      (s.uploadAhead || s.at <= horizon)
+    );
   }
 
   private fail(s: Slot, message: string): void {
     const now = this.backend.now();
     s.error = message;
-    if (isQuotaError(message)) {
+    if (isQuotaError(message) && platformOf(this.channelOf(s)) === 'youtube') {
       // Out of quota: every upload waits for the daily reset, without burning an attempt.
       s.nextAttemptAt = nextQuotaReset(now);
       this.state!.uploadPausedUntil = s.nextAttemptAt;
@@ -593,25 +710,55 @@ export class Autopilot {
 
   private async renderSlot(s: Slot): Promise<void> {
     const st = this.state!;
+    const ch = this.channelOf(s);
+    // Facebook and Instagram post the YouTube channel's videos when one fits (no second render).
+    if (ch && platformOf(ch) !== 'youtube' && ch.reuseYouTube !== false) {
+      const donor = this.donorFor(s);
+      if (donor) {
+        s.filePath = donor.filePath;
+        s.thumbPath = donor.thumbPath;
+        s.meta = donor.meta;
+        s.title = donor.title;
+        s.moduleId = donor.moduleId;
+        s.sourceSlotId = donor.id;
+        s.status = 'rendered';
+        s.error = undefined;
+        if (s.at <= this.horizons().upload) s.uploadAhead = true;
+        note(s, this.backend.now(), `Uses the YouTube video: ${donor.title ?? ''}`);
+        await this.persist();
+        return;
+      }
+    }
     s.status = 'rendering';
     s.error = undefined;
     this.abort = new AbortController();
     this.activity = { slotId: s.id, stage: 'rendering', progress: 0 };
+    this.lastProgressAt = this.backend.now();
     note(s, this.backend.now(), 'Rendering started');
     await this.persist();
+    const base = `${new Date(s.at).toISOString().slice(0, 16).replace(/[:T]/g, '-')}_${s.format}_${s.seed}`;
+    let sink: FileSink | null = null;
     try {
       const recent = st.contentLog.filter((r) => r.slotId !== s.id);
+      // The video streams straight into its file while it renders.
+      sink = this.backend.openVideo ? await this.backend.openVideo(st.outputDir, `${base}.mp4`) : null;
       const out = await this.backend.render(
         s,
         (p) => {
           this.activity = { slotId: s.id, stage: 'rendering', progress: p };
+          this.lastProgressAt = this.backend.now();
           this.emit();
         },
         this.abort.signal,
         recent,
+        sink,
       );
-      const base = `${new Date(s.at).toISOString().slice(0, 16).replace(/[:T]/g, '-')}_${s.format}_${s.seed}`;
-      s.filePath = await this.backend.saveFile(st.outputDir, `${base}.${out.ext}`, out.bytes);
+      if (out.bytes) {
+        if (sink) await this.backend.deleteFile(sink.path).catch(() => undefined);
+        s.filePath = await this.backend.saveFile(st.outputDir, `${base}.${out.ext}`, out.bytes);
+      } else if (sink) s.filePath = sink.path;
+      else throw new Error('The render produced no video.');
+      sink = null;
       s.thumbPath = out.thumbnail
         ? await this.backend.saveFile(st.outputDir, `${base}.jpg`, out.thumbnail)
         : undefined;
@@ -634,10 +781,17 @@ export class Autopilot {
       note(s, this.backend.now(), `Rendered: ${out.meta.title}`);
     } catch (err) {
       s.status = 'planned';
-      if ((err as Error)?.name === 'AbortError') {
+      if (sink) await this.backend.deleteFile(sink.path).catch(() => undefined);
+      const why = this.stopping?.id === s.id ? this.stopping.reason : null;
+      if (why === 'stalled') this.fail(s, `No progress for ${STALL_MS / 60_000} minutes`);
+      else if (why === 'paused') note(s, this.backend.now(), 'Rendering paused');
+      else if (why === 'retry') note(s, this.backend.now(), 'Rendering stopped to try again');
+      else if ((err as Error)?.name === 'AbortError') {
         s.error = 'Cancelled';
         note(s, this.backend.now(), 'Rendering cancelled');
       } else this.fail(s, err instanceof Error ? err.message : String(err));
+    } finally {
+      this.stopping = null;
     }
     await this.persist();
   }
@@ -647,12 +801,16 @@ export class Autopilot {
     const now = this.backend.now();
     s.status = 'uploading';
     this.activity = { slotId: s.id, stage: 'uploading', progress: 0 };
+    this.lastProgressAt = now;
+    const platform = platformOf(this.channelOf(s));
+    const where = PLATFORM_NAME[platform];
     const scheduleAhead =
-      st.post.privacy === 'public' &&
-      st.post.publishViaYouTube &&
+      (platform === 'youtube'
+        ? st.post.privacy === 'public' && st.post.publishViaYouTube
+        : this.schedulable(platform, s.format)) &&
       s.at - now > MIN_SCHEDULE_AHEAD_MS &&
       !s.manual;
-    note(s, now, 'Uploading to YouTube');
+    note(s, now, `Uploading to ${where}`);
     await this.persist();
     try {
       const res = await this.backend.upload(
@@ -664,9 +822,11 @@ export class Autopilot {
           publishAt: scheduleAhead ? new Date(s.at).toISOString() : undefined,
           madeForKids: st.post.madeForKids,
           categoryId: st.post.categoryId,
+          format: s.format,
         },
         (p) => {
           this.activity = { slotId: s.id, stage: 'uploading', progress: p };
+          this.lastProgressAt = this.backend.now();
           this.emit();
         },
       );
@@ -679,10 +839,12 @@ export class Autopilot {
         s,
         s.postedAt,
         scheduleAhead
-          ? `Uploaded; YouTube publishes it at ${new Date(s.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`
-          : `Published (${st.post.privacy})`,
+          ? `Uploaded; ${where} publishes it at ${new Date(s.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`
+          : platform === 'youtube'
+            ? `Published (${st.post.privacy})`
+            : `Published on ${where}`,
       );
-      if (s.thumbPath && this.backend.setThumbnail) {
+      if (platform === 'youtube' && s.thumbPath && this.backend.setThumbnail) {
         try {
           await this.backend.setThumbnail(s.channelId, res.videoId, s.thumbPath);
           s.thumbError = undefined;
@@ -696,7 +858,13 @@ export class Autopilot {
       if (st.keepDays <= 0) await this.removeFiles(s);
     } catch (err) {
       s.status = 'rendered';
-      this.fail(s, err instanceof Error ? err.message : String(err));
+      const why = this.stopping?.id === s.id ? this.stopping.reason : null;
+      if (why === 'stalled') this.fail(s, `Upload made no progress for ${STALL_MS / 60_000} minutes`);
+      else if (why === 'paused') note(s, this.backend.now(), 'Upload paused');
+      else if (why === 'retry') note(s, this.backend.now(), 'Upload stopped to try again');
+      else this.fail(s, err instanceof Error ? err.message : String(err));
+    } finally {
+      this.stopping = null;
     }
     await this.persist();
   }

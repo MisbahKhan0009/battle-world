@@ -8,6 +8,8 @@ import { dayKey, parseDayKey } from '../../autopilot/planner';
 import {
   DEFAULT_PREPARE,
   MAX_AHEAD_DAYS,
+  PLATFORM_NAME,
+  platformOf,
   PROJECT_UPLOADS_PER_DAY,
   type AutopilotState,
   type PrepareSettings,
@@ -416,7 +418,7 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
                 >
                   {state.channels.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.title}
+                      {PLATFORM_NAME[platformOf(c)]}: {c.title}
                       {c.enabled ? '' : ' (paused)'}
                     </option>
                   ))}
@@ -620,7 +622,7 @@ function ScheduleForm({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
           )}
           <Toggle
             label="Made for kids (suitable for everyone)"
-            description="On by default. YouTube then turns off comments, notifications and personalised ads on these videos, so they never ask viewers to comment. Turn off to allow comments."
+            description="Off by default, so videos get comments, likes, notifications and the full audience. Turn on only for content aimed at children: YouTube then turns off comments, notifications and personalised ads."
             checked={post.madeForKids}
             onChange={(madeForKids) => applyPost({ ...post, madeForKids })}
           />

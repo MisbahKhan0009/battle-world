@@ -6,6 +6,8 @@
 import {
   CalendarRange,
   Check,
+  CirclePause,
+  CirclePlay,
   ExternalLink,
   FolderOpen,
   Lock,
@@ -13,6 +15,7 @@ import {
   Play,
   RefreshCw,
   RotateCcw,
+  RotateCw,
   Send,
   SkipForward,
 } from 'lucide-react';
@@ -23,6 +26,8 @@ import { dayKey, parseDayKey, planChannelsDay } from '../../autopilot/planner';
 import {
   DEFAULT_PREPARE,
   MAX_AHEAD_DAYS,
+  PLATFORM_NAME,
+  platformOf,
   type AfterAction,
   type AutopilotState,
   type Slot,
@@ -480,7 +485,18 @@ function Row({
   const review = (state.prepare ?? DEFAULT_PREPARE).review;
   const busy = s.status === 'rendering' || s.status === 'uploading';
   const onYouTube = s.status === 'posted';
-  const needsReview = review && s.status === 'rendered' && !s.approved;
+  const needsReview = review && s.status === 'rendered' && !s.approved && !s.paused;
+  const ch = state.channels.find((c) => c.id === s.channelId);
+  const platform = platformOf(ch);
+  const open = s.status !== 'posted' && s.status !== 'skipped';
+  // Stuck, failed, or waiting for another attempt: offer to try again now.
+  const canRetry = s.status === 'failed' || busy || (!!s.error && !!s.nextAttemptAt);
+  const link =
+    s.videoId && platform === 'youtube'
+      ? youtubeUrl(s)
+      : s.videoId && platform === 'facebook'
+        ? `https://www.facebook.com/${s.videoId}`
+        : null;
   return (
     <li className="flex items-center gap-4 py-3">
       <button
@@ -502,17 +518,53 @@ function Row({
           <span className="w-[64px] shrink-0 text-[13px] tabular text-muted">{fmtTime(s.at)}</span>
           <FormatChip format={s.format} />
           <GameTag moduleId={s.moduleId} />
+          {(state.channels.length > 1 || platform !== 'youtube') && (
+            <span className="truncate text-xs text-muted">
+              {PLATFORM_NAME[platform]}
+              {state.channels.filter((c) => platformOf(c) === platform).length > 1 && ch
+                ? `, ${ch.title}`
+                : ''}
+            </span>
+          )}
         </div>
         <div className="mt-1 truncate text-sm">
           {s.title ?? <span className="text-muted">Not rendered yet</span>}
         </div>
       </button>
       {!needsReview && (
-        <span className={cn('w-[86px] shrink-0 text-right text-xs', STATUS_STYLE[s.status])}>
-          {statusLabel(s)}
+        <span
+          className={cn(
+            'w-[86px] shrink-0 text-right text-xs',
+            s.paused ? 'text-hp-mid' : STATUS_STYLE[s.status],
+          )}
+          title={s.error}
+        >
+          {s.paused ? 'Paused' : statusLabel(s)}
         </span>
       )}
-      <div className="flex min-w-[232px] shrink-0 justify-end gap-1">
+      <div className="flex min-w-[300px] shrink-0 justify-end gap-1">
+        {open && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={s.paused ? 'Resume' : 'Pause'}
+            title={s.paused ? 'Resume rendering and uploading' : 'Pause rendering and uploading'}
+            onClick={() => void ap.setPaused(s.id, !s.paused)}
+          >
+            {s.paused ? <CirclePlay size={15} /> : <CirclePause size={15} />}
+          </Button>
+        )}
+        {canRetry && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Retry"
+            title={busy ? 'Stuck? Stop and try again' : 'Try again now'}
+            onClick={() => void ap.retry(s.id)}
+          >
+            <RotateCw size={15} />
+          </Button>
+        )}
         {needsReview && (
           <Button size="sm" variant="primary" onClick={() => void ap.approve([s.id])}>
             <Check size={14} /> Approve
@@ -578,13 +630,13 @@ function Row({
             <RotateCcw size={15} />
           </Button>
         )}
-        {s.videoId && (
+        {link && (
           <Button
             size="icon-sm"
             variant="ghost"
-            aria-label="Open on YouTube"
-            title="Open on YouTube"
-            onClick={() => void desktop.openUrl(youtubeUrl(s))}
+            aria-label={`Open on ${PLATFORM_NAME[platform]}`}
+            title={`Open on ${PLATFORM_NAME[platform]}`}
+            onClick={() => void desktop.openUrl(link)}
           >
             <ExternalLink size={15} />
           </Button>

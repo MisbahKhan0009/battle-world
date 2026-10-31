@@ -1,5 +1,6 @@
 import type { RenderResult } from '../autopilot/engine';
 import type { MusicBed } from '../audio/music';
+import type { VideoSink } from '../export/exporter';
 import type { ContentFormat, ContentRecord } from '../autopilot/types';
 
 /** What to render. `recent` is the channel's content history (oldest first) to avoid repeats. */
@@ -11,6 +12,8 @@ export type RenderJob = {
   kids?: boolean;
   /** A music track to play instead of the game sounds. */
   music?: MusicBed | null;
+  /** Stream the MP4 into this file as it renders (the result then carries no bytes). */
+  sink?: VideoSink | null;
 };
 
 export type ContentModule = {
@@ -70,16 +73,6 @@ export const MODULES: ContentModule[] = [
     previewRoute: 'rings',
     render: (job, onProgress, signal) =>
       import('./ringEscape/autopilot').then((m) => m.renderRingEscape(job, onProgress, signal)),
-  },
-  {
-    id: 'territory-wars',
-    name: 'Territory Wars',
-    tagline: 'Conquer the map tile by tile',
-    description:
-      'Countries expand across a pixel world map, capturing tiles from each other until one rules the globe.',
-    status: 'coming-soon',
-    formats: ['short', 'video'],
-    accent: '#FFB23D',
   },
   {
     id: 'growing-ball',

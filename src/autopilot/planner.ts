@@ -16,6 +16,7 @@ import {
   channelGames,
   channelSchedule,
   paceFor,
+  platformOf,
   PROJECT_UPLOADS_PER_DAY,
   type Channel,
   type ContentFormat,
@@ -267,11 +268,16 @@ export function planChannelsDay(
   const active = channels.filter((c) => c.enabled);
   const own = active.map((ch) => planDay(ch.id, day, channelSchedule(base, ch), channelGames(ch, ready)));
   const dayNo = Math.round(Date.UTC(day.getFullYear(), day.getMonth(), day.getDate()) / 86_400_000);
-  const share = shareFairly(
-    own.map((p) => p.length),
+  // Only YouTube channels share the Google project's upload quota; Facebook and Instagram keep
+  // their own plans.
+  const yt = active.map((ch) => platformOf(ch) === 'youtube');
+  const ytShare = shareFairly(
+    own.filter((_, k) => yt[k]).map((p) => p.length),
     base.projectCap ?? PROJECT_UPLOADS_PER_DAY,
-    active.length ? dayNo % active.length : 0,
+    yt.filter(Boolean).length ? dayNo % yt.filter(Boolean).length : 0,
   );
+  let q = 0;
+  const share = own.map((p, k) => (yt[k] ? ytShare[q++] : p.length));
   return new Map(
     active.map((ch, k) => [
       ch.id,

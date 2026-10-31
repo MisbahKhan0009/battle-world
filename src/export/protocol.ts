@@ -22,15 +22,20 @@ export type ExportRequest = {
   /** The game's sound effects, or `music` in their place. */
   audio: { enabled: boolean; sfxVolume: number };
   music: MusicBed | null;
+  /** Stream the file out in chunks (written to disk as it is made) instead of one buffer at the end. */
+  stream: boolean;
   fonts: { family: string; url: string; descriptors: FontFaceDescriptors }[];
 };
 
 export type ExportMessage =
   | { type: 'progress'; frame: number; total: number; stage: 'audio' | 'video' | 'finalizing' }
   | { type: 'thumb'; bitmap: ImageBitmap }
+  /** A piece of the file at a byte position (streamed exports). */
+  | { type: 'chunk'; data: Uint8Array; position: number }
   | {
       type: 'done';
-      buffer: ArrayBuffer;
+      /** The whole file, or null when it was streamed out in chunks. */
+      buffer: ArrayBuffer | null;
       mime: string;
       ext: string;
       videoCodec: string;

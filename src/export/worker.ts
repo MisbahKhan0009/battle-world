@@ -2,9 +2,10 @@
  * Offline, frame-by-frame MP4 export inside a worker. For each output frame i the battle is
  * rendered at video time i / fps on an OffscreenCanvas, wrapped in a VideoFrame and encoded.
  * Audio is mixed in one-second chunks and encoded alongside. Output is muxed by mp4-muxer with
- * fastStart so the moov atom sits at the front (YouTube-friendly).
+ * the moov atom at the front (YouTube-friendly). Streamed exports send the file out in chunks as
+ * it is made (space for the header is reserved up front), so long videos never sit in memory.
  */
-import { ArrayBufferTarget, Muxer } from 'mp4-muxer';
+import { ArrayBufferTarget, Muxer, StreamTarget } from 'mp4-muxer';
 import { SAMPLE_RATE } from '../audio/synth';
 import { DESIGN_SIZE } from '../render/layout';
 import { buildProduction } from './production';
@@ -71,12 +72,28 @@ async function run(req: ExportRequest): Promise<void> {
   const total = production.total;
   const frames = Math.ceil(total * req.fps);
 
-  const target = new ArrayBufferTarget();
+  const target = req.stream
+    ? new StreamTarget({
+        // Copy each piece so it can be handed over without the muxer reusing its memory.
+        onData: (data, position) => {
+          const copy = data.slice();
+          post({ type: 'chunk', data: copy, position }, [copy.buffer]);
+        },
+        chunked: true,
+        chunkSize: 8 * 1024 * 1024,
+      })
+    : new ArrayBufferTarget();
+  // Audio packets: Opus every 20 ms, AAC every 1024 samples (plus room to spare).
+  const audioPackets = audio
+    ? Math.ceil(total / (audio.muxCodec === 'opus' ? 0.02 : 1024 / SAMPLE_RATE)) + 64
+    : undefined;
   const muxer = new Muxer({
     target,
     video: { codec: video.muxCodec, width: W, height: H, frameRate: req.fps },
     audio: audio ? { codec: audio.muxCodec, numberOfChannels: 2, sampleRate: SAMPLE_RATE } : undefined,
-    fastStart: 'in-memory',
+    fastStart: req.stream
+      ? { expectedVideoChunks: frames + 16, ...(audioPackets ? { expectedAudioChunks: audioPackets } : {}) }
+      : 'in-memory',
     firstTimestampBehavior: 'offset',
   });
 
@@ -173,7 +190,7 @@ async function run(req: ExportRequest): Promise<void> {
   if (encodeError) throw encodeError;
   muxer.finalize();
 
-  const buffer = target.buffer;
+  const buffer = target instanceof ArrayBufferTarget ? target.buffer : null;
   post(
     {
       type: 'done',
@@ -183,7 +200,7 @@ async function run(req: ExportRequest): Promise<void> {
       videoCodec: video.label,
       audioCodec: audio?.label ?? null,
     },
-    [buffer],
+    buffer ? [buffer] : [],
   );
 }
 

@@ -61,6 +61,8 @@ export type Look = {
   intro: boolean;
   outro: boolean;
   outroCta: string;
+  /** An engagement prompt on the accent band just after the start ("COMMENT YOUR PICK!"). */
+  prompt?: string;
 };
 
 export type Preset = {

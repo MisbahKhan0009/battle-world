@@ -43,10 +43,10 @@ pub struct UploadResult {
 }
 
 #[derive(Serialize, Clone)]
-struct Progress {
-    path: String,
-    sent: u64,
-    total: u64,
+pub struct Progress {
+    pub path: String,
+    pub sent: u64,
+    pub total: u64,
 }
 
 /// OAuth client and channel a request acts for.
@@ -115,6 +115,23 @@ fn next_offset(resp: &reqwest::Response) -> u64 {
         .unwrap_or(0)
 }
 
+/// Asks an upload in progress to stop; it ends with "Upload cancelled" before its next chunk.
+#[tauri::command]
+pub fn upload_cancel(state: State<'_, AppState>, path: String) {
+    if let Ok(mut c) = state.cancels.lock() {
+        c.insert(path);
+    }
+}
+
+/// True (once) when the upload of this file was asked to stop.
+pub fn take_cancel(state: &AppState, path: &str) -> bool {
+    state
+        .cancels
+        .lock()
+        .map(|mut c| c.remove(path))
+        .unwrap_or(false)
+}
+
 #[tauri::command]
 pub async fn youtube_upload(
     app: AppHandle,
@@ -125,6 +142,8 @@ pub async fn youtube_upload(
         .await
         .map_err(|e| format!("Cannot open video: {e}"))?;
     let total = file.metadata().await.map_err(|e| e.to_string())?.len();
+    // A stop asked for an earlier upload of this file does not count.
+    take_cancel(&state, &req.path);
     let mime = if req.path.to_ascii_lowercase().ends_with(".webm") {
         "video/webm"
     } else {
@@ -185,6 +204,9 @@ pub async fn youtube_upload(
     let mut offset = 0u64;
     let mut retries = 0u32;
     loop {
+        if take_cancel(&state, &req.path) {
+            return Err("Upload cancelled".into());
+        }
         let end = (offset + CHUNK).min(total);
         let mut buf = vec![0u8; (end - offset) as usize];
         file.seek(std::io::SeekFrom::Start(offset))

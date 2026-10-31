@@ -1,10 +1,11 @@
-import { ExternalLink, Eye, EyeOff, FileJson, FolderOpen, RefreshCw } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { ExternalLink, Eye, EyeOff, FileJson, FolderOpen, RefreshCw, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/Button';
 import { Field, Slider, Toggle, inputClass } from '../../components/ui/controls';
 import type { Autopilot } from '../../autopilot/engine';
 import type { AutopilotState } from '../../autopilot/types';
+import { DEFAULT_EXCLUDED, loadAllCountries, type Country } from '../../data/countries';
 import { desktop, isDesktop, type MusicFile } from '../../desktop/bridge';
 import { pickClientSecretFile } from '../../desktop/clientSecret';
 import { useAutopilot } from '../../desktop/runtime';
@@ -146,6 +147,7 @@ export function SettingsPage() {
         </Card>
 
         <MusicCard ap={ap} state={state} />
+        <CountriesCard ap={ap} state={state} />
 
         <Card title="About">
           <p className="text-sm text-muted">
@@ -182,6 +184,75 @@ export function SettingsPage() {
 }
 
 /** Music from the user's folder (e.g. YouTube's Audio Library) instead of the game sounds. */
+/** Flags left out of every video (contested or politically charged ones by default). */
+function CountriesCard({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
+  const [all, setAll] = useState<Country[]>([]);
+  const [add, setAdd] = useState('');
+  useEffect(() => {
+    void loadAllCountries().then(setAll);
+  }, []);
+  const excluded = state.excludedCountries ?? DEFAULT_EXCLUDED;
+  const byIso = useMemo(() => new Map(all.map((c) => [c.iso2, c])), [all]);
+  const set = (codes: string[]) => void ap.update({ excludedCountries: codes });
+  const left = all.filter((c) => !excluded.includes(c.iso2)).sort((a, b) => a.name.localeCompare(b.name));
+  return (
+    <Card
+      title="Countries left out"
+      note="These flags never appear in any video. By default the list holds contested and politically charged flags; change it any time."
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {excluded.length === 0 && <p className="text-[13px] text-muted">Every country can appear.</p>}
+          {excluded.map((code) => (
+            <span
+              key={code}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-surface-3 pr-1 pl-2.5 text-[13px]"
+            >
+              {byIso.get(code)?.name ?? code.toUpperCase()}
+              <button
+                type="button"
+                aria-label={`Allow ${byIso.get(code)?.name ?? code}`}
+                className="grid h-6 w-6 place-items-center rounded-md text-muted hover:bg-line-strong hover:text-text"
+                onClick={() => set(excluded.filter((x) => x !== code))}
+              >
+                <X size={13} />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <select
+            aria-label="Leave out another country"
+            value={add}
+            onChange={(e) => setAdd(e.target.value)}
+            className="h-10 min-w-[240px] flex-1 rounded-xl border border-line-strong bg-bg px-3 text-sm"
+          >
+            <option value="">Leave out another country…</option>
+            {left.map((c) => (
+              <option key={c.iso2} value={c.iso2}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <Button
+            variant="secondary"
+            disabled={!add}
+            onClick={() => {
+              set([...excluded, add]);
+              setAdd('');
+            }}
+          >
+            Leave out
+          </Button>
+          <Button variant="ghost" onClick={() => set([...DEFAULT_EXCLUDED])}>
+            Reset to the default list
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function MusicCard({ ap, state }: { ap: Autopilot; state: AutopilotState }) {
   const music = state.music ?? { enabled: false, dir: '' };
   const [dir, setDir] = useState(music.dir);

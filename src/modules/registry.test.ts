@@ -17,7 +17,8 @@ describe('module registry', () => {
       }
     }
     expect(MODULES.map((m) => m.id)).toEqual(
-      expect.arrayContaining(['black-hole', 'paper-land', 'ring-escape', 'territory-wars', 'growing-ball']),
+      expect.arrayContaining(['black-hole', 'paper-land', 'ring-escape', 'growing-ball']),
     );
+    expect(MODULES.map((m) => m.id)).not.toContain('territory-wars');
   });
 });

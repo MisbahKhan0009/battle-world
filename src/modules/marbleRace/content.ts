@@ -10,7 +10,7 @@ import { Rng } from '../../engine/rng';
 import type { Fighter, Look } from '../../engine/types';
 import { GAME_THEMES } from '../../render/themes';
 import { countryFighter, DEFAULT_LOOK } from '../../store/app';
-import { chooseLineup, fill, keyOf, pick, pickFresh } from '../common';
+import { chooseLineup, ENGAGE_ASK, ENGAGE_OUTROS, fill, keyOf, pick, pickFresh, PROMPTS } from '../common';
 
 export const MODULE_ID = 'marble-race';
 
@@ -29,6 +29,8 @@ export type MarbleRacePlan = {
 };
 
 const SHORT_TITLES = [
+  'This Finish Was Too Close 😱 {n} Country Marbles',
+  'Nobody Saw This Winner Coming 🏁',
   'Marble Race: {n} Countries 🏁 Who Wins?',
   '{n} Flag Marbles Race to the Finish 🏁',
   'Which Country Wins the Marble Race? 🤔',
@@ -71,9 +73,7 @@ export function buildRaceMeta(
   const description = [
     `${n} country marbles race down a track packed with ramps, pegs, spinners and bumpers. The first marble across the finish line wins.`,
     '',
-    args.kids
-      ? 'Which marble did you pick? Watch till the end to see if you were right 🏆'
-      : 'Who were you cheering for? Comment your country 👇',
+    args.kids ? 'Which marble did you pick? Watch till the end to see if you were right 🏆' : ENGAGE_ASK,
     'Subscribe for a new race every day.',
     '',
     hashtags.join(' '),
@@ -128,15 +128,12 @@ export function planMarbleRace(
     subtitle: job.kids ? 'Pick your marble before the start' : 'Comment your country',
     showKillFeed: true,
     showCounter: true,
+    prompt: job.kids ? undefined : pick(rng, PROMPTS),
     outroCta: pick(
       rng,
       job.kids
         ? ['Did you pick the winner?', 'Subscribe for a new race every day', 'Watch the next race!']
-        : [
-            'Which countries should race next? Comment below',
-            'Did your country win? Tell us',
-            'Subscribe for a new race every day',
-          ],
+        : ENGAGE_OUTROS,
     ),
   };
   return {

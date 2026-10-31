@@ -93,6 +93,62 @@ pub async fn delete_file(path: String) -> Result<(), String> {
     }
 }
 
+fn is_video(path: &std::path::Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|e| e.to_str())
+            .map(|e| e.to_ascii_lowercase())
+            .as_deref(),
+        Some("mp4" | "webm")
+    )
+}
+
+/// Creates (or empties) a video file that a render streams into, and returns its path.
+#[tauri::command]
+pub async fn video_create(dir: String, name: String) -> Result<String, String> {
+    if name.contains(['/', '\\']) || name.contains("..") || name.is_empty() {
+        return Err("invalid file name".into());
+    }
+    let dir = PathBuf::from(dir);
+    let path = dir.join(&name);
+    if !is_video(&path) {
+        return Err("only video files can be created".into());
+    }
+    tokio::fs::create_dir_all(&dir)
+        .await
+        .map_err(|e| e.to_string())?;
+    tokio::fs::File::create(&path)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+/// Writes a piece of a streamed video at a byte position (raw IPC body, no JSON/base64 overhead).
+#[tauri::command]
+pub async fn video_write_at(request: Request<'_>) -> Result<(), String> {
+    use tokio::io::{AsyncSeekExt, AsyncWriteExt};
+    let InvokeBody::Raw(bytes) = request.body() else {
+        return Err("expected raw video bytes".into());
+    };
+    let path = PathBuf::from(header(&request, "x-path")?);
+    let offset: u64 = header(&request, "x-offset")?
+        .parse()
+        .map_err(|_| "invalid offset".to_string())?;
+    if !is_video(&path) {
+        return Err("only video files can be written".into());
+    }
+    let mut file = tokio::fs::OpenOptions::new()
+        .write(true)
+        .open(&path)
+        .await
+        .map_err(|e| e.to_string())?;
+    file.seek(std::io::SeekFrom::Start(offset))
+        .await
+        .map_err(|e| e.to_string())?;
+    file.write_all(bytes).await.map_err(|e| e.to_string())?;
+    file.flush().await.map_err(|e| e.to_string())
+}
+
 /// Audio files the music folder may hold (what YouTube's Audio Library and most stores download).
 const MUSIC_EXTENSIONS: [&str; 6] = ["mp3", "m4a", "aac", "wav", "ogg", "flac"];
 

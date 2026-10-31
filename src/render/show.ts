@@ -322,6 +322,9 @@ export abstract class ShowRenderer<S extends ShowScene, O = object> {
       this.banner(ctx, `${w.name.toUpperCase()} ADVANCES`, v - timeline.videoAt(at), 2.4, y);
     }
     this.drawGameBanners(ctx, v, t, y);
+    // Ask viewers to pick a flag in the comments, just after the start.
+    if (scene.look.prompt)
+      this.banner(ctx, scene.look.prompt, v - (timeline.intro + 1.2), 2.4, L.cy + L.P * 0.5);
   }
 
   /** Index (within the round) of a round's winning ball. */

@@ -1,7 +1,7 @@
 # Flag Clash
 
 Windows desktop app (Tauri 2 + React) that renders "flag battle" style videos and posts them to YouTube on an
-organic schedule. Only the Windows NSIS installer is shipped; there is no website.
+organic schedule (optionally also to a Facebook Page and Instagram). Only the Windows NSIS installer is shipped; there is no website.
 
 ## Commands
 
@@ -29,7 +29,10 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
 - `src/audio/` – synthesized sound effects. Optional music: `state.music` (Settings) picks a track from the user's
   Audio Library folder (`src/desktop/music.ts`, Rust `music_list`/`music_read`); `MusicMix` replaces the effects mixer
   in `buildProduction` (music only, no effects); a sidecar `.txt` credit goes into the description.
-- `src/export/` – WebCodecs worker + mp4-muxer, with a timer-driven WebM fallback.
+- `src/export/` – WebCodecs worker + mp4-muxer, with a timer-driven WebM fallback. On desktop the worker streams
+  (`StreamTarget`, fastStart with reserved chunk counts) and posts `chunk` messages that a `VideoSink` writes at their
+  offsets through Rust `video_create`/`video_write_at` (raw IPC). Building the whole file in memory made long
+  videos hang at 99%; don't go back to it. Long videos use 'standard' quality (8 Mbps), Shorts 'high'.
 - `src/autopilot/` – `planner.ts` (organic daily plan, deterministic per channel+day, weighted by `engagement.ts`
   audience-activity curves in the audience's time zone; one channel with every game is the default: each game posts
   `shortsPerDay` Shorts (default 1) and `schedule.longPerDay` long videos a day take turns between the games (older
@@ -39,8 +42,16 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
   history; `horizons()` decides how far ahead to render and upload: just in time, `prepare.auto` daily/weekly at
   `atMin`, `prepare.handsOffDays`, or a `batch` date range with an after-action; slots rendered for upload ahead get
   `uploadAhead`; per-video controls `rerender`/`editSlot`/`approve`/`publishNow`/`restore`; `prepare.review` holds
-  uploads until approved), `types.ts` (defaults: 100 uploads a day per Google project, 15 per channel). Tests in
-  `autopilot.test.ts`.
+  uploads until approved; `setPaused`/`retry` per video, and a watchdog stops a job with no progress for `STALL_MS`
+  (10 min) via `stopCurrent`, which aborts a render or cancels an upload (`upload_cancel`, checked between chunks)),
+  `types.ts` (defaults: 100 uploads a day per Google project, 15 per channel). Tests in `autopilot.test.ts`.
+- Platforms: a `Channel` has `platform` ('youtube' when unset; `platformOf`), and Facebook Pages/Instagram accounts
+  are channels too (`metaChannel`, `pageId`, `reuseYouTube`, own `longPerDay`; Instagram 0). They post a rendered
+  YouTube video when one fits (`donorFor` → `sourceSlotId`; shared files are deleted only when no unfinished slot
+  needs them), don't count against `projectCap`, and `schedulable` says who can schedule ahead (YouTube private/
+  publishViaYouTube, Facebook long videos; Reels and Instagram publish at their time). Rust `meta.rs` (Graph API
+  v26.0, Page token stored as `meta:{pageId}`); guide and connect form in `MetaPlatforms.tsx`. YouTube must keep
+  working without them.
 - `src/modules/common.ts` – shared no-repeat rules: `chooseLineup` (counts, lineups, groups vs recent posts) and
   `freshenPair` (relabels the winning ball; country fighters/marbles are physically identical, so winners and final
   pairs don't repeat). `src/modules/thumbnail.ts` composes the spoiler-free cover for any game.
@@ -76,19 +87,24 @@ tag as the version instead. The version is injected through `src-tauri/tauri.ci.
   (channels, playlistItems, videos), pure insight math (`insights.ts`, tested), and channel snapshots saved to
   `state.stats` every 3 hours (the growth charts). UI in `src/app/desktop/DashboardPage.tsx` + `charts.tsx`.
 - `src/modules/plans.ts` – written plans for every coming-soon game (shown on the Modules page; a test requires one).
-- Videos default to made-for-kids (`post.madeForKids`); planners get `job.kids` and must not ask for comments then.
+- Videos are not made for kids by default (`post.madeForKids` false; older states are switched once via `kidsOff`).
+  Planners get `job.kids`: when false they add the comment prompt banner (`Look.prompt`, `PROMPTS`), engagement
+  outros and `ENGAGE_ASK`; when true they must not ask for comments.
+- Countries: `src/data/countries.ts` leaves out `state.excludedCountries` (default `DEFAULT_EXCLUDED`: kp, il, ps, tw,
+  xk, eh, ru, ir, af, sy; edited in Settings) via `setExcludedCountries`. Territory Wars was removed on purpose
+  (geopolitical); don't bring it back.
 - `src/export/production.ts` – builds the renderer + mixer for any game from its config (worker and fallback).
 - `src/modules/registry.ts` – content modules. Flag Battle, Marble Race, Ring Escape, Growing Ball and Paper Land
-  are ready; territory-wars and black-hole are next. A new game also needs a `DEFAULT_PACE` entry. A module needs `status: 'ready'` and a `render(job, onProgress, signal)`.
+  are ready; black-hole is next. A new game also needs a `DEFAULT_PACE` entry. A module needs `status: 'ready'` and a `render(job, onProgress, signal)`.
 - `src/desktop/` – `bridge.ts` (typed Tauri invokes), `runtime.ts` (autopilot singleton + `useAutopilot` hook; runs a
   finished batch's sleep/shutdown after a 60 s cancellable countdown shown by `PowerCountdown.tsx`).
 - `src/app/desktop/` – Setup wizard, Autopilot (prepare-ahead card + schedule), Videos (every video by day: play via
   the asset protocol, edit, re-render, publish now, skip/restore, approve; "Render and upload" batch dialog; locked-
-  private warning from `lockedPrivate`), Calendar, Games (`ModulesPage.tsx`), Channels, Settings screens,
+  private warning from `lockedPrivate`), Calendar, Games (`ModulesPage.tsx`), Platforms (`ChannelsPage.tsx`), Settings screens,
   `PreviewPage.tsx` (a sample page for every game, with export); `posts.tsx` is the live post timeline dialog. There
   is no Studio any more. Hash router in `src/app/router.ts`.
 - `src-tauri/src/` – OAuth loopback + PKCE (`oauth.rs`), tokens in Windows Credential Manager (`tokens.rs`),
-  resumable uploads (`youtube.rs`), files/state (`files.rs`), tray (`tray.rs`), app lifecycle + 30 s heartbeat,
+  resumable uploads (`youtube.rs`), Facebook/Instagram (`meta.rs`), files/state (`files.rs`), tray (`tray.rs`), app lifecycle + 30 s heartbeat,
   `power_action` (shutdown/sleep, Windows), `media_allow` (asset protocol scope for the videos folder) and
   `window_show` (`lib.rs`).
 

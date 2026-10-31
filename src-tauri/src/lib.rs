@@ -4,6 +4,7 @@
 //! heartbeat that keeps the autopilot ticking while the window is hidden.
 
 mod files;
+mod meta;
 mod oauth;
 mod tokens;
 mod tray;
@@ -20,6 +21,8 @@ pub struct AppState {
     pub close_to_tray: AtomicBool,
     pub http: reqwest::Client,
     pub tokens: tokens::AccessCache,
+    /// Uploads asked to stop (by file path); checked between chunks.
+    pub cancels: std::sync::Mutex<std::collections::HashSet<String>>,
 }
 
 pub fn show_main(app: &AppHandle) {
@@ -139,6 +142,7 @@ pub fn run() {
             close_to_tray: AtomicBool::new(true),
             http,
             tokens: tokens::AccessCache::default(),
+            cancels: Default::default(),
         })
         .setup(|app| {
             tray::create(app.handle())?;
@@ -172,6 +176,12 @@ pub fn run() {
             files::default_output_dir,
             files::save_video,
             files::delete_file,
+            files::video_create,
+            files::video_write_at,
+            youtube::upload_cancel,
+            meta::meta_connect,
+            meta::meta_disconnect,
+            meta::meta_publish,
             files::default_music_dir,
             files::music_list,
             files::music_read,

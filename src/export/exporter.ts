@@ -16,8 +16,12 @@ export type ExportProgress = {
   etaSec: number | null;
 };
 
+/** Where a streamed export writes its file, piece by piece (a piece can land before the end). */
+export type VideoSink = { write(data: Uint8Array, position: number): Promise<void> };
+
 export type ExportOutcome = {
-  blob: Blob;
+  /** The video, or null when it went to the sink. */
+  blob: Blob | null;
   ext: 'mp4' | 'webm';
   videoCodec: string;
   audioCodec: string | null;
@@ -37,6 +41,8 @@ export type ExportInput = {
   onProgress: (p: ExportProgress) => void;
   onThumb: (b: ImageBitmap) => void;
   signal: AbortSignal;
+  /** Stream the MP4 here as it is made (the WebM fallback ignores it and returns a blob). */
+  sink?: VideoSink | null;
 };
 
 export const BITRATES = { standard: 8_000_000, high: 16_000_000 } as const;
@@ -82,6 +88,7 @@ async function runWorker(input: ExportInput): Promise<ExportOutcome | 'unsupport
     bitrate: BITRATES[input.quality],
     audio: { enabled: input.audio.enabled, sfxVolume: input.audio.sfxVolume },
     music: input.music ?? null,
+    stream: !!input.sink,
     fonts: exportFonts(),
   };
   const transfer: Transferable[] = [
@@ -96,6 +103,9 @@ async function runWorker(input: ExportInput): Promise<ExportOutcome | 'unsupport
   let videoStart = 0;
 
   return new Promise<ExportOutcome | 'unsupported'>((resolve, reject) => {
+    // Streamed pieces are written one after another; the export is done when the last one is.
+    let writes: Promise<void> = Promise.resolve();
+    let writeError: unknown = null;
     const cleanup = () => {
       input.signal.removeEventListener('abort', onAbort);
       worker.terminate();
@@ -136,19 +146,36 @@ async function runWorker(input: ExportInput): Promise<ExportOutcome | 'unsupport
         case 'thumb':
           input.onThumb(m.bitmap);
           break;
-        case 'done':
-          cleanup();
-          console.info(
-            `[export] ${m.videoCodec} / ${m.audioCodec ?? 'no audio'} in ${((performance.now() - started) / 1000).toFixed(1)}s`,
+        case 'chunk': {
+          const { data, position } = m;
+          writes = writes.then(() =>
+            writeError
+              ? undefined
+              : input.sink!.write(data, position).catch((err) => void (writeError = err)),
           );
-          resolve({
-            blob: new Blob([m.buffer], { type: m.mime }),
-            ext: 'mp4',
-            videoCodec: m.videoCodec,
-            audioCodec: m.audioCodec,
-            fallback: false,
+          break;
+        }
+        case 'done': {
+          cleanup();
+          const buffer = m.buffer;
+          void writes.then(() => {
+            if (writeError) {
+              reject(writeError instanceof Error ? writeError : new Error(String(writeError)));
+              return;
+            }
+            console.info(
+              `[export] ${m.videoCodec} / ${m.audioCodec ?? 'no audio'} in ${((performance.now() - started) / 1000).toFixed(1)}s`,
+            );
+            resolve({
+              blob: buffer ? new Blob([buffer], { type: m.mime }) : null,
+              ext: 'mp4',
+              videoCodec: m.videoCodec,
+              audioCodec: m.audioCodec,
+              fallback: false,
+            });
           });
           break;
+        }
         case 'unsupported':
           cleanup();
           resolve('unsupported');

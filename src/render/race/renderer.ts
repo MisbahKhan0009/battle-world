@@ -663,6 +663,8 @@ export class RaceRenderer {
           this.banner(ctx, 'FINAL STRETCH', v - timeline.videoAt(scene.finalStretchT), 1.8, this.L.H * 0.36);
         if (timeline.vFinal2 !== null)
           this.banner(ctx, 'PHOTO FINISH', v - timeline.vFinal2, SLOWMO_SEC + 0.3, this.L.H * 0.3);
+        // Ask viewers to pick a marble in the comments, just after the start.
+        if (look.prompt) this.banner(ctx, look.prompt, v - (timeline.intro + 1.2), 2.4, this.L.H * 0.6);
       }
       if (phase === 'intro') this.drawIntro(ctx, v);
       if (phase === 'winner' || phase === 'outro') this.drawWinner(ctx, v);

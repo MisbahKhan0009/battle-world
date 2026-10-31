@@ -34,6 +34,16 @@ export type UploadRequest = {
   categoryId: string;
 };
 
+/** What a Meta Page access token can post to: the Page, and the Instagram account linked to it. */
+export type MetaAccount = {
+  pageId: string;
+  pageName: string;
+  pagePicture: string | null;
+  igId: string | null;
+  igUsername: string | null;
+  igPicture: string | null;
+};
+
 /** A track in the music folder, with its credit line when a .txt file of the same name holds one. */
 export type MusicFile = { name: string; path: string; attribution: string | null };
 
@@ -49,6 +59,30 @@ export const desktop = {
       'x-name': encodeURIComponent(name),
     }),
   deleteFile: (path: string) => invoke<void>('delete_file', { path }),
+  /** Creates (or empties) a video file in a folder and returns its path, to stream a render into. */
+  createVideo: (dir: string, name: string) => invoke<string>('video_create', { dir, name }),
+  /** Writes a piece of a video at a byte position (raw bytes, no JSON encoding). */
+  writeVideo: (path: string, position: number, bytes: Uint8Array) =>
+    invoke<void>('video_write_at', bytes, {
+      'x-path': encodeURIComponent(path),
+      'x-offset': String(position),
+    }),
+  /** Checks and stores a Facebook Page access token; returns the Page and its Instagram account. */
+  metaConnect: (token: string) => invoke<MetaAccount>('meta_connect', { token }),
+  metaDisconnect: (pageId: string) => invoke<void>('meta_disconnect', { pageId }),
+  /** Publishes a video on a Facebook Page (Reel or video) or its Instagram account (Reel). */
+  metaPublish: (req: {
+    pageId: string;
+    target: 'facebook' | 'instagram';
+    igId?: string;
+    path: string;
+    format: 'short' | 'video';
+    title: string;
+    description: string;
+    publishAt?: number;
+  }) => invoke<{ videoId: string }>('meta_publish', { req }),
+  /** Stops an upload in progress (it fails with "Upload cancelled"). */
+  cancelUpload: (path: string) => invoke<void>('upload_cancel', { path }),
 
   /** The default music folder (Music\Flag Clash Music). */
   defaultMusicDir: () => invoke<string>('default_music_dir'),

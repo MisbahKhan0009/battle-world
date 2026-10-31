@@ -10,7 +10,17 @@ import { Rng } from '../../engine/rng';
 import type { Fighter, Look } from '../../engine/types';
 import { GAME_THEMES } from '../../render/themes';
 import { countryFighter, DEFAULT_LOOK } from '../../store/app';
-import { chooseLineup, fill, keyOf, pick, pickFresh, splitHeats } from '../common';
+import {
+  chooseLineup,
+  ENGAGE_ASK,
+  ENGAGE_OUTROS,
+  fill,
+  keyOf,
+  pick,
+  pickFresh,
+  PROMPTS,
+  splitHeats,
+} from '../common';
 
 export const MODULE_ID = 'paper-land';
 
@@ -34,6 +44,8 @@ export type PaperLandPlan = {
 };
 
 const SHORT_TITLES = [
+  'One Cut Changed Everything ✂️ {n} Countries',
+  'Wait For The Last 10 Seconds 😱 Land Grab',
   'Which Country Claims the Most Land? 🗺️',
   'Paper Land: {n} Countries Fight for Land 🗺️',
   'Pick a Flag Before It Starts 🗺️ {n} Countries',
@@ -78,9 +90,7 @@ export function buildPaperMeta(
       ? `${n} countries race to claim land. Leave your land and you draw a trail; get back home and everything inside becomes yours. Cross a rival's trail and they're out. When the clock runs out, the most land wins.`
       : `${n} countries, ${args.heats} heats and a grand final. Leave your land to draw a trail, get back home to claim everything inside it, and cut rivals' trails to knock them out. Each heat winner reaches the final, and the flag with the most land in the final is the champion.`,
     '',
-    args.kids
-      ? 'Which flag did you pick? Watch till the end to see if you were right 🏆'
-      : 'Who were you cheering for? Comment your country 👇',
+    args.kids ? 'Which flag did you pick? Watch till the end to see if you were right 🏆' : ENGAGE_ASK,
     'Subscribe for a new battle every day.',
     '',
     hashtags.join(' '),
@@ -147,15 +157,12 @@ export function planPaperLand(
     subtitle: job.kids ? 'Pick your flag before it starts' : 'Comment your country',
     showKillFeed: true,
     showCounter: true,
+    prompt: job.kids ? undefined : pick(rng, PROMPTS),
     outroCta: pick(
       rng,
       job.kids
         ? ['Did you pick the winner?', 'Subscribe for a new battle every day', 'Watch the next one!']
-        : [
-            'Which countries should play next? Comment below',
-            'Did your country win? Tell us',
-            'Subscribe for a new battle every day',
-          ],
+        : ENGAGE_OUTROS,
     ),
   };
   return {

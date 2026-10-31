@@ -43,14 +43,17 @@ export async function renderPaperLand(
       fighters,
       winnerImage,
       fps: job.format === 'short' ? 60 : 30,
-      quality: 'high',
+      // Long videos at YouTube's recommended 8 Mbps for 1080p keep files and memory small.
+      quality: job.format === 'short' ? 'high' : 'standard',
       audio: { enabled: true, sfxVolume: 0.85 },
       music: job.music,
       onProgress: (p) => onProgress(Math.max(0.02, p.percent / 100)),
       onThumb: (b) => b.close(),
       signal,
+      sink: job.sink,
     });
-    const bytes = new Uint8Array(await out.blob.arrayBuffer());
+    // Streamed straight to disk when the autopilot gave a sink; otherwise the bytes come back.
+    const bytes = out.blob ? new Uint8Array(await out.blob.arrayBuffer()) : undefined;
     let thumbnail: Uint8Array | undefined;
     try {
       const scene = buildPaperScene({ result, look: plan.look, fighters });

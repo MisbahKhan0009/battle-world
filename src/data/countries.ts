@@ -3,10 +3,28 @@ export type Country = { iso2: string; name: string; region: Region };
 
 let cache: Promise<Country[]> | null = null;
 
-/** Lazy-loaded so the dataset stays out of the initial bundle. */
-export function loadCountries(): Promise<Country[]> {
+/** Every country in the dataset, lazy-loaded so it stays out of the initial bundle. */
+export function loadAllCountries(): Promise<Country[]> {
   cache ??= import('./countries.json').then((m) => m.default as Country[]);
   return cache;
+}
+
+/**
+ * Flags left out of every video by default: contested or politically charged ones (ISO codes).
+ * The list is editable in Settings.
+ */
+export const DEFAULT_EXCLUDED = ['kp', 'il', 'ps', 'tw', 'xk', 'eh', 'ru', 'ir', 'af', 'sy'];
+
+let excluded = new Set(DEFAULT_EXCLUDED);
+
+/** Sets the countries left out of every video from now on. */
+export function setExcludedCountries(codes: string[]): void {
+  excluded = new Set(codes.map((c) => c.toLowerCase()));
+}
+
+/** The countries videos may use (the dataset without the excluded ones). */
+export async function loadCountries(): Promise<Country[]> {
+  return (await loadAllCountries()).filter((c) => !excluded.has(c.iso2));
 }
 
 export const REGIONS: Region[] = ['Asia', 'Europe', 'Africa', 'Americas', 'Oceania'];
@@ -115,7 +133,7 @@ export const STARTER: Country[] = [
   { iso2: 'de', name: 'Germany', region: 'Europe' },
   { iso2: 'fr', name: 'France', region: 'Europe' },
   { iso2: 'gb', name: 'United Kingdom', region: 'Europe' },
-  { iso2: 'ru', name: 'Russia', region: 'Europe' },
+  { iso2: 'it', name: 'Italy', region: 'Europe' },
   { iso2: 'kr', name: 'South Korea', region: 'Asia' },
   { iso2: 'tr', name: 'Türkiye', region: 'Asia' },
   { iso2: 'sa', name: 'Saudi Arabia', region: 'Asia' },

@@ -10,6 +10,26 @@ import type { Fighter } from '../engine/types';
 
 export const pick = <T>(rng: Rng, arr: readonly T[]): T => arr[rng.int(arr.length)];
 
+/** Shown on the accent band just after the start, so viewers pick a flag and say so in the comments. */
+export const PROMPTS = [
+  'COMMENT YOUR PICK!',
+  'PICK A FLAG, COMMENT IT',
+  'WHO WINS? COMMENT NOW',
+  'CALL IT IN THE COMMENTS',
+];
+
+/** End-card asks for likes and comments (not made for kids). */
+export const ENGAGE_OUTROS = [
+  'Like if you guessed the winner',
+  'Did you call it? Comment your pick',
+  'Like and subscribe for a new battle every day',
+  'Which countries should play next? Comment below',
+];
+
+/** The description's ask (not made for kids). */
+export const ENGAGE_ASK =
+  'Which flag did you pick? Comment it below 👇 Like if you guessed the winner and subscribe for a new battle every day.';
+
 export function shuffled<T>(rng: Rng, arr: readonly T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {

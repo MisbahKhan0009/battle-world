@@ -40,7 +40,10 @@ human-looking schedule, while it sits quietly in the system tray.
 | 🔊 **Sound that fits** | Every game has its own sound and color world: Flag Battle's punchy hits and brass fanfare in lime, Marble Race's wooden clicks, start-light beeps and bell in cyan or race amber, Ring Escape's glass celesta and shatter in magenta, Growing Ball's water-drop bloops in coral, Paper Land's marimba and scissor snips in mint. All timed to the action. Prefer music? Point Settings at a folder of YouTube Audio Library tracks and videos use those instead. |
 | 🖥️ **Runs in the background** | Lives in the system tray, starts with Windows, renders each post ahead and lets YouTube publish it on the minute. |
 | 🔒 **Your account stays yours** | Uses your own free Google Cloud project. Your sign-in is stored in Windows Credential Manager, never in plain files. |
-| 🧩 **More games coming** | Flag Battle, Marble Race, Ring Escape, Growing Ball and Paper Land are live. Territory Wars and Black Hole (like Hole.io) are next, each with a written plan in the app. |
+| 💬 **Built for views** | Not marked made for kids, so comments, likes and notifications stay on. Each video asks viewers to call the winner in the comments a second after it starts, ends with a like-and-subscribe card, and gets a curiosity title. |
+| 🌍 **Fair line-ups** | Countries that make videos political (North Korea, Israel, Palestine, Taiwan, Kosovo, Western Sahara, Russia, Iran, Afghanistan, Syria) are left out by default. Edit the list in Settings. |
+| 📣 **Facebook and Instagram, if you want** | Optional: connect a Facebook Page and its Instagram account on the Platforms page (with a step-by-step guide). They get their own daily plan and post the YouTube videos, so nothing renders twice. YouTube works the same with or without them. |
+| 🧩 **More games coming** | Flag Battle, Marble Race, Ring Escape, Growing Ball and Paper Land are live. Black Hole (like Hole.io) is next, with a written plan in the app. |
 
 <br />
 
@@ -179,7 +182,10 @@ Every video, day by day, with its cover, game, time and status. For each one you
 - **Make a new video** for the same slot (a fresh lineup and game), **Publish now**, **Skip**, or put a skipped one
   back.
 - **Approve** it, when **Review before upload** is on (or **Approve all** at once).
-- **Open on YouTube** once it is up.
+- **Pause** it (the pause button) to hold its render or upload, even halfway through, and **Resume** it later.
+- **Try again** (the circular arrow) when a render or upload failed or seems stuck. A render or upload with no
+  progress for 10 minutes is stopped and tried again on its own.
+- **Open on YouTube** (or Facebook) once it is up.
 
 **Render and upload** (top right) prepares a whole day or range now: pick **Tomorrow**, the **next 7, 14 or 30
 days**, or any dates. Choose **Render and upload** (scheduled on YouTube for each video's time) or **Render only**
@@ -189,7 +195,7 @@ day per Google project; anything over that goes up after the daily reset. If upl
 (Google projects that have not passed YouTube's API audit lock every upload as private), a banner says so and links
 to the audit form.
 
-### Channels
+### Platforms
 
 <img src="docs/images/channels.jpg" alt="The Channels page: two connected channels, each with its games, an on/off switch and a daily upload limit, under a banner with the total uploads a day against the Google quota" width="100%" />
 
@@ -205,6 +211,32 @@ game joins it automatically. You can still **connect more channels**; each gets 
 All channels share your one Google Cloud project, which can upload **100 videos a day** (its own upload quota; the
 other API calls, like custom thumbnails at 50 units each, use the separate 10,000-unit pool). The card at the top
 sets **Uploads a day, all channels**.
+
+#### Facebook and Instagram (optional)
+
+Flag Clash can also post to a **Facebook Page** and the **Instagram professional account** linked to it, through
+Meta's Graph API. Nothing about YouTube changes if you don't. The **Facebook and Instagram** card on the Platforms
+page has the full guide (click **How to connect**); in short:
+
+1. Have a Facebook Page, switch Instagram to a Professional account (Creator or Business) and link it to the Page.
+2. Create your own app at [Meta for Developers](https://developers.facebook.com/apps/) (type **Business**). It can
+   stay in Development mode for Pages you manage.
+3. Add the **Facebook Login for Business** and **Instagram** products.
+4. In [Graph API Explorer](https://developers.facebook.com/tools/explorer/), add the permissions `pages_show_list`,
+   `pages_read_engagement`, `pages_manage_posts`, `publish_video`, `business_management`, `instagram_basic` and
+   `instagram_content_publish`, then **Generate Access Token**.
+5. Extend it in the [Access Token Debugger](https://developers.facebook.com/tools/debug/accesstoken/) (**Extend
+   Access Token**) and use the long-lived token in Graph API Explorer.
+6. Pick your Page under **User or Page** and copy the **Page access token** (made from a long-lived token, it does
+   not expire).
+7. Paste it into Flag Clash and click **Connect**. The token is kept in Windows Credential Manager.
+
+Each connected account gets its own card and its own plan: one Short (a Reel) a day per game, and on Facebook one
+long video a day; Instagram posts Reels only by default. **Post the YouTube videos** (on by default) reuses the
+YouTube channel's rendered videos of the same game and length, so nothing renders twice. Facebook long videos are
+scheduled on Facebook ahead of time, so they go out with the PC off; Facebook Reels and Instagram posts go out at
+their time while Flag Clash runs (preparing ahead still renders them early). Meta allows 50 Instagram posts and 30
+Facebook Reels a day through the API, and none of this counts against YouTube's upload quota.
 
 ### Calendar
 
@@ -230,6 +262,9 @@ live.
   needs attribution, save the credit line from the Audio Library as a `.txt` file with the same name next to it
   (`Track Name.mp3` + `Track Name.txt`); it is added to the video description. Leave the switch off for the
   synthesized game sounds.
+- **Countries:** the countries left out of every game. North Korea, Israel, Palestine, Taiwan, Kosovo, Western
+  Sahara, Russia, Iran, Afghanistan and Syria are left out by default; remove one to bring it back, add any other,
+  or **Reset** to the default list.
 - **About:** the installed version. Newer versions are on the [Releases](https://github.com/MisbahKhan0009/battle-world/releases) page.
 
 ### Tray and startup
@@ -299,23 +334,21 @@ the same way the autopilot makes them, and export it as an MP4.
 | **Ring Escape** | ✅ Ready | Flag balls bounce inside spinning rings and shatter each one they get through; first out wins. Long videos are a knockout. |
 | **Growing Ball** | ✅ Ready | Every bounce off the wall makes a flag bigger; when the arena is full, the biggest wins. Long videos are a knockout. |
 | **Paper Land** | ✅ Ready | Like Paper.io: flags draw trails to claim land and cut rivals' trails; when the clock runs out, the most land wins. Long videos are a knockout. |
-| Territory Wars | 🔜 Next | Countries conquer a pixel world map tile by tile. |
 | Black Hole | 🔜 Next | Like Hole.io: country holes swallow a city, then each other. The biggest hole wins. |
 
-Every upcoming game has a plan (how it plays, the simulation, the video formats and the build steps): open
+The upcoming game has a plan (how it plays, the simulation, the video formats and the build steps): open
 **Games** and click **See the plan** on its card. The short version:
 
 <details>
-<summary><b>Game plans</b></summary>
+<summary><b>Game plan</b></summary>
 
 <br />
 
 | Game | How it plays | Simulation | Videos |
 | --- | --- | --- | --- |
-| **Territory Wars** | Countries start on their real land on a pixel world map and push borders until one rules the globe. | Deterministic cellular automaton with seeded border contests; identical armies per tile. | Long time-lapse videos of 3 to 4 min; Shorts show the final 50 s. |
 | **Black Hole** | Country holes roam a city swallowing anything smaller; bigger holes eat smaller ones; biggest wins. | Seeded steering AI per hole; objects tip in when mostly over a big enough hole; identical rules for every hole. | Shorts 40 to 58 s on the leader; long videos of 2 to 3 min. |
 
-All of them follow the same rules as the live games: same seed, same video; no repeated winners; spoiler-free
+It follows the same rules as the live games: same seed, same video; no repeated winners; spoiler-free
 thumbnails; their own schedule on the shared timeline.
 
 </details>
@@ -340,7 +373,7 @@ thumbnails; their own schedule on the shared timeline.
 | Organic variation | **Off** | on or off |
 | Daily upload limit (per channel) | **15** | 1 to 50 |
 | Uploads a day, all channels | **100** (your Google project's upload quota) | 1 to 100 |
-| Made for kids | **On** | on or off |
+| Made for kids | **Off** | on or off |
 
 - **One timeline per channel.** Every game posts its Shorts each day, and the long video of the day takes turns
   between the games, so each game's long video comes round regularly. A channel's games share the posting hours,
@@ -388,9 +421,9 @@ thumbnails; their own schedule on the shared timeline.
 > video a few minutes.
 
 > [!NOTE]
-> **Made for kids is on by default**, so the videos are marked as suitable for everyone. YouTube then turns off
-> comments, notifications and personalised ads on those videos, so the videos ask viewers to guess the winner instead
-> of commenting. Switch it off on the Autopilot page (or in the last setup step) if you want comments.
+> **Made for kids is off by default**, so comments, likes, notifications and the subscribe bell all work, and the
+> videos ask viewers to comment their pick. Videos are still suitable for everyone. Turn it on on the Autopilot page
+> if your audience is children; the videos then ask viewers to guess the winner instead of commenting.
 
 > [!NOTE]
 > **Community posts:** YouTube's API has no way to create Community posts (text, polls or images on the Posts tab),
@@ -440,7 +473,7 @@ Google asks for an **Application home page** and a **Privacy policy link** on th
 two pages on a site you own. The free option is GitHub Pages: create a public repository named
 `yourname.github.io` and add a short page about the app plus a privacy policy saying the app only uploads videos
 you render and keeps your sign-in on your PC. Then add `yourname.github.io` under **Authorized domains**, save,
-and click **Publish app** on the Audience page. After publishing, reconnect your channel once in **Channels**.
+and click **Publish app** on the Audience page. After publishing, reconnect your channel once in **Platforms**.
 </details>
 
 <details>
@@ -459,7 +492,7 @@ a Short's custom thumbnail shows in search, on your channel page and in subscrip
 
 Your sign-in app is still in "Testing", where Google expires logins after 7 days. Open
 [Audience](https://console.cloud.google.com/auth/audience), click **Publish app**, then reconnect the channel once in
-**Channels**.
+**Platforms**.
 </details>
 
 <details>
@@ -470,6 +503,27 @@ Your sign-in app is still in "Testing", where Google expires logins after 7 days
 Click it (on the Autopilot page or in the Calendar). Its timeline shows which step failed, the exact error from
 YouTube, and when the next retry is. Failed posts retry after 5, 20 and 60 minutes before giving up; the rest of the
 week carries on either way.
+</details>
+
+<details>
+<summary><b>A render or upload seems stuck</b></summary>
+
+<br />
+
+On the **Videos** page, click **Try again** (the circular arrow) on that video: it stops the job and starts it over.
+**Pause** holds a video without losing its place in the plan. Flag Clash also stops any render or upload that has made
+no progress for 10 minutes and tries it again by itself. Long videos are written to disk as they render, so they no
+longer wait at 99% while a large file is saved.
+</details>
+
+<details>
+<summary><b>Facebook or Instagram says the token is invalid or a user token</b></summary>
+
+<br />
+
+Flag Clash needs the **Page access token**, not your own user token: in Graph API Explorer open **User or Page**,
+pick your Page and copy that token. If posts later fail with an expired token, make a new long-lived one (steps 5
+and 6 of the guide on the Platforms page) and connect again; your plan and settings are kept.
 </details>
 
 <details>
@@ -536,7 +590,8 @@ src-tauri/            Rust shell (Tauri 2)
   src/oauth.rs        Google sign-in: system browser, loopback redirect, PKCE, channel lookup
   src/tokens.rs       refresh tokens in Windows Credential Manager, access-token cache
   src/youtube.rs      resumable 8 MiB chunked uploads that resume after errors, custom thumbnails
-  src/files.rs        state file (atomic writes), saving rendered videos (raw IPC body)
+  src/files.rs        state file (atomic writes), rendered videos streamed to disk in chunks (raw IPC body)
+  src/meta.rs         Facebook Page and Instagram posting through Meta's Graph API (Reels, scheduled videos)
   src/tray.rs         tray menu and status
   src/lib.rs          window and tray lifecycle, launch at login, single instance, 30 s heartbeat
 src/
@@ -546,7 +601,7 @@ src/
   modules/            module registry, shared no-repeat rules and thumbnails (common.ts, thumbnail.ts),
                       flagBattle/, marbleRace/, ringEscape/, growingBall/, paperLand/ (content planning and autopilot rendering per game)
   dashboard/          channel data (youtube.ts), insights math (insights.ts), snapshots and cache (store.ts)
-  app/desktop/        Setup guide, Dashboard, Autopilot, Videos, Calendar, Games, Channels and Settings screens;
+  app/desktop/        Setup guide, Dashboard, Autopilot, Videos, Calendar, Games, Platforms and Settings screens;
                       posts.tsx (the live post timeline)
   engine/             deterministic simulation: rng, physics, sim, timeline, tuning
   engine/race/        Marble Race: track generator, rolling-sphere physics, finish placement
@@ -572,8 +627,8 @@ Add an entry to `src/modules/registry.ts` with `status: 'ready'` and a `render(j
 It receives `{ format: 'short' | 'video', seed, recent }`, where `recent` is the channel's content history, and
 returns `{ bytes, ext, meta: { title, description, tags } }` plus, optionally, a JPEG `thumbnail` and a `content`
 record (count, roster, winner…) that later posts use to avoid repeats. Add its default pace to `DEFAULT_PACE`
-in `src/autopilot/types.ts`. The Channels and Games pages, schedule cards, calendar and scheduler pick it up
-automatically; the next channel you connect gets it (or add it to a channel on the Channels page).
+in `src/autopilot/types.ts`. The Platforms and Games pages, schedule cards, calendar and scheduler pick it up
+automatically; the next channel you connect gets it (or add it to a channel on the Platforms page).
 `src/modules/ringEscape/` and `src/modules/marbleRace/` are the most complete references; reuse `src/modules/common.ts` for fresh
 lineups and winners, and `src/export/production.ts` to plug the game's renderer into the MP4 exporter.
 </details>

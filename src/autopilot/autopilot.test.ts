@@ -5,6 +5,7 @@ import {
   PLAN_DAYS,
   RENDER_LEAD_MS,
   SCHEDULED_RENDER_LEAD_MS,
+  STALL_MS,
   type Backend,
 } from './engine';
 import { dayKey, planChannelsDay, planDay, shareFairly, videosOnDay } from './planner';
@@ -14,6 +15,7 @@ import {
   DEFAULT_SCHEDULE,
   defaultState,
   gamesForNewChannel,
+  metaChannel,
   paceFor,
   type AutopilotState,
   type Channel,
@@ -698,5 +700,171 @@ describe('channels', () => {
         'marble-race',
       ]).length,
     );
+  });
+});
+
+describe('per-video control and resilience', () => {
+  const NOW = new Date(2026, 9, 29, 21, 0).getTime();
+
+  test('a paused video is left alone until resumed', async () => {
+    const env = fakeBackend(NOW);
+    const ap = new Autopilot(env.backend, () => ['flag-battle']);
+    await ap.init();
+    await ap.tick();
+    const first = ap.snapshot!.slots.find((x) => dayKey(new Date(x.at)) === '2026-11-03')!;
+    await ap.setPaused(first.id, true);
+    await ap.startBatch({ from: '2026-11-03', to: '2026-11-03', upload: true, after: 'nothing' });
+    await drain(ap, 20);
+    expect(ap.snapshot!.slots.find((x) => x.id === first.id)!.status).toBe('planned');
+    await ap.setPaused(first.id, false);
+    await ap.startBatch({ from: '2026-11-03', to: '2026-11-03', upload: true, after: 'nothing' });
+    await drain(ap, 10);
+    expect(ap.snapshot!.slots.find((x) => x.id === first.id)!.status).toBe('posted');
+  });
+
+  test('retry brings a failed video back right away', async () => {
+    const env = fakeBackend(new Date(2026, 9, 29, 6, 0).getTime());
+    const ap = new Autopilot(env.backend, () => ['flag-battle']);
+    await ap.init();
+    await ap.update({ post: { ...ap.snapshot!.post, publishViaYouTube: false } });
+    await ap.tick();
+    const first = ap.snapshot!.slots[0];
+    env.advance(first.at - env.now + 1000);
+    env.always.fail = 'network down';
+    for (let i = 0; i < 5; i++) {
+      await drain(ap, 2);
+      env.advance(61 * 60_000);
+    }
+    expect(ap.snapshot!.slots.find((x) => x.id === first.id)!.status).toBe('failed');
+    env.always.fail = '';
+    await ap.retry(first.id);
+    await drain(ap, 2);
+    expect(ap.snapshot!.slots.find((x) => x.id === first.id)!.status).toBe('posted');
+  });
+
+  test('a render with no progress is stopped by the watchdog and tried again', async () => {
+    const env = fakeBackend(NOW);
+    let calls = 0;
+    const real = env.backend.render;
+    env.backend.render = (slot, onProgress, signal, recent, sink) => {
+      calls++;
+      if (calls > 1) return real(slot, onProgress, signal, recent, sink);
+      // The first render hangs until it is aborted.
+      return new Promise((_, reject) =>
+        signal.addEventListener('abort', () => reject(new DOMException('Cancelled', 'AbortError'))),
+      );
+    };
+    const ap = new Autopilot(env.backend, () => ['flag-battle']);
+    await ap.init();
+    const running = ap.startBatch({ from: '2026-11-03', to: '2026-11-03', upload: false, after: 'nothing' });
+    await new Promise((r) => setTimeout(r, 10));
+    env.advance(STALL_MS + 60_000);
+    await ap.tick(); // the watchdog runs while the job is busy
+    await running;
+    const stalled = ap.snapshot!.slots.find((x) => x.log?.some((e) => /No progress/.test(e.text)))!;
+    expect(stalled.status).toBe('planned');
+    expect(stalled.attempts).toBe(1);
+    env.advance(30 * 60_000);
+    await drain(ap, 10);
+    expect(ap.snapshot!.slots.find((x) => x.id === stalled.id)!.status).toBe('rendered');
+  });
+
+  test('renders stream straight into their file when the backend can', async () => {
+    const env = fakeBackend(NOW);
+    const written: { path: string; at: number; n: number }[] = [];
+    env.backend.openVideo = async (dir, name) => ({
+      path: `${dir}/${name}`,
+      write: async (data, position) =>
+        void written.push({ path: `${dir}/${name}`, at: position, n: data.length }),
+    });
+    const real = env.backend.render;
+    env.backend.render = async (slot, onProgress, signal, recent, sink) => {
+      const out = await real(slot, onProgress, signal, recent, sink);
+      await sink!.write(new Uint8Array(4), 0);
+      return { ...out, bytes: undefined };
+    };
+    const ap = new Autopilot(env.backend, () => ['flag-battle']);
+    await ap.init();
+    await ap.startBatch({ from: '2026-11-03', to: '2026-11-03', upload: false, after: 'nothing' });
+    await drain(ap, 10);
+    const s = ap.snapshot!.slots.find((x) => x.status === 'rendered')!;
+    expect(s.filePath).toMatch(/\.mp4$/);
+    expect(written.some((w) => w.path === s.filePath)).toBe(true);
+  });
+});
+
+describe('facebook and instagram', () => {
+  const NOW = new Date(2026, 9, 29, 21, 0).getTime();
+  const meta = (id: string, platform: 'facebook' | 'instagram'): Channel => ({
+    ...metaChannel({ id, title: id, thumbnail: '', pageId: 'PAGE1' }, platform, [], ['flag-battle']),
+    connectedAt: NOW,
+  });
+
+  test('they post the YouTube videos instead of rendering their own, on their own plan', async () => {
+    const env = fakeBackend(NOW);
+    let renders = 0;
+    const real = env.backend.render;
+    env.backend.render = (...args) => {
+      renders++;
+      return real(...args);
+    };
+    const ap = new Autopilot(env.backend, () => ['flag-battle']);
+    await ap.init();
+    await ap.update(
+      {
+        channels: [...ap.snapshot!.channels, meta('PAGE1', 'facebook'), meta('IG1', 'instagram')],
+        running: false,
+      },
+      { replan: true },
+    );
+    // Prepare YouTube's day first, then the Facebook and Instagram posts of that day reuse it.
+    await ap.startBatch({ from: '2026-11-03', to: '2026-11-03', upload: false, after: 'nothing' });
+    await drain(ap, 40);
+    const day = ap.snapshot!.slots.filter((x) => dayKey(new Date(x.at)) === '2026-11-03');
+    const yt = day.filter((x) => x.channelId === 'UC1');
+    const fb = day.filter((x) => x.channelId === 'PAGE1');
+    const ig = day.filter((x) => x.channelId === 'IG1');
+    expect(fb.length).toBeGreaterThan(0);
+    expect(ig.length).toBeGreaterThan(0);
+    // Instagram plans Shorts only by default.
+    expect(ig.every((x) => x.format === 'short')).toBe(true);
+    const reused = [...fb, ...ig].filter((x) => x.sourceSlotId);
+    expect(reused.length).toBeGreaterThan(0);
+    for (const x of reused) expect(x.filePath).toBe(yt.find((y) => y.id === x.sourceSlotId)!.filePath);
+    expect(renders).toBeLessThan(day.length);
+  });
+
+  test('Facebook schedules long videos ahead; Reels and Instagram go out at their time', async () => {
+    const env = fakeBackend(NOW);
+    const ap = new Autopilot(env.backend, () => ['flag-battle']);
+    await ap.init();
+    await ap.update(
+      {
+        channels: [meta('PAGE1', 'facebook'), meta('IG1', 'instagram')],
+        prepare: { ...ap.snapshot!.prepare!, handsOffDays: 3 },
+      },
+      { replan: true },
+    );
+    await drain(ap, 60);
+    const ahead = ap.snapshot!.slots.filter((x) => x.at > NOW + 86_400_000 && x.at < NOW + 3 * 86_400_000);
+    for (const x of ahead) {
+      if (x.channelId === 'PAGE1' && x.format === 'video') expect(x.status).toBe('posted');
+      else expect(x.status).toBe('rendered');
+    }
+    expect(ahead.some((x) => x.channelId === 'PAGE1' && x.format === 'video')).toBe(true);
+  });
+
+  test("they do not count against YouTube's daily upload limit", () => {
+    const ready = ['flag-battle', 'marble-race'];
+    const yt = { ...connectedChannel({ id: 'UC1', title: 'yt', thumbnail: '' }, [], ready) };
+    const fb = meta('PAGE1', 'facebook');
+    const plans = planChannelsDay(
+      new Date(2026, 10, 3),
+      [yt, fb],
+      { ...DEFAULT_SCHEDULE, projectCap: 1 },
+      ready,
+    );
+    expect(plans.get('UC1')!.length).toBe(1);
+    expect(plans.get('PAGE1')!.length).toBeGreaterThan(1);
   });
 });

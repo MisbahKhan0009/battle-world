@@ -10,7 +10,17 @@ import { Rng } from '../../engine/rng';
 import type { Fighter, Look } from '../../engine/types';
 import { GAME_THEMES } from '../../render/themes';
 import { countryFighter, DEFAULT_LOOK } from '../../store/app';
-import { chooseLineup, fill, keyOf, pick, pickFresh, splitHeats } from '../common';
+import {
+  chooseLineup,
+  ENGAGE_ASK,
+  ENGAGE_OUTROS,
+  fill,
+  keyOf,
+  pick,
+  pickFresh,
+  PROMPTS,
+  splitHeats,
+} from '../common';
 
 export const MODULE_ID = 'ring-escape';
 
@@ -34,6 +44,8 @@ export type RingEscapePlan = {
 };
 
 const SHORT_TITLES = [
+  'The Last Ring Changed Everything 😱',
+  '99% Pick The Wrong Flag 🌀 {n} Countries',
   'Which Country Escapes the Rings First? 🌀',
   'Escape the Spinning Rings 🌀 {n} Countries',
   'Only One Flag Gets Out First 🌀',
@@ -78,9 +90,7 @@ export function buildRingsMeta(
       ? `${n} country balls bounce inside spinning rings. Slip through a gap and the ring shatters. The first flag out of the last ring wins.`
       : `${n} countries, ${args.heats} heats and a grand final. Balls bounce inside spinning rings; slip through a gap and the ring shatters. Each heat winner reaches the final, and the first flag out of the last ring is the champion.`,
     '',
-    args.kids
-      ? 'Which flag did you pick? Watch till the end to see if you were right 🏆'
-      : 'Who were you cheering for? Comment your country 👇',
+    args.kids ? 'Which flag did you pick? Watch till the end to see if you were right 🏆' : ENGAGE_ASK,
     'Subscribe for a new escape every day.',
     '',
     hashtags.join(' '),
@@ -147,15 +157,12 @@ export function planRingEscape(
     subtitle: job.kids ? 'Pick your flag before it starts' : 'Comment your country',
     showKillFeed: true,
     showCounter: true,
+    prompt: job.kids ? undefined : pick(rng, PROMPTS),
     outroCta: pick(
       rng,
       job.kids
         ? ['Did you pick the winner?', 'Subscribe for a new escape every day', 'Watch the next one!']
-        : [
-            'Which countries should play next? Comment below',
-            'Did your country escape? Tell us',
-            'Subscribe for a new escape every day',
-          ],
+        : ENGAGE_OUTROS,
     ),
   };
   return {

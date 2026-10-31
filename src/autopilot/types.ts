@@ -76,6 +76,10 @@ export type Slot = {
   approved?: boolean;
   /** Prepared ahead: upload (scheduled on YouTube) as soon as possible, even after the batch ended. */
   uploadAhead?: boolean;
+  /** Paused by you: not rendered or uploaded until you resume it. */
+  paused?: boolean;
+  /** Facebook or Instagram post that reuses this YouTube slot's video (no second render). */
+  sourceSlotId?: string;
 };
 
 export type SlotEvent = { t: number; text: string; error?: boolean };
@@ -108,8 +112,28 @@ export type VideoMeta = {
   tags: string[];
 };
 
+/** Where a channel lives. Facebook Pages and Instagram accounts post through Meta's Graph API. */
+export type Platform = 'youtube' | 'facebook' | 'instagram';
+
+export const PLATFORM_NAME: Record<Platform, string> = {
+  youtube: 'YouTube',
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+};
+
+export const platformOf = (ch: Pick<Channel, 'platform'> | undefined): Platform => ch?.platform ?? 'youtube';
+
 export type Channel = {
+  /** YouTube channel id, Facebook Page id, or Instagram account id. */
   id: string;
+  /** Unset for YouTube channels (the app's first platform). */
+  platform?: Platform;
+  /** Facebook/Instagram: the Facebook Page whose access token posts here. */
+  pageId?: string;
+  /** Facebook/Instagram: post the YouTube channel's videos (no extra rendering) when one fits. */
+  reuseYouTube?: boolean;
+  /** Long videos a day on this channel (unset: the shared schedule's). */
+  longPerDay?: number;
   title: string;
   thumbnail: string;
   subscribers?: number;
@@ -135,9 +159,39 @@ export function channelGames(ch: Pick<Channel, 'games'>, ready: string[]): strin
 /** The schedule as seen by one channel: shared timing settings with its own games and limit. */
 export function channelSchedule(
   base: ScheduleSettings,
-  ch: Pick<Channel, 'games' | 'dailyCap'>,
+  ch: Pick<Channel, 'games' | 'dailyCap' | 'longPerDay'>,
 ): ScheduleSettings {
-  return { ...base, perModule: ch.games ?? {}, dailyCap: ch.dailyCap ?? base.dailyCap };
+  return {
+    ...base,
+    perModule: ch.games ?? {},
+    dailyCap: ch.dailyCap ?? base.dailyCap,
+    ...(ch.longPerDay !== undefined && base.longPerDay !== undefined ? { longPerDay: ch.longPerDay } : {}),
+  };
+}
+
+/**
+ * A Facebook Page or Instagram account as a channel: every game, its own plan (Instagram posts
+ * Shorts only by default), reusing the YouTube channel's videos where they fit. Reconnecting keeps
+ * its settings.
+ */
+export function metaChannel(
+  info: { id: string; title: string; thumbnail: string; pageId: string },
+  platform: 'facebook' | 'instagram',
+  existing: Channel[],
+  ready: string[],
+): Channel {
+  const prev = existing.find((c) => c.id === info.id);
+  return {
+    games: Object.fromEntries(ready.map((id) => [id, { shortsPerDay: 1, videosPerWeek: 1 }])),
+    dailyCap: CHANNEL_UPLOADS_PER_DAY,
+    enabled: true,
+    reuseYouTube: true,
+    longPerDay: platform === 'instagram' ? 0 : 1,
+    ...prev,
+    ...info,
+    platform,
+    connectedAt: Date.now(),
+  };
 }
 
 /** A freshly connected channel (or a reconnected one, keeping its games and settings). */
@@ -217,6 +271,8 @@ export type AutopilotState = {
   stats: Record<string, StatPoint[]>;
   /** The "made for kids" default has been applied to this install. */
   kidsDefaulted: boolean;
+  /** "Made for kids" was switched off by default on this install (videos are for everyone). */
+  kidsOff?: boolean;
   /**
    * Music instead of the game sounds: tracks from a folder (e.g. downloaded from YouTube's Audio
    * Library), a different one for each video.
@@ -227,6 +283,8 @@ export type AutopilotState = {
   /** 2 = the one-channel plan (a Short a day per game, long videos a day taking turns). */
   planVersion?: number;
   prepare?: PrepareSettings;
+  /** Countries left out of every video (ISO codes); unset means the default list. */
+  excludedCountries?: string[];
   batch?: Batch | null;
   /** YouTube's upload quota ran out: uploads wait until this time (the quota resets at midnight Pacific). */
   uploadPausedUntil?: number;
@@ -327,8 +385,8 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
 export const DEFAULT_POST: PostSettings = {
   privacy: 'public',
   publishViaYouTube: true,
-  // Everyone can watch: videos are marked made for kids unless you change it.
-  madeForKids: true,
+  // Not marked made for kids, so videos get comments, notifications and the full audience.
+  madeForKids: false,
   categoryId: '20', // Gaming
 };
 
@@ -351,6 +409,7 @@ export function defaultState(outputDir = ''): AutopilotState {
     contentLog: [],
     stats: {},
     kidsDefaulted: true,
+    kidsOff: true,
     prepare: { ...DEFAULT_PREPARE },
     batch: null,
   };

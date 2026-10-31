@@ -7,6 +7,8 @@ import { Dialog } from '../../components/ui/Dialog';
 import {
   connectedChannel,
   DEFAULT_PACE,
+  PLATFORM_NAME,
+  platformOf,
   PROJECT_UPLOADS_PER_DAY,
   type AutopilotState,
   type Channel,
@@ -18,11 +20,12 @@ import { MODULES, readyModuleIds } from '../../modules/registry';
 import { useAutopilot } from '../../desktop/runtime';
 import { navigate } from '../router';
 import { Card, DesktopLayout, DesktopOnly } from './Layout';
+import { MetaConnect } from './MetaPlatforms';
 
 /** Uploads a day the channels' paces ask for (within each channel's own limit). */
 export function askedPerDay(channels: Channel[], schedule: ScheduleSettings): number {
   return channels
-    .filter((c) => c.enabled)
+    .filter((c) => c.enabled && platformOf(c) === 'youtube')
     .reduce((sum, c) => {
       const games = Object.values(c.games ?? {});
       const asked =
@@ -35,7 +38,7 @@ export function askedPerDay(channels: Channel[], schedule: ScheduleSettings): nu
 }
 
 function QuotaCard({ state, onCap }: { state: AutopilotState; onCap: (cap: number) => void }) {
-  const active = state.channels.filter((c) => c.enabled);
+  const active = state.channels.filter((c) => c.enabled && platformOf(c) === 'youtube');
   const cap = state.schedule.projectCap ?? PROJECT_UPLOADS_PER_DAY;
   const asked = askedPerDay(state.channels, state.schedule);
   const trimmed = asked > cap + 0.01;
@@ -100,7 +103,12 @@ function ChannelCard({
           <span className="h-12 w-12 rounded-full bg-surface-3" />
         )}
         <div className="min-w-0 flex-1">
-          <div className="truncate font-medium">{c.title}</div>
+          <div className="flex items-center gap-2">
+            <span className="truncate font-medium">{c.title}</span>
+            <span className="shrink-0 rounded-md bg-surface-3 px-1.5 py-0.5 text-[11px] text-muted">
+              {PLATFORM_NAME[platformOf(c)]}
+            </span>
+          </div>
           <div className="text-xs text-muted tabular">
             {c.subscribers !== undefined ? `${c.subscribers.toLocaleString()} subscribers, ` : ''}
             connected {new Date(c.connectedAt).toLocaleDateString()}
@@ -148,7 +156,9 @@ function ChannelCard({
           {MODULES.map((m) => {
             const on = m.id in games;
             const ready = m.status === 'ready';
-            const elsewhere = all.filter((x) => x.id !== c.id && m.id in (x.games ?? {})).map((x) => x.title);
+            const elsewhere = all
+              .filter((x) => x.id !== c.id && platformOf(x) === platformOf(c) && m.id in (x.games ?? {}))
+              .map((x) => x.title);
             return (
               <button
                 key={m.id}
@@ -194,10 +204,31 @@ function ChannelCard({
         <Button size="sm" variant="secondary" onClick={() => navigate('autopilot', c.id)}>
           Edit schedule
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => navigate('dashboard')}>
-          Dashboard
-        </Button>
+        {platformOf(c) === 'youtube' && (
+          <Button size="sm" variant="ghost" onClick={() => navigate('dashboard')}>
+            Dashboard
+          </Button>
+        )}
       </div>
+      {platformOf(c) !== 'youtube' && (
+        <div className="grid gap-x-6 gap-y-3 border-t border-line pt-4 md:grid-cols-2">
+          <Toggle
+            label="Post the YouTube videos"
+            description="Uses the YouTube channel's video of the same kind from the same days, so nothing renders twice. Off: it renders its own."
+            checked={c.reuseYouTube !== false}
+            onChange={(reuseYouTube) => onChange({ ...c, reuseYouTube })}
+          />
+          <Stepper
+            label="Long videos"
+            hint={platformOf(c) === 'instagram' ? 'Reels are made for Shorts' : 'the games take turns'}
+            value={c.longPerDay ?? 1}
+            min={0}
+            max={3}
+            unit="a day"
+            onChange={(longPerDay) => onChange({ ...c, longPerDay })}
+          />
+        </div>
+      )}
     </li>
   );
 }
@@ -209,14 +240,14 @@ export function ChannelsPage() {
 
   if (!isDesktop()) {
     return (
-      <DesktopLayout title="Channels">
+      <DesktopLayout title="Platforms">
         <DesktopOnly feature="Posting to YouTube" />
       </DesktopLayout>
     );
   }
   if (!ap || !state) {
     return (
-      <DesktopLayout title="Channels">
+      <DesktopLayout title="Platforms">
         <p className="text-sm text-muted">Starting…</p>
       </DesktopLayout>
     );
@@ -244,7 +275,7 @@ export function ChannelsPage() {
 
   return (
     <DesktopLayout
-      title="Channels"
+      title="Platforms"
       actions={
         <Button variant="primary" onClick={connect} disabled={!hasCreds || connecting}>
           <Plus size={15} /> {connecting ? 'Finish signing in in your browser…' : 'Connect a YouTube channel'}
@@ -282,7 +313,32 @@ export function ChannelsPage() {
               }
             />
             <ul className="space-y-4">
-              {state.channels.map((c) => (
+              {state.channels
+                .filter((c) => platformOf(c) === 'youtube')
+                .map((c) => (
+                  <ChannelCard
+                    key={c.id}
+                    channel={c}
+                    all={state.channels}
+                    onChange={(next) =>
+                      void ap.update(
+                        { channels: state.channels.map((x) => (x.id === c.id ? next : x)) },
+                        { replan: true },
+                      )
+                    }
+                    onDisconnect={() => setConfirm(c.id)}
+                  />
+                ))}
+            </ul>
+          </>
+        )}
+
+        <MetaConnect ap={ap} state={state} />
+        {state.channels.some((c) => platformOf(c) !== 'youtube') && (
+          <ul className="space-y-4">
+            {state.channels
+              .filter((c) => platformOf(c) !== 'youtube')
+              .map((c) => (
                 <ChannelCard
                   key={c.id}
                   channel={c}
@@ -296,8 +352,7 @@ export function ChannelsPage() {
                   onDisconnect={() => setConfirm(c.id)}
                 />
               ))}
-            </ul>
-          </>
+          </ul>
         )}
 
         <Card title="Good to know">
@@ -335,7 +390,11 @@ export function ChannelsPage() {
             variant="danger"
             onClick={async () => {
               if (!target) return;
-              await desktop.disconnectChannel(target.id).catch(() => undefined);
+              if (platformOf(target) === 'youtube')
+                await desktop.disconnectChannel(target.id).catch(() => undefined);
+              // The Page token goes once no account of that Page is left.
+              else if (!state.channels.some((x) => x.id !== target.id && x.pageId === target.pageId))
+                await desktop.metaDisconnect(target.pageId ?? target.id).catch(() => undefined);
               await ap.update(
                 {
                   channels: state.channels.filter((x) => x.id !== target.id),

@@ -1122,6 +1122,17 @@ export class BattleRenderer {
         this.drawTitle(ctx);
         if (look.showCounter) this.drawCounter(ctx, t);
         if (look.showKillFeed) this.drawKillFeed(ctx, t);
+        // Ask viewers to pick a flag in the comments, just after the start.
+        if (look.prompt)
+          bandBanner(ctx, th, {
+            text: look.prompt,
+            u: v - (timeline.intro + 1.2),
+            life: 2.4,
+            cx: L.arena.cx,
+            y: L.arena.cy + L.arena.size * 0.3,
+            maxW: L.arena.size * 0.9,
+            size: 96,
+          });
       }
       this.drawFinal2(ctx, v);
       if (phase === 'intro') this.drawIntro(ctx, v);

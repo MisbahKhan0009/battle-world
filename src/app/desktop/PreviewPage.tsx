@@ -396,33 +396,40 @@ function GamePreview({ game }: { game: PreviewGame }) {
     if (!race) return;
     setExporting(0);
     try {
+      const name = `${game.id}_${format}_${seed}.mp4`;
+      // In the desktop app the MP4 streams straight into the videos folder.
+      const file = isDesktop() && state ? await desktop.createVideo(state.outputDir, name) : null;
       const out = await runExport({
         content: race.content,
         look: race.look,
         fighters: race.fighters,
         winnerImage: race.winnerImage,
         fps: format === 'short' ? 60 : 30,
-        quality: 'high',
+        quality: format === 'short' ? 'high' : 'standard',
         audio: { enabled: true, sfxVolume: 0.85 },
         onProgress: (p) => setExporting(Math.round(p.percent)),
         onThumb: (b) => b.close(),
         signal: new AbortController().signal,
+        sink: file ? { write: (data, position) => desktop.writeVideo(file, position, data) } : null,
       });
-      const name = `${game.id}_${format}_${seed}.${out.ext}`;
-      if (isDesktop() && state) {
-        const path = await desktop.saveVideo(
-          state.outputDir,
-          name,
-          new Uint8Array(await out.blob.arrayBuffer()),
-        );
+      if (file && state) {
+        // The WebM fallback cannot stream: drop the empty file and save what came back.
+        if (out.blob) await desktop.deleteFile(file).catch(() => undefined);
+        const path = out.blob
+          ? await desktop.saveVideo(
+              state.outputDir,
+              name.replace(/\.mp4$/, `.${out.ext}`),
+              new Uint8Array(await out.blob.arrayBuffer()),
+            )
+          : file;
         toast.success('Saved', {
           description: path,
           action: { label: 'Open folder', onClick: () => void desktop.openPath(state.outputDir) },
         });
-      } else {
+      } else if (out.blob) {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(out.blob);
-        a.download = name;
+        a.download = name.replace(/\.mp4$/, `.${out.ext}`);
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 5000);
       }

@@ -10,7 +10,17 @@ import { Rng } from '../../engine/rng';
 import type { Fighter, Look } from '../../engine/types';
 import { GAME_THEMES } from '../../render/themes';
 import { countryFighter, DEFAULT_LOOK } from '../../store/app';
-import { chooseLineup, fill, keyOf, pick, pickFresh, splitHeats } from '../common';
+import {
+  chooseLineup,
+  ENGAGE_ASK,
+  ENGAGE_OUTROS,
+  fill,
+  keyOf,
+  pick,
+  pickFresh,
+  PROMPTS,
+  splitHeats,
+} from '../common';
 
 export const MODULE_ID = 'growing-ball';
 
@@ -34,6 +44,8 @@ export type GrowingBallPlan = {
 };
 
 const SHORT_TITLES = [
+  'Watch The Small One 👀 Every Bounce Grows',
+  'This Comeback Is Unreal 😱 {n} Countries',
   'Which Country Grows the Biggest? 🎈',
   'Every Bounce Makes It Bigger 🎈 {n} Countries',
   'Pick the Ball That Grows Biggest 🎈',
@@ -78,9 +90,7 @@ export function buildGrowMeta(
       ? `${n} country balls bounce in an arena, and every bounce off the wall makes a ball bigger. Big balls get boxed in while small ones keep bouncing. When the arena is full, the biggest flag wins.`
       : `${n} countries, ${args.heats} heats and a grand final. Every bounce off the wall makes a ball bigger; when the arena is full, the biggest ball wins. Each heat winner reaches the final, and the biggest flag in the final is the champion.`,
     '',
-    args.kids
-      ? 'Which flag did you pick? Watch till the end to see if you were right 🏆'
-      : 'Who were you cheering for? Comment your country 👇',
+    args.kids ? 'Which flag did you pick? Watch till the end to see if you were right 🏆' : ENGAGE_ASK,
     'Subscribe for a new battle every day.',
     '',
     hashtags.join(' '),
@@ -147,15 +157,12 @@ export function planGrowingBall(
     subtitle: job.kids ? 'Pick your flag before it starts' : 'Comment your country',
     showKillFeed: true,
     showCounter: true,
+    prompt: job.kids ? undefined : pick(rng, PROMPTS),
     outroCta: pick(
       rng,
       job.kids
         ? ['Did you pick the winner?', 'Subscribe for a new battle every day', 'Watch the next one!']
-        : [
-            'Which countries should play next? Comment below',
-            'Did your country win? Tell us',
-            'Subscribe for a new battle every day',
-          ],
+        : ENGAGE_OUTROS,
     ),
   };
   return {

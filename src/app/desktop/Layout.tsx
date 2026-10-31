@@ -23,7 +23,7 @@ const NAV: { route: Route; label: string; icon: typeof Bot }[] = [
   { route: 'videos', label: 'Videos', icon: Clapperboard },
   { route: 'calendar', label: 'Calendar', icon: CalendarDays },
   { route: 'modules', label: 'Games', icon: LayoutGrid },
-  { route: 'channels', label: 'Channels', icon: Youtube },
+  { route: 'channels', label: 'Platforms', icon: Youtube },
   { route: 'settings', label: 'Settings', icon: Cog },
 ];
 

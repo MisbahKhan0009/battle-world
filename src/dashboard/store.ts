@@ -44,7 +44,7 @@ export async function loadDashboard(ap: Autopilot, channelId: string, force = fa
 export async function snapshotAll(ap: Autopilot): Promise<void> {
   const st = ap.snapshot;
   if (!st?.google.clientId) return;
-  for (const ch of st.channels) {
+  for (const ch of st.channels.filter((c) => !c.platform || c.platform === 'youtube')) {
     try {
       await snapshot(ap, await fetchChannel(st, ch.id));
     } catch {

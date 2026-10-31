@@ -69,24 +69,6 @@ function ModuleArt({ m }: { m: ContentModule }) {
           />
         ))}
       {m.id === 'ring-escape' && <circle cx="80" cy="45" r="4" fill="#fff" />}
-      {m.id === 'territory-wars' &&
-        Array.from({ length: 8 * 14 }, (_, i) => {
-          const x = i % 14;
-          const y = Math.floor(i / 14);
-          const owner = (x * 7 + y * 13 + ((x * y) % 5)) % 4;
-          return (
-            <rect
-              key={i}
-              x={10 + x * 10.2}
-              y={6 + y * 10}
-              width="9"
-              height="9"
-              rx="1.5"
-              fill={[c, '#3DDCFF', '#FF4D5E', '#C6FF3D'][owner]}
-              opacity={0.35 + (owner === 0 ? 0.5 : 0.2)}
-            />
-          );
-        })}
       {m.id === 'black-hole' && (
         <>
           {[

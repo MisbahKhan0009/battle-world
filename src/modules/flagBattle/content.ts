@@ -14,7 +14,17 @@ import { Rng } from '../../engine/rng';
 import type { Fighter, Look, Rules } from '../../engine/types';
 import { countryFighter, DEFAULT_LOOK, DEFAULT_RULES } from '../../store/app';
 import { GAME_THEMES } from '../../render/themes';
-import { chooseLineup, fill, freshenPair, keyOf, pick, pickFresh } from '../common';
+import {
+  chooseLineup,
+  ENGAGE_ASK,
+  ENGAGE_OUTROS,
+  fill,
+  freshenPair,
+  keyOf,
+  pick,
+  pickFresh,
+  PROMPTS,
+} from '../common';
 
 export type FlagBattlePlan = {
   fighters: Fighter[];
@@ -30,6 +40,8 @@ export type FlagBattlePlan = {
 };
 
 const ESCAPE_SHORT_TITLES = [
+  '99% Guess This Wrong 😱 Last Flag Inside Wins',
+  'Wait For The Ending 😳 {n} Flags, One Exit',
   'Last Country Inside Wins 🌍 ({n} Flags)',
   'Which Flag Stays Inside the Longest? 🔥',
   '{n} Countries, One Rotating Exit 😱',
@@ -110,9 +122,7 @@ export function buildMeta(
   const description = [
     hook,
     '',
-    args.kids
-      ? 'Which country did you pick? Watch till the end to see if you were right 🏆'
-      : 'Who were you rooting for? Comment your country 👇',
+    args.kids ? 'Which country did you pick? Watch till the end to see if you were right 🏆' : ENGAGE_ASK,
     'Subscribe for a new flag battle every day.',
     '',
     hashtags.join(' '),
@@ -176,15 +186,12 @@ export function planFlagBattle(
     theme,
     title: mode === 'escape' ? 'Last flag inside wins' : 'Last flag standing wins',
     subtitle: job.kids ? 'Pick your country before it starts' : 'Comment your country',
+    prompt: job.kids ? undefined : pick(rng, PROMPTS),
     outroCta: pick(
       rng,
       job.kids
         ? ['Did you pick the winner?', 'Subscribe for a new battle every day', 'Watch the next battle!']
-        : [
-            'Which flags should battle next? Comment below',
-            'Did your country make it? Tell us',
-            'Subscribe for a new battle every day',
-          ],
+        : ENGAGE_OUTROS,
     ),
   };
   const thumb = {

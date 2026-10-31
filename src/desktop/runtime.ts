@@ -12,6 +12,7 @@ import {
   DEFAULT_SCHEDULE,
   defaultState,
   LEGACY_GAMES,
+  platformOf,
   type AutopilotState,
   type Channel,
   type ScheduleSettings,
@@ -19,6 +20,7 @@ import {
 import { moduleById, readyModuleIds } from '../modules/registry';
 import { desktop, isDesktop } from './bridge';
 import { musicFor } from './music';
+import { DEFAULT_EXCLUDED, setExcludedCountries } from '../data/countries';
 
 let instance: Autopilot | null = null;
 let starting: Promise<Autopilot> | null = null;
@@ -110,8 +112,11 @@ function mergeState(raw: string | null, outputDir: string): AutopilotState {
         : {}),
       schedule,
       // Made for kids became the default; apply it once to existing installs too.
-      post: { ...base.post, ...p.post, ...(p.kidsDefaulted ? {} : { madeForKids: true }) },
+      // Videos are no longer marked made for kids (comments, notifications and the full audience
+      // matter for views); switch it off once on existing installs too.
+      post: { ...base.post, ...p.post, ...(p.kidsOff ? {} : { madeForKids: false }) },
       kidsDefaulted: true,
+      kidsOff: true,
       knownGames: readyModuleIds(),
       stats: p.stats ?? {},
       google: { ...base.google, ...p.google },
@@ -142,13 +147,20 @@ function backend(): Backend {
       state = s;
       await desktop.writeState(JSON.stringify(s));
     },
-    async render(slot, onProgress, signal, recent) {
+    async render(slot, onProgress, signal, recent, sink) {
       const mod = moduleById(slot.moduleId);
       if (!mod?.render) throw new Error(`Module "${slot.moduleId}" cannot render yet.`);
       // Music instead of the game sounds, when it is switched on and the folder has tracks.
       const music = await musicFor(state?.music, slot.seed, recent);
       const result = await mod.render(
-        { format: slot.format, seed: slot.seed, recent, kids: !!state?.post.madeForKids, music: music?.bed },
+        {
+          format: slot.format,
+          seed: slot.seed,
+          recent,
+          kids: !!state?.post.madeForKids,
+          music: music?.bed,
+          sink: sink && { write: (data, position) => sink.write(data, position) },
+        },
         onProgress,
         signal,
       );
@@ -163,12 +175,33 @@ function backend(): Backend {
       };
     },
     saveFile: (dir, name, bytes) => desktop.saveVideo(dir, name, bytes),
+    async openVideo(dir, name) {
+      const path = await desktop.createVideo(dir, name);
+      return { path, write: (data, position) => desktop.writeVideo(path, position, data) };
+    },
+    cancelUpload: (path) => desktop.cancelUpload(path),
     deleteFile: (path) => desktop.deleteFile(path),
     async upload(channelId, path, meta, opts, onProgress) {
       const unlisten = await desktop.onUploadProgress((p) => {
         if (p.path === path && p.total > 0) onProgress(p.sent / p.total);
       });
       try {
+        const ch = state?.channels.find((c) => c.id === channelId);
+        const platform = platformOf(ch);
+        if (ch && platform !== 'youtube') {
+          // Facebook and Instagram: the YouTube-only #shorts tag goes; the rest of the text stays.
+          const clean = (t: string) => t.replace(/\s*#shorts\b/gi, '').trim();
+          return await desktop.metaPublish({
+            pageId: ch.pageId ?? ch.id,
+            target: platform,
+            igId: platform === 'instagram' ? ch.id : undefined,
+            path,
+            format: opts.format,
+            title: clean(meta.title),
+            description: clean(meta.description),
+            publishAt: opts.publishAt ? Math.round(Date.parse(opts.publishAt) / 1000) : undefined,
+          });
+        }
         return await desktop.upload({
           channelId,
           clientId: state?.google.clientId ?? '',
@@ -224,6 +257,10 @@ export function startAutopilot(): Promise<Autopilot> {
       const s = ap.snapshot;
       if (s) void ap.update({ running: !s.running });
     });
+    // Flags left out of every video (the default list until you change it in Settings).
+    const exclude = () => setExcludedCountries(ap.snapshot?.excludedCountries ?? DEFAULT_EXCLUDED);
+    exclude();
+    ap.subscribe(exclude);
     // Rendered videos can be played in the app.
     void desktop.allowMedia(st.outputDir).catch(() => undefined);
     ap.subscribe(() => watchBatch(ap));
