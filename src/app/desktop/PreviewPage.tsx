@@ -43,10 +43,11 @@ import { PaperRenderer } from '../../render/paper/renderer';
 import { buildPaperScene } from '../../render/paper/scene';
 import { buildRingsScene } from '../../render/rings/scene';
 import type { SceneFighter } from '../../render/scene';
+import { loadBlackHole } from './blackPreview';
 import { DesktopLayout } from './Layout';
 
 /** One playable sample of a game, ready to preview and export. */
-type Loaded = {
+export type Loaded = {
   meta: VideoMeta;
   look: Look;
   content: ExportContent;
@@ -58,7 +59,7 @@ type Loaded = {
   summary: string;
 };
 
-type PreviewGame = {
+export type PreviewGame = {
   id: string;
   title: string;
   newLabel: string;
@@ -260,10 +261,19 @@ const PAPER_LAND: PreviewGame = {
   },
 };
 
+const BLACK_HOLE: PreviewGame = {
+  id: 'black-hole',
+  title: 'Black Hole',
+  newLabel: 'New game',
+  busyText: 'Playing the game…',
+  load: (format, seed) => loadBlackHole(format, seed, art),
+};
+
 export const BattlePage = () => <GamePreview game={FLAG_BATTLE} />;
 export const RacePage = () => <GamePreview game={MARBLE_RACE} />;
 export const GrowPage = () => <GamePreview game={GROWING_BALL} />;
 export const PaperPage = () => <GamePreview game={PAPER_LAND} />;
+export const BlackPage = () => <GamePreview game={BLACK_HOLE} />;
 export const RingsPage = () => <GamePreview game={RING_ESCAPE} />;
 
 const fmt = (v: number) => `${Math.floor(v / 60)}:${String(Math.floor(v % 60)).padStart(2, '0')}`;
